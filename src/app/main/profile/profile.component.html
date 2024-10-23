@@ -1,0 +1,39 @@
+<div class="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+  <div class="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-sm" *ngIf="profile">
+    <!-- User Avatar -->
+    <div class="flex justify-center">
+      <img src="{{profile.avatar}}" alt="User Avatar" class="rounded-full border-4 border-gray-700">
+    </div>
+
+
+    <div class="text-center mt-4">
+      <h2 class="text-2xl font-bold">{{profile.username}}</h2>
+      <p class="text-sm text-gray-400">Online</p>
+    </div>
+
+
+    <div class="mt-6">
+      <h3 class="text-lg font-semibold">Обо мне</h3>
+      <p class="text-gray-300 mt-2">{{profile.bio}}</p>
+    </div>
+
+
+    <div class="mt-6 space-y-4">
+      <div class="flex justify-between text-gray-400">
+        <span>Зарегистрировался</span>
+        <span>{{ profile.created_at }}</span>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="mt-6 flex justify-center space-x-4">
+      <button class="bg-indigo-600 py-2 px-4 rounded-md shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+        Изменить профиль
+      </button>
+      <button (click)="close()"
+              class="bg-red-600 py-2 px-4 rounded-md shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+        Закрыть
+      </button>
+    </div>
+  </div>
+</div>

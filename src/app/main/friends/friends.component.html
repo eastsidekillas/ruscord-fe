@@ -1,0 +1,8 @@
+<div *ngIf="friends">
+  <h2>Your Friends</h2>
+  <ul>
+    <li *ngFor="let friend of friends">
+      {{ friend.requester.username }} - {{ friend.status }}
+    </li>
+  </ul>
+</div>
