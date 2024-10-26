@@ -1,0 +1,69 @@
+<div class="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+  <div class="w-full max-w-md bg-white shadow-md rounded-lg p-8">
+    <h2 class="text-2xl font-bold text-center mb-6">
+      {{ isLoginMode ? 'Авторизация' : 'Регистрация' }}
+    </h2>
+
+    <form [formGroup]="authForm" (ngSubmit)="onSubmit()" class="space-y-4">
+
+
+      <div>
+        <label for="email" class="block mb-2 text-sm font-medium text-gray-900">Email</label>
+        <input
+          id="email"
+          formControlName="email"
+          type="email"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+          placeholder="Введите ваш email"
+          required
+        />
+        <div *ngIf="authForm.get('email')?.invalid && authForm.get('email')?.touched" class="text-red-500 text-sm">
+          Введите корректный email
+        </div>
+      </div>
+
+
+      <div>
+        <label for="password" class="block mb-2 text-sm font-medium text-gray-900">Пароль</label>
+        <input
+          id="password"
+          formControlName="password"
+          type="password"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+          placeholder="Введите ваш пароль"
+          required
+        />
+      </div>
+
+
+      <div *ngIf="!isLoginMode">
+        <label for="confirmPassword" class="block mb-2 text-sm font-medium text-gray-900">Подтвердите пароль</label>
+        <input
+          id="confirmPassword"
+          formControlName="confirmPassword"
+          type="password"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+          placeholder="Подтвердите ваш пароль"
+          required
+        />
+        <div *ngIf="authForm.get('confirmPassword')?.invalid && authForm.get('confirmPassword')?.touched" class="text-red-500 text-sm">
+          Пароли должны совпадать
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+      >
+        {{ isLoginMode ? 'Войти' : 'Зарегистрироваться' }}
+      </button>
+    </form>
+
+    <p class="text-sm text-center mt-4">
+      {{ isLoginMode ? 'Нет аккаунта?' : 'Уже есть аккаунт?' }}
+      <a (click)="onSwitchMode()" class="text-primary cursor-pointer">
+        {{ isLoginMode ? 'Зарегистрироваться' : 'Войти' }}
+      </a>
+    </p>
+  </div>
+</div>

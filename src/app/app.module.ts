@@ -2,26 +2,27 @@ import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
-import { FormsModule } from "@angular/forms";
-import {AuthModule} from "./utils/auth/auth.module";
-import {MainModule} from "./main/main.module";
 import {CookieService} from "ngx-cookie-service";
 import {HTTP_INTERCEPTORS} from "@angular/common/http";
-import {CsrfInterceptor} from "./utils/interceptors/csrf.interceptor";
-import {PagesModule} from "./pages/pages.module";
+import {CsrfInterceptor} from "./auth/interceptors/csrf.interceptor";
+import {FormsModule, ReactiveFormsModule} from "@angular/forms";
+import {AuthModule} from "./auth/auth.module";
+import {CommonModule} from "@angular/common";
+import {MainModule} from "./main/main.module";
+
 
 @NgModule({
   declarations: [
     AppComponent,
-
   ],
   imports: [
+    CommonModule,
     BrowserModule,
     AuthModule,
     MainModule,
-    PagesModule,
     AppRoutingModule,
     FormsModule,
+    ReactiveFormsModule,
   ],
   providers: [
     CookieService,

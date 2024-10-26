@@ -1,0 +1,10 @@
+<li
+  *ngFor="let friend of friends"
+  (click)="goToDirectMessage(friend.receiver.id)"
+  class="flex items-center p-2 mt-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+
+  <img alt="" class="w-10 h-10 rounded-full mr-3" [src]="friend.receiver.avatar" />
+
+  <span class="font-semibold">{{ friend.receiver.username }}</span>
+</li>
+

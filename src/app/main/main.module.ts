@@ -1,26 +1,32 @@
+
+import {CommonModule} from "@angular/common";
 import { NgModule } from '@angular/core';
-import {CommonModule, NgOptimizedImage} from '@angular/common';
-import { ProfileComponent} from "./profile/profile.component";
-import { FriendsComponent } from "./friends/friends.component";
+import { BrowserModule } from '@angular/platform-browser';
+import {DirectMessageComponent} from "./components/direct-mesage/direct-message.component";
+import {FriendsComponent} from "./components/friends/friends.component";
+import {HomeComponent} from "./components/home/home.component";
+import {RouterOutlet} from "@angular/router";
+import {SharedModule} from "../shared/shared.module";
 import {FormsModule} from "@angular/forms";
-import { HomeComponent } from './home/home.component';
-import {RouterLink, RouterOutlet} from "@angular/router";
-import {ComponentsModule} from "../components/components.module";
+import {AppRoutingModule} from "../app-routing.module";
+import {MainRoutingModule} from "./main-routing.module";
+
+
 
 
 @NgModule({
   declarations: [
-  ProfileComponent,
-  FriendsComponent,
-  HomeComponent,
-
+    HomeComponent,
+    DirectMessageComponent,
+    FriendsComponent,
   ],
   imports: [
     CommonModule,
-    FormsModule,
-    RouterLink,
-    ComponentsModule,
     RouterOutlet,
+    MainRoutingModule,
+    SharedModule,
+    FormsModule,
+
   ],
 })
 export class MainModule { }
