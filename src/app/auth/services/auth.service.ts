@@ -31,6 +31,8 @@ export class AuthService {
         // Сохраняем токены в localStorage
         localStorage.setItem('access_token', data.access);
         localStorage.setItem('refresh_token', data.refresh);
+
+
         return data;
       });
   }
@@ -60,6 +62,17 @@ export class AuthService {
   isLoggedIn(): boolean {
     return !!localStorage.getItem('access_token');
   }
+
+
+  getToken() {
+    return localStorage.getItem('access_token');
+  }
+
+  // Метод для получения профиля пользователя
+  getProfile(): Promise<any> {
+    return this.api.get('users/profile/').json(); // Возвращаем Promise с профилем
+  }
+
 }
 
 // Функция для получения значения куки по имени

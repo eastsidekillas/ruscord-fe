@@ -1,10 +1,10 @@
-import {Component, OnInit} from '@angular/core';
-import {ApiService} from "../../utils/services/api.service";
+import { Component, OnInit } from '@angular/core';
+import { ApiService } from "../../../core/services/api.service";
 
 @Component({
   selector: 'app-profile',
   templateUrl: './profile.component.html',
-  styleUrl: './profile.component.css'
+  styleUrls: ['./profile.component.css']
 })
 export class ProfileComponent implements OnInit {
   profile: any;
@@ -12,8 +12,10 @@ export class ProfileComponent implements OnInit {
   constructor(private apiService: ApiService) {}
 
   ngOnInit(): void {
-    this.apiService.getProfile().then(data => {
+    this.apiService.getProfile().subscribe((data: any) => {
       this.profile = data;
+
+        localStorage.setItem('user_id', data.id);
     });
   }
 

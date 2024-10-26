@@ -1,0 +1,47 @@
+<div class="max-w-md mx-auto p-6 bg-white shadow-md rounded-lg">
+  <h2 class="text-2xl font-semibold mb-4 text-center">Поиск друзей</h2>
+
+  <!-- Поле ввода для поиска и кнопка -->
+  <div class="flex items-center space-x-2 mb-4">
+    <input
+      [(ngModel)]="username"
+      (keyup.enter)="searchFriends()"
+      placeholder="Введите никнейм"
+      class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+    />
+    <button
+      (click)="searchFriends()"
+      class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+    >
+      Поиск
+    </button>
+  </div>
+
+  <!-- Список найденных пользователей -->
+  <ul *ngIf="foundUsers.length > 0" class="divide-y divide-gray-200">
+    <li
+      *ngFor="let user of foundUsers"
+      class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition"
+    >
+      <div class="flex items-center space-x-3">
+        <img
+          src="https://via.placeholder.com/40"
+          alt="User avatar"
+          class="w-10 h-10 rounded-full"
+        />
+        <span class="text-lg font-medium">{{ user.username }}</span>
+      </div>
+      <button
+        (click)="sendFriendRequest(user.id)"
+        class="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+      >
+        Добавить
+      </button>
+    </li>
+  </ul>
+
+  <!-- Сообщение, если пользователи не найдены -->
+  <p *ngIf="foundUsers.length === 0 && username" class="text-center text-gray-500 mt-4">
+    Пользователи не найдены
+  </p>
+</div>

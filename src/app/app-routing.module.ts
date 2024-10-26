@@ -1,25 +1,19 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import {ProfileComponent} from "./main/profile/profile.component";
-import {HomeComponent} from "./main/home/home.component";
-import {FriendsComponent} from "./main/friends/friends.component";
+
 
 const routes: Routes = [
+  {
+    path: 'auth',
+    loadChildren: () => import('./auth/auth.module').then(m => m.AuthModule),
+  },
 
-  { path: '', component: HomeComponent, children: [
+  {
+    path: '',
+    loadChildren: () => import('./main/main.module').then(m => m.MainModule),
+  },
 
-    { path: 'direct-messages', loadChildren: () => import('./pages/pages.module').then(m => m.PagesModule) },
-
-    ] },
-
-
-
-  { path: 'profile', component: ProfileComponent },
-  { path: 'friends', component: FriendsComponent },
-
-
-  { path: 'auth', loadChildren: () => import('./utils/auth/auth.module').then(m => m.AuthModule) },
-  { path: '', redirectTo: '/auth/login', pathMatch: 'full' },
+  { path: '**', redirectTo: '' },
 ];
 
 
