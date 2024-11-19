@@ -11,7 +11,7 @@ export class DirectMessageComponent implements OnInit {
   messages: { message: string, sender: number, recipient: number, sender_username: string }[] = [];
   messageInput: string = '';
   senderId!: number;
-  recipientId!: number;
+  uuid: string = '';
 
   constructor(
     private chatService: SocketService,
@@ -22,9 +22,9 @@ export class DirectMessageComponent implements OnInit {
     // Получаем senderId из localStorage
     this.senderId = +localStorage.getItem('user_id')!;
 
-    // Подписываемся на параметры маршрута, чтобы получить recipientId и подключиться к чату
+    // Подписываемся на параметры маршрута, чтобы получить uuid и подключиться к чату
     this.route.queryParams.subscribe(params => {
-      this.recipientId = +params['recipientId'];
+      this.uuid  = params['uuid'];
       this.connectToChat();
     });
 
@@ -41,8 +41,8 @@ export class DirectMessageComponent implements OnInit {
   }
 
   connectToChat(): void {
-    if (this.recipientId) {
-      this.chatService.connect(this.recipientId);
+    if (this.uuid) {
+      this.chatService.connect(this.uuid);
     } else {
       console.error('Recipient ID не указан');
     }
@@ -50,7 +50,7 @@ export class DirectMessageComponent implements OnInit {
 
   sendMessage(): void {
     if (this.messageInput.trim()) {
-      this.chatService.sendMessage(this.messageInput, this.senderId, this.recipientId);
+      this.chatService.sendMessage(this.messageInput, this.senderId, this.uuid);
       this.messageInput = ''; // Очищаем поле ввода
     }
   }

@@ -16,8 +16,8 @@ export class SocketService {
   constructor() { }
 
   // Метод для подключения к WebSocket
-  connect(recipientId: number) {
-    this.socket = new WebSocket(`ws://localhost:8000/ws/messages/${recipientId}/`);
+  connect(uuid: string) {
+    this.socket = new WebSocket(`ws://localhost:8000/ws/dm/${uuid}/`);
 
 
     this.socket.onmessage = (event) => {
@@ -37,7 +37,7 @@ export class SocketService {
   }
 
   // Метод для отправки сообщения
-  sendMessage(message: string, senderId: number, recipientId: number) {
+  sendMessage(message: string, senderId: number, recipientId: string) {
     const data = {
       message: message,
       sender: senderId,
