@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import ky from 'ky';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../auth/services/auth.service';
-import { Friend } from '../interfaces/friends.interface';
 import { from, Observable } from 'rxjs';
 
 @Injectable({
@@ -33,6 +32,7 @@ export class ApiService {
     }
   }
 
+  // Получить профиль текущего пользователя
   getProfile(): Observable<any> {
     return from(this.api.get('users/profile/').json());
   }
@@ -50,5 +50,11 @@ export class ApiService {
   // Поиск пользователей
   searchUsers(username: string): Observable<any> {
     return from(this.api.get(`users/search/?username=${username}`).json());
+  }
+
+  // **Работа с каналами**
+
+  createOrGetChannel(recipientId: number): Observable<any> {
+    return from(this.api.post('dm_channels/get_or_create_channel/', { json: { recipient_id: recipientId } }).json());
   }
 }

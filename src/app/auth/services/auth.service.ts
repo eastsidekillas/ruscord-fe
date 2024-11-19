@@ -27,15 +27,25 @@ export class AuthService {
         credentials: 'include',
       })
       .json()
-      .then((data: any) => {
+      .then(async (data: any) => {
         // Сохраняем токены в localStorage
         localStorage.setItem('access_token', data.access);
         localStorage.setItem('refresh_token', data.refresh);
 
-
-        return data;
+        // Ждем, пока токены будут сохранены, и только потом запрашиваем профиль
+        try {
+          const profileData = await this.getProfile();
+          // Сохраняем user_id в localStorage
+          localStorage.setItem('user_id', profileData.id);
+          return data;
+        } catch (error) {
+          console.error('Ошибка получения профиля:', error);
+          throw error;
+        }
       });
   }
+
+
 
   refreshToken() {
     const refresh_token = localStorage.getItem('refresh_token');
@@ -68,10 +78,28 @@ export class AuthService {
     return localStorage.getItem('access_token');
   }
 
-  // Метод для получения профиля пользователя
   getProfile(): Promise<any> {
-    return this.api.get('users/profile/').json(); // Возвращаем Promise с профилем
+    const token = this.getToken();  // Получаем токен из localStorage
+    if (!token) {
+      throw new Error('User is not authenticated');
+    }
+
+    return this.api
+      .get('users/profile/', {
+        headers: {
+          'Authorization': `Bearer ${token}`, // Добавляем токен в заголовок
+        },
+      })
+      .json(); // Возвращаем Promise с профилем
   }
+
+
+  getCurrentUser() {
+    const userId = localStorage.getItem('user_id');
+    const username = localStorage.getItem('username');
+    return userId && username ? { id: userId, username } : null;
+  }
+
 
 }
 

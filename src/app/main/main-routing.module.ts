@@ -11,7 +11,7 @@ const routes: Routes = [
     path: '',
     component: HomeComponent,
     children: [
-      { path: 'direct-messages', component: DirectMessageComponent },
+      { path: 'chat', component: DirectMessageComponent },
       { path: 'friends', component: FriendsComponent },
       { path: 'profile', component: ProfileComponent },
 
