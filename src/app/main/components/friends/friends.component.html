@@ -1,27 +1,31 @@
-<div class="max-w-md mx-auto p-6 bg-white shadow-md rounded-lg">
-  <h2 class="text-2xl font-semibold mb-4 text-center">Поиск друзей</h2>
+<!-- Основной контент (Друзья и поиск) -->
+<div class="flex-grow p-6">
 
-  <!-- Поле ввода для поиска и кнопка -->
-  <div class="flex items-center space-x-2 mb-4">
+  <!-- Заголовок для поиска -->
+  <h2 class="text-2xl font-semibold mb-2 text-white">Добавить в друзья</h2>
+  <span class="font-light text-white">Вы можете добавить друга по имени пользователя</span>
+
+  <!-- Поле ввода и кнопка поиска -->
+  <div class="flex items-center space-x-2 mt-6">
     <input
       [(ngModel)]="username"
       (keyup.enter)="searchFriends()"
       placeholder="Введите никнейм"
-      class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+      class="w-full p-3 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
     />
     <button
       (click)="searchFriends()"
-      class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+      class="px-3 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
     >
       Поиск
     </button>
   </div>
 
   <!-- Список найденных пользователей -->
-  <ul *ngIf="foundUsers.length > 0" class="divide-y divide-gray-200">
+  <ul *ngIf="foundUsers.length > 0" class="divide-y divide-gray-600">
     <li
       *ngFor="let user of foundUsers"
-      class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition"
+      class="flex items-center justify-between p-4 hover:bg-gray-700 rounded-lg transition"
     >
       <div class="flex items-center space-x-3">
         <img
@@ -29,11 +33,11 @@
           alt="User avatar"
           class="w-10 h-10 rounded-full"
         />
-        <span class="text-lg font-medium">{{ user.username }}</span>
+        <span class="text-lg font-medium text-white">{{ user.username }}</span>
       </div>
       <button
         (click)="sendFriendRequest(user.id)"
-        class="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+        class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
       >
         Добавить
       </button>
@@ -44,4 +48,5 @@
   <p *ngIf="foundUsers.length === 0 && username" class="text-center text-gray-500 mt-4">
     Пользователи не найдены
   </p>
+
 </div>

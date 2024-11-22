@@ -1,23 +1,29 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {NavigatonSidebarComponent} from "./components/navigaton-sidebar/navigaton-sidebar.component";
-import {NavigatonItemComponent} from "./components/navigaton-item/navigaton-item.component";
+import {NavigatonItemDMComponent} from "./components/navigaton-item-dm/navigaton-item-dm.component";
 import {FormsModule, ReactiveFormsModule} from "@angular/forms";
 import {CookieService} from "ngx-cookie-service";
 import {HTTP_INTERCEPTORS} from "@angular/common/http";
 import {CsrfInterceptor} from "../auth/interceptors/csrf.interceptor";
+import { NavigatonSidebarServersComponent } from './components/navigaton-sidebar-servers/navigaton-sidebar-servers.component';
+import { NavigatonSidebarMeComponent } from './components/navigaton-sidebar-me/navigaton-sidebar-me.component';
+import {RouterLink} from "@angular/router";
 
 
 @NgModule({
   declarations: [
     NavigatonSidebarComponent,
-    NavigatonItemComponent,
+    NavigatonItemDMComponent,
+    NavigatonSidebarServersComponent,
+    NavigatonSidebarMeComponent,
   ],
 
   imports: [
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
+    RouterLink,
 
   ],
   providers: [
