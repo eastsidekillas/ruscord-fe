@@ -3,11 +3,11 @@ import { ApiService } from '../../../core/services/api.service';
 import { Router } from '@angular/router';
 
 @Component({
-  selector: 'app-navigaton-item',
-  templateUrl: './navigaton-item.component.html',
-  styleUrls: ['./navigaton-item.component.css']
+  selector: 'app-navigaton-item-dm',
+  templateUrl: './navigaton-item-dm.component.html',
+  styleUrls: ['./navigaton-item-dm.component.css']
 })
-export class NavigatonItemComponent implements OnInit {
+export class NavigatonItemDMComponent implements OnInit {
   friends: any[] = [];
   currentUser: any; // Текущий пользователь
   isLoading: boolean = false;

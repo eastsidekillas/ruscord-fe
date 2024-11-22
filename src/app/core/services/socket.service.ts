@@ -8,8 +8,8 @@ export class SocketService {
   private socket!: WebSocket;
   private messageSubject = new Subject<{
     message: string;
-    sender: number;
-    recipient: number;
+    sender_uuid: string;
+    recipient_uuid: string;
     sender_username: string;
   }>();
 
@@ -24,8 +24,8 @@ export class SocketService {
       const data = JSON.parse(event.data);
       this.messageSubject.next({
         message: data.message,
-        sender: data.sender,
-        recipient: data.recipient,
+        sender_uuid: data.sender,
+        recipient_uuid: data.recipient,
         sender_username: data.sender_username
       });
     };
@@ -37,11 +37,12 @@ export class SocketService {
   }
 
   // Метод для отправки сообщения
-  sendMessage(message: string, senderId: number, recipientId: string) {
+  sendMessage(message: string, senderId: string, recipient: string, senderUsername: string) {
     const data = {
       message: message,
-      sender: senderId,
-      recipient: recipientId
+      sender_uuid: senderId,
+      sender_username: senderUsername,
+      recipient_uuid: recipient
     };
     this.socket.send(JSON.stringify(data));
   }

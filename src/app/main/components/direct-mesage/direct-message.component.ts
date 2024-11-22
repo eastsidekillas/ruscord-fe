@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from "@angular/router";
-import {SocketService} from "../../../core/services/socket.service";
+import { SocketService } from "../../../core/services/socket.service";
+import { ApiService } from "../../../core/services/api.service";
 
 @Component({
   selector: 'app-direct-message',
@@ -8,23 +9,37 @@ import {SocketService} from "../../../core/services/socket.service";
   styleUrls: ['./direct-message.component.css']
 })
 export class DirectMessageComponent implements OnInit {
-  messages: { message: string, sender: number, recipient: number, sender_username: string }[] = [];
+  messages: { message: string, sender: string, recipient: string, sender_username: string }[] = [];
   messageInput: string = '';
-  senderId!: number;
+  senderId!: string;
+  recipientId!: string;
+  senderUsername: string = ''; // Имя текущего пользователя
   uuid: string = '';
 
   constructor(
     private chatService: SocketService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private apiService: ApiService
   ) {}
 
   ngOnInit(): void {
-    // Получаем senderId из localStorage
-    this.senderId = +localStorage.getItem('user_id')!;
+    // Получаем текущего пользователя
+    this.apiService.getProfile().subscribe({
+      next: (profile) => {
+        this.senderId = profile.id;
+        this.senderUsername = profile.username; // Сохраняем имя текущего пользователя
+        this.initializeChat();
+      },
+      error: (err) => {
+        console.error('Ошибка получения профиля:', err);
+      },
+    });
+  }
 
+  initializeChat(): void {
     // Подписываемся на параметры маршрута, чтобы получить uuid и подключиться к чату
     this.route.queryParams.subscribe(params => {
-      this.uuid  = params['uuid'];
+      this.uuid = params['uuid'];
       this.connectToChat();
     });
 
@@ -33,8 +48,8 @@ export class DirectMessageComponent implements OnInit {
       console.log('Received message:', data);
       this.messages.push({
         message: data.message,
-        sender: data.sender,
-        recipient: data.recipient,
+        sender: data.sender_uuid,
+        recipient: data.recipient_uuid,
         sender_username: data.sender_username,
       });
     });
@@ -44,13 +59,21 @@ export class DirectMessageComponent implements OnInit {
     if (this.uuid) {
       this.chatService.connect(this.uuid);
     } else {
-      console.error('Recipient ID не указан');
+      console.error('UUID не указан');
     }
   }
 
   sendMessage(): void {
     if (this.messageInput.trim()) {
-      this.chatService.sendMessage(this.messageInput, this.senderId, this.uuid);
+      // Отправляем сообщение через WebSocket
+      this.chatService.sendMessage(this.messageInput, this.senderId, this.uuid, this.senderUsername);
+      // Добавляем сообщение в локальный список
+      this.messages.push({
+        message: this.messageInput,
+        sender: this.senderId,
+        recipient: this.recipientId,
+        sender_username: this.senderUsername,
+      });
       this.messageInput = ''; // Очищаем поле ввода
     }
   }

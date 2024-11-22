@@ -1,0 +1,12 @@
+<li class="flex items-center p-2 rounded-md hover:bg-gray-700 transition cursor-pointer"
+    *ngFor="let friend of friends"
+    (click)="openChat(friend.id)">
+
+  <img class="w-8 h-8 rounded-full mr-3"
+       [src]="friend.avatar || 'path/to/default-avatar.png'"
+       alt="{{ friend.username }}"/>
+
+  <div class="flex-grow">
+    <span class="block font-medium text-gray-300">{{ friend.username }}</span>
+  </div>
+</li>
