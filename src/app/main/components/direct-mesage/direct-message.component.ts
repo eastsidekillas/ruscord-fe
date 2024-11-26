@@ -9,11 +9,12 @@ import { ApiService } from "../../../core/services/api.service";
   styleUrls: ['./direct-message.component.css']
 })
 export class DirectMessageComponent implements OnInit {
-  messages: { message: string, sender: string, recipient: string, sender_username: string }[] = [];
+  messages: { message: string, sender: string, receiver: string, recipient_username: string, sender_username: string }[] = [];
   messageInput: string = '';
-  senderId!: string;
-  recipientId!: string;
-  senderUsername: string = ''; // Имя текущего пользователя
+  sender!: string;
+  receiver!: string;
+  senderUsername: string = '';
+  recipientUsername: string = '';// Имя текущего пользователя
   uuid: string = '';
 
   constructor(
@@ -26,7 +27,7 @@ export class DirectMessageComponent implements OnInit {
     // Получаем текущего пользователя
     this.apiService.getProfile().subscribe({
       next: (profile) => {
-        this.senderId = profile.id;
+        this.sender = profile.id;
         this.senderUsername = profile.username; // Сохраняем имя текущего пользователя
         this.initializeChat();
       },
@@ -48,8 +49,9 @@ export class DirectMessageComponent implements OnInit {
       console.log('Received message:', data);
       this.messages.push({
         message: data.message,
-        sender: data.sender_uuid,
-        recipient: data.recipient_uuid,
+        sender: data.sender,
+        receiver: data.receiver,
+        recipient_username: data.recipient_username,
         sender_username: data.sender_username,
       });
     });
@@ -66,12 +68,13 @@ export class DirectMessageComponent implements OnInit {
   sendMessage(): void {
     if (this.messageInput.trim()) {
       // Отправляем сообщение через WebSocket
-      this.chatService.sendMessage(this.messageInput, this.senderId, this.uuid, this.senderUsername);
+      this.chatService.sendMessage(this.messageInput, this.sender, this.receiver, this.recipientUsername, this.senderUsername);
       // Добавляем сообщение в локальный список
       this.messages.push({
         message: this.messageInput,
-        sender: this.senderId,
-        recipient: this.recipientId,
+        sender: this.sender,
+        receiver: this.receiver,
+        recipient_username: this.recipientUsername,
         sender_username: this.senderUsername,
       });
       this.messageInput = ''; // Очищаем поле ввода
