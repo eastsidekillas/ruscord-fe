@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import ky from 'ky';
 import { environment } from "../../../environments/environment";
+import {Router} from "@angular/router";
 
 @Injectable({
   providedIn: 'root',
@@ -19,6 +20,34 @@ export class AuthService {
       ],
     },
   });
+
+  constructor(private router: Router) {} // Инжектируем Router
+
+  // Проверка токена перед запросом
+  checkToken() {
+    const token = localStorage.getItem('access_token');
+    if (!token || this.isTokenExpired(token)) {
+      this.logout();
+      this.router.navigate(['/login']); // Перенаправление на страницу авторизации
+    }
+  }
+
+  // Метод для проверки истечения срока действия токена
+  private isTokenExpired(token: string): boolean {
+    const decodedToken = this.decodeToken(token);
+    const expirationTime = decodedToken.exp * 1000; // Преобразуем в миллисекунды
+    return expirationTime < Date.now();
+  }
+
+  // Декодируем токен JWT
+  private decodeToken(token: string): any {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  }
 
   login(email: string, password: string) {
     return this.api
