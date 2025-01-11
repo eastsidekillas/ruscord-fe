@@ -1,23 +1,22 @@
-export interface Friend {
-  id: number;
-  requester: {
-    id: number;
-    username: string;
-    email: string;
-    phone: string | null;
-    avatar: string | null;
-    bio: string;
-    created_at: string;
-  };
-  receiver: {
-    id: number;
-    username: string;
-    email: string;
-    phone: string | null;
-    avatar: string | null;
-    bio: string;
-    created_at: string;
-  };
-  status: string;
-  created_at: string;
+interface User {
+  id: string;
+  username: string;
+}
+
+export interface MessageChat {
+  text: string;
+  sender: User;
+  recipient: User;
+  sender_username: string;
+  recipient_username: string;
+  timestamp: string;
+}
+
+interface ChannelMember {
+  id: string;
+  username: string;
+}
+
+interface Channel {
+  members: ChannelMember[];
 }

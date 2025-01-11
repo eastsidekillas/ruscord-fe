@@ -61,4 +61,10 @@ export class ApiService {
   getChannelInfo(uuid: string): Observable<any> {
     return from(this.api.get(`channels/${uuid}/channel_info/`).json());
   }
+
+  // Получить историю сообщений между пользователями
+  getMessageHistory(senderId: string, recipientId: string): Observable<any> {
+    const url = `messages/history/?sender=${senderId}&recipient=${recipientId}`;
+    return from(this.api.get(url).json());
+  }
 }
