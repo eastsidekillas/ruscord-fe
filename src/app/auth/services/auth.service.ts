@@ -66,6 +66,7 @@ export class AuthService {
           const profileData = await this.getProfile();
           // Сохраняем user_id в localStorage
           localStorage.setItem('user_id', profileData.id);
+          localStorage.setItem('username', profileData.username)
           return data;
         } catch (error) {
           console.error('Ошибка получения профиля:', error);
@@ -125,8 +126,16 @@ export class AuthService {
 
   getCurrentUser() {
     const userId = localStorage.getItem('user_id');
-    const username = localStorage.getItem('username');
-    return userId && username ? { id: userId, username } : null;
+
+    if (userId) {
+      // объект пользователя с user_id
+      return {
+        id: userId,
+        username: localStorage.getItem('username')
+      };
+    } else {
+      return null;
+    }
   }
 
 

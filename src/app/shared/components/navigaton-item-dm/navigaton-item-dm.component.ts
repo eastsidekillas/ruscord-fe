@@ -12,7 +12,8 @@ export class NavigatonItemDMComponent implements OnInit {
   currentUser: any; // Текущий пользователь
   isLoading: boolean = false;
 
-  constructor(private apiService: ApiService, private router: Router) {}
+  constructor(private apiService: ApiService, private router: Router) {
+  }
 
   ngOnInit(): void {
     // Получение текущего пользователя
@@ -31,7 +32,10 @@ export class NavigatonItemDMComponent implements OnInit {
     this.apiService.getFriends().subscribe({
       next: (friends) => {
         // Обрабатываем список друзей
-        this.friends = friends.map((friend: { sender: { id: any; username: any; avatar: any; }; receiver: { id: any; username: any; avatar: any; }; }) => {
+        this.friends = friends.map((friend: {
+          sender: { id: any; username: any; avatar: any; };
+          receiver: { id: any; username: any; avatar: any; };
+        }) => {
           // Определяем друга как противоположную сторону
           const isSender = friend.sender.id !== this.currentUser.id;
           return {
@@ -54,7 +58,8 @@ export class NavigatonItemDMComponent implements OnInit {
       next: (channel) => {
         this.isLoading = false;
         if (channel?.uuid) {
-          this.router.navigate(['/chat'], { queryParams: { uuid: channel.uuid } });
+          // Переход с uuid в пути маршрута
+          this.router.navigate([`channels/me/${channel.uuid}`]);
         } else {
           console.error('Ошибка: Канал не содержит UUID.');
         }

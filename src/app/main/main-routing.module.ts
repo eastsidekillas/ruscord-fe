@@ -1,23 +1,21 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import {HomeComponent} from "./components/home/home.component";
-import {DirectMessageComponent} from "./components/direct-mesage/direct-message.component";
-import {FriendsComponent} from "./components/friends/friends.component";
-import {ProfileComponent} from "../shared/components/profile/profile.component";
-
+import { HomeComponent } from "./components/home/home.component";
+import { FriendsComponent } from "./components/friends/friends.component";
+import { ProfileComponent } from "../shared/components/profile/profile.component";
+import {ChatComponent} from "./components/chat/chat.component";
 
 const routes: Routes = [
   {
-    path: '',
+    path: 'me',
     component: HomeComponent,
     children: [
-      { path: 'chat', component: DirectMessageComponent },
       { path: 'friends', component: FriendsComponent },
       { path: 'profile', component: ProfileComponent },
-
+      { path: ':uuid', component: ChatComponent },
     ],
   },
-  { path: '**', redirectTo: '' },
+  { path: '', redirectTo: 'me', pathMatch: 'full' },  // Перенаправление на /me (главную страницу)
 ];
 
 @NgModule({
