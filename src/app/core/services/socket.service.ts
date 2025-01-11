@@ -1,21 +1,26 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
-import {data} from "autoprefixer";
+
+interface Message {
+  message: string;
+  sender: string;
+  recipient: string;
+  sender_username: string;
+  recipient_username: string;
+}
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class SocketService {
   private socket!: WebSocket;
-  private messageSubject = new Subject<{
-    message: string;
-    sender: string;
-    receiver: string;
-    recipient_username: string;
-    sender_username: string;
-  }>();
+  private messageSubject = new Subject<Message>();
 
-  constructor() { }
+  constructor() {}
+
+  private getUserId(): string | null {
+    return localStorage.getItem('user_id');  // Получаем user_id из localStorage
+  }
 
   connect(uuid: string) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
@@ -23,52 +28,48 @@ export class SocketService {
       return;
     }
 
-    this.socket = new WebSocket(`ws://localhost:8000/ws/dm/${uuid}/`);
+    const url = `ws://localhost:8000/ws/chat/${uuid}/`;
+    this.socket = new WebSocket(url);
 
-
+    this.socket.onopen = () => {
+      console.log('WebSocket connection opened');
+    };
 
     this.socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       this.messageSubject.next({
         message: data.message,
         sender: data.sender,
-        receiver: data.receiver,
-        recipient_username: data.recipient_username,
-        sender_username: data.sender_username
+        recipient: data.recipient,
+        sender_username: data.sender_username || '',
+        recipient_username: data.recipient_username || '',
       });
       console.log('Received data from WebSocket:', data);
-    };
-
-
-    this.socket.onclose = () => {
-      console.log('WebSocket connection closed');
-      // Реализуйте логику для переподключения или завершения чата
     };
 
     this.socket.onerror = (error) => {
       console.error('WebSocket error:', error);
     };
+
+    this.socket.onclose = () => {
+      console.log('WebSocket connection closed');
+    };
   }
 
-
-
-  sendMessage(message: string, sender: string, receiver: string, senderUsername: string, recipientUsername: string) {
-    if (this.socket.readyState === WebSocket.OPEN) {
-      const data = {
+  sendMessage(message: string, recipient: string) {
+    const sender = this.getUserId();  // Получаем user_id через метод getUserId
+    if (sender && this.socket.readyState === WebSocket.OPEN) {
+      const data: { sender: string; recipient: string; message: string } = {
         message: message,
-        sender: sender,
-        sender_username: senderUsername,
-        receiver: receiver,
-        receiver_username: recipientUsername
+        sender: sender,  // Отправляем sender через WebSocket
+        recipient: recipient,
       };
       this.socket.send(JSON.stringify(data));
     } else {
-      console.error('WebSocket connection is not open');
+      console.error('WebSocket connection is not open or sender ID is not available');
     }
   }
 
-
-  // Метод для подписки на сообщения
   getMessages() {
     return this.messageSubject.asObservable();
   }

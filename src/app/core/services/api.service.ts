@@ -55,6 +55,10 @@ export class ApiService {
   // **Работа с каналами**
 
   createOrGetChannel(recipientId: number): Observable<any> {
-    return from(this.api.post('dm_channels/get_or_create_channel/', { json: { recipient_id: recipientId } }).json());
+    return from(this.api.post('channels/get_or_create_channel/', { json: { recipient_id: recipientId } }).json());
+  }
+
+  getChannelInfo(uuid: string): Observable<any> {
+    return from(this.api.get(`channels/${uuid}/channel_info/`).json());
   }
 }

@@ -1,21 +1,19 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 
-
 const routes: Routes = [
   {
     path: 'auth',
     loadChildren: () => import('./auth/auth.module').then(m => m.AuthModule),
   },
-
   {
-    path: '',
+    path: 'channels',
     loadChildren: () => import('./main/main.module').then(m => m.MainModule),
   },
-
-  { path: '**', redirectTo: '' },
+  // Переадресация на главную страницу
+  { path: '', redirectTo: 'channels/me', pathMatch: 'full' }, // Главная страница будет перенаправлять на /channels/me
+  { path: '**', redirectTo: 'channels/me' }, // Редирект для несуществующих путей
 ];
-
 
 @NgModule({
   imports: [RouterModule.forRoot(routes)],

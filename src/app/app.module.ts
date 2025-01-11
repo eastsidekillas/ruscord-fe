@@ -22,7 +22,6 @@ import {MainModule} from "./main/main.module";
     MainModule,
     AppRoutingModule,
     FormsModule,
-    ReactiveFormsModule,
   ],
   providers: [
     CookieService,
