@@ -13,23 +13,17 @@
       placeholder="Введите никнейм"
       class="w-full p-3 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
     />
-    <button
-      (click)="searchFriends()"
-      class="px-3 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-    >
-      Поиск
-    </button>
   </div>
 
   <!-- Список найденных пользователей -->
-  <ul *ngIf="foundUsers.length > 0" class="divide-y divide-gray-600">
+  <ul *ngIf="foundUsers.length > 0" class="divide-y divide-gray-600 mt-4">
     <li
       *ngFor="let user of foundUsers"
       class="flex items-center justify-between p-4 hover:bg-gray-700 rounded-lg transition"
     >
       <div class="flex items-center space-x-3">
         <img
-          src="https://via.placeholder.com/40"
+          [src]="user.avatar || 'avatars/default-avatar.png'"
           alt="User avatar"
           class="w-10 h-10 rounded-full"
         />

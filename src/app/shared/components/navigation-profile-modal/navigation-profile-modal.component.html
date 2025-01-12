@@ -1,0 +1,42 @@
+<div *ngIf="isVisible" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+  <div class="bg-zinc-800 p-6 rounded-lg shadow-lg text-gray-200 w-96">
+    <h2 class="text-xl font-bold mb-4">Профиль пользователя</h2>
+
+    <div class="flex items-center space-x-4 mb-4">
+      <!-- Аватар пользователя -->
+      <img [src]="user?.avatar" alt="User Avatar" class="w-16 h-16 rounded-full" />
+      <div>
+        <p class="text-lg font-medium">{{ user?.username }}</p>
+        <p class="text-sm text-gray-400">Статус: {{ user?.status || 'Неактивен' }}</p>
+      </div>
+    </div>
+
+    <div class="space-y-2 mb-4">
+      <div>
+        <p class="text-sm font-medium">Email:</p>
+        <p class="text-sm text-gray-400">{{ user?.email }}</p>
+      </div>
+
+      <div>
+        <p class="text-sm font-medium">Телефон:</p>
+        <p class="text-sm text-gray-400">{{ user?.phone }}</p>
+      </div>
+
+      <div>
+        <p class="text-sm font-medium">Обо мне:</p>
+        <p class="text-sm text-gray-400">{{ user?.bio || 'Нет биографии' }}</p>
+      </div>
+
+      <div>
+        <p class="text-sm font-medium">Дата регистрации:</p>
+        <p class="text-sm text-gray-400">{{ user?.created_at | date:'medium' }}</p>
+      </div>
+    </div>
+
+    <div class="mt-6 flex justify-end">
+      <button class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded" (click)="close()">
+        Закрыть
+      </button>
+    </div>
+  </div>
+</div>

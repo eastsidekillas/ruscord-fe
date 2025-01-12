@@ -2,7 +2,6 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { HomeComponent } from "./components/home/home.component";
 import { FriendsComponent } from "./components/friends/friends.component";
-import { ProfileComponent } from "../shared/components/profile/profile.component";
 import {ChatComponent} from "./components/chat/chat.component";
 
 const routes: Routes = [
@@ -10,8 +9,7 @@ const routes: Routes = [
     path: 'me',
     component: HomeComponent,
     children: [
-      { path: 'friends', component: FriendsComponent },
-      { path: 'profile', component: ProfileComponent },
+      { path: '', component: FriendsComponent },
       { path: ':uuid', component: ChatComponent },
     ],
   },
