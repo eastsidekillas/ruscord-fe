@@ -8,6 +8,7 @@ import {SharedModule} from "../shared/shared.module";
 import {FormsModule} from "@angular/forms";
 import {MainRoutingModule} from "./main-routing.module";
 import { ChatComponent } from './components/chat/chat.component';
+import { ChatHeaderComponent } from './components/chat-header/chat-header.component';
 
 
 
@@ -17,6 +18,7 @@ import { ChatComponent } from './components/chat/chat.component';
     HomeComponent,
     FriendsComponent,
     ChatComponent,
+    ChatHeaderComponent,
   ],
   imports: [
     CommonModule,

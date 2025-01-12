@@ -1,19 +1,29 @@
-<div class="flex flex-col h-full p-4">
-  <div class="flex-grow overflow-auto p-4">
-    <!-- Итерируем через все сообщения -->
-    <div *ngFor="let msg of messages" class="my-2" [ngClass]="{'text-right': msg.sender === sender, 'text-left': msg.sender !== sender}">
-      <div [ngClass]="{'bg-red-600 text-white': msg.sender === sender, 'bg-gray-300': msg.sender !== sender}" class="inline-block p-3 rounded-lg">
-        <!-- Имя отправителя -->
-        <div class="font-semibold">{{ msg.sender_username }}</div>
-        <!-- Текст сообщения -->
-        <div>{{ msg.message || msg.text }}</div> <!-- Используем msg.text, независимо от того старое это сообщение или новое -->
-        <!-- Время отправки сообщения -->
-        <div class="text-xs text-gray-500">{{ msg.timestamp | date: 'short' }}</div>
+<div class="flex flex-col h-full">
+  <app-chat-header></app-chat-header>
+
+  <!-- Сообщения -->
+  <div #messagesContainer class="flex-grow overflow-auto">
+    <div *ngFor="let msg of messages" class="my-2">
+      <div class="flex items-start space-x-2 p-3 rounded-lg text-white">
+        <!-- Аватар отправителя -->
+        <img *ngIf="msg.sender === sender" src="{{ msg.sender_avatar }}" alt="Avatar" class="w-10 h-10 rounded-full">
+        <img *ngIf="msg.sender !== sender" src="{{ msg.sender_avatar }}" alt="Avatar" class="w-10 h-10 rounded-full">
+
+        <!-- Сообщение и время -->
+        <div class="flex flex-col justify-start space-y-2">
+          <!-- Имя отправителя и сообщение -->
+          <div class="font-semibold text-sm">{{ msg.sender_username }}</div>
+          <div class="mt-2">{{ msg.message || msg.text }}</div>
+        </div>
+
+        <!-- Время отправки сообщения (сдвинуто вправо) -->
+        <div class="text-xs text-gray-500 ml-auto self-start">{{ msg.timestamp | date: 'short' }}</div>
       </div>
     </div>
   </div>
 
-  <div class="mt-4">
+  <!-- Поле ввода сообщения -->
+  <div class="mt-4 space-x-2 p-4">
     <input
       [(ngModel)]="messageInput"
       (keyup.enter)="sendMessage()"
