@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
+import {environment} from "../../../environments/environment";
 
 interface Message {
   message: string;
@@ -28,7 +29,7 @@ export class SocketService {
       return;
     }
 
-    const url = `ws://localhost:8000/ws/chat/${uuid}/`;
+    const url = `${environment.API_WS_URL}chat/${uuid}/`;
     this.socket = new WebSocket(url);
 
     this.socket.onopen = () => {
