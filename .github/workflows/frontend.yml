@@ -1,47 +1,77 @@
-name: Frontend CI/CD
+name: CI/CD for Docker Registry
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:  # Позволяет запускать пайплайн вручную
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: [self-hosted, linux]
 
     steps:
-      # Checkout репозиторий
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      # Установка Docker
-      - name: Set up Docker
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # Логин в Docker Registry
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Log in to Docker Registry (with SSH key)
+        run: |
+          # Создаем директорию для SSH ключей
+          mkdir -p ~/.ssh
+          
+          # Добавляем приватный ключ из GitHub secrets
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Проверяем права доступа к ключу
+          ls -l ~/.ssh/id_rsa
+          
+          # Добавляем публичный ключ хоста в known_hosts для предотвращения SSH предупреждений
+          ssh-keyscan -t rsa docker-1.hosting.eastrust.ru >> ~/.ssh/known_hosts
+          
+          # Проверяем, что мы можем подключиться к хосту
+          ssh -T -o StrictHostKeyChecking=no docker-1.hosting.eastrust.ru echo "SSH connection successful"
+          
+      - name: Build and Push Docker image
+        run: |
+          docker buildx build \
+            --tag 'docker-1.hosting.eastrust.ru/ruscord/ruscord-backend:latest' \
+            --platform=linux/amd64 --push .
+  deploy:
+    runs-on: [self-hosted, linux]
+    needs: build
 
-      # Сборка Docker-образа
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          tags: eastsidekillas/ruscord-frontend:latest
-          push: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      # Деплой на сервер
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd /home/ruscord-fe
-            docker-compose pull
-            docker-compose down
-            docker-compose up -d
+      - name: Set up SSH keys for Docker registry
+        run: |
+          # Создаем директорию для SSH ключей
+          mkdir -p ~/.ssh
+          
+          # Добавляем приватный ключ из GitHub secrets
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Выводим права на файл для проверки
+          ls -l ~/.ssh/id_rsa
+          
+          # Добавляем публичный ключ хоста в known_hosts для предотвращения SSH предупреждений
+          ssh-keyscan -t rsa docker-1.hosting.eastrust.ru >> ~/.ssh/known_hosts
+          
+          # Проверяем, что мы можем подключиться к хосту
+          ssh -T -o StrictHostKeyChecking=no docker-1.hosting.eastrust.ru echo "SSH connection successful"
+          
+      - name: Pull Docker image from Docker Registry
+        run: |
+          docker pull docker-1.hosting.eastrust.ru/ruscord/ruscord-backend:latest
+          
+      - name: Deploy Docker image with Docker Compose
+        run: |
+          docker compose pull
+          docker compose down
+          docker compose up -d
