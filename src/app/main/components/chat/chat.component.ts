@@ -12,6 +12,7 @@ import { AuthService } from "../../../auth/services/auth.service";
 export class ChatComponent implements OnInit, AfterViewInit {
   messages: any[] = [];
   messageInput: string = '';
+  friend: { username: string; avatar: string } | null = null; // Информация о друге
   uuid: string = ''; // UUID канала чата
   sender: string = ''; // ID текущего пользователя
   recipient: string = ''; // ID получателя
@@ -51,6 +52,12 @@ export class ChatComponent implements OnInit, AfterViewInit {
           this.recipient = recipientInfo.id;
           this.recipientUsername = recipientInfo.username;
 
+          // Устанавливаем friend для передачи в HeaderComponent
+          this.friend = {
+            username: recipientInfo.username,
+            avatar: recipientInfo.avatar || 'avatars/default-avatar.png',
+          };
+
           // Теперь, когда recipient установлен, можно загружать историю сообщений
           this.loadHistoryMessage();
         }
@@ -74,6 +81,8 @@ export class ChatComponent implements OnInit, AfterViewInit {
       this.scrollToBottom();
     }, 5); // Мы используем setTimeout, чтобы гарантировать, что DOM был обновлён
   }
+
+
 
   loadHistoryMessage() {
     // Запрашиваем историю сообщений для текущего канала
