@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import ky from 'ky';
-import { environment } from '../../../environments/environment';
+import { environment } from '../../../environment/environment';
 import { AuthService } from '../../auth/services/auth.service';
 import { from, Observable } from 'rxjs';
 

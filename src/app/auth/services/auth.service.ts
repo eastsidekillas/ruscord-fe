@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import ky from 'ky';
-import { environment } from "../../../environments/environment";
+import { environment } from "../../../environment/environment";
 import {Router} from "@angular/router";
 
 @Injectable({
@@ -72,6 +72,23 @@ export class AuthService {
           console.error('Ошибка получения профиля:', error);
           throw error;
         }
+      });
+  }
+
+  // Метод для регистрации
+  register(username: string, email: string, password: string) {
+    return this.api
+      .post('register/', {
+        json: { username, email, password },
+      })
+      .json()
+      .then((data: any) => {
+        // Регистрация успешна, возвращаем данные
+        return data;
+      })
+      .catch((error) => {
+        // Обработка ошибок регистрации
+        throw error;
       });
   }
 
