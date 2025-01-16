@@ -12,6 +12,7 @@ export class AuthFormComponent implements OnInit {
   authForm!: FormGroup;
   isLoginMode = true;
   errorMessage: string = '';
+  successMessage: string = '';
 
   constructor(private fb: FormBuilder, private authService: AuthService, private router: Router) {}
 
@@ -22,6 +23,7 @@ export class AuthFormComponent implements OnInit {
   // Инициализация формы
   initForm() {
     this.authForm = this.fb.group({
+      username: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['']
@@ -58,7 +60,7 @@ export class AuthFormComponent implements OnInit {
     if (this.authForm.invalid) {
       return;
     }
-
+    const username = this.authForm.value.username;
     const email = this.authForm.value.email;
     const password = this.authForm.value.password;
 
@@ -74,7 +76,19 @@ export class AuthFormComponent implements OnInit {
         this.errorMessage = 'Пароли не совпадают';
         return;
       }
-      console.log('Регистрация:', { email, password, confirmPassword });
+
+      this.authService.register(username, email, password).then(
+        () => {
+          this.successMessage = 'Вы успешно зарегистрированы!';
+          setTimeout(() => {
+            this.router.navigate(['login']);
+            this.isLoginMode = true
+          }, 1000);
+        },
+        (error) => {
+          this.errorMessage = 'Ошибка регистрации. Попробуйте снова.';
+        }
+      );
     }
   }
 }
