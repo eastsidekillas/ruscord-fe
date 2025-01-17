@@ -10,7 +10,7 @@ import {MainRoutingModule} from "./main-routing.module";
 import { ChatComponent } from './components/chat/chat.component';
 import { ChatHeaderComponent } from './components/chat-header/chat-header.component';
 import { HeaderComponent } from './components/header/header.component';
-import { FriendsListComponent } from './components/friends-list/friends-list.component';
+import {PendingFriendRequestsComponent} from "./components/pending-friend-requests/pending-friend-requests.component";
 
 
 
@@ -22,7 +22,7 @@ import { FriendsListComponent } from './components/friends-list/friends-list.com
     ChatComponent,
     ChatHeaderComponent,
     HeaderComponent,
-    FriendsListComponent,
+    PendingFriendRequestsComponent,
   ],
   imports: [
     CommonModule,

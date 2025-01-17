@@ -2,9 +2,9 @@
   <!-- Header для друзей -->
   <ng-container *ngIf="context === 'friends'">
     <div class="flex space-x-4">
-      <button class="px-4 py-2 rounded-lg" [class.bg-red-600]="true">В сети</button>
-      <button class="px-4 py-2 rounded-lg" [class.bg-red-600]="false">Все</button>
-      <button class="px-4 py-2 rounded-lg" [class.bg-red-600]="false">Ожидание</button>
+      <button class="px-4 py-2 rounded-lg" [class.bg-red-600]="activeFilter === 'all'" (click)="changeFilter('all')">Все</button>
+      <button class="px-4 py-2 rounded-lg" [class.bg-red-600]="activeFilter === 'online'" (click)="changeFilter('online')">В сети</button>
+      <button class="px-4 py-2 rounded-lg" [class.bg-red-600]="activeFilter === 'waiting'" (click)="changeFilter('waiting')">Ожидание</button>
     </div>
   </ng-container>
 

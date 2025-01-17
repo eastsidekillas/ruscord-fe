@@ -9,6 +9,8 @@ import {ApiService} from "../../../core/services/api.service";
 export class FriendsComponent {
   username: string = '';
   foundUsers: any[] = [];
+  filteredUsers: any[] = [];
+  filter: 'all' | 'waiting' | 'online' = 'all';
 
   constructor(private apiService: ApiService) {
   }
@@ -42,4 +44,10 @@ export class FriendsComponent {
       }
     );
   }
+
+  // Обработчик изменения фильтра
+  onFilterChanged(newFilter: 'all' | 'waiting' | 'online') {
+    this.filter = newFilter;
+  }
+
 }

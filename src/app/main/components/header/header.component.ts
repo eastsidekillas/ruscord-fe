@@ -1,4 +1,4 @@
-import {Component, Input} from '@angular/core';
+import {Component, EventEmitter, Input, Output} from '@angular/core';
 
 @Component({
   selector: 'app-header',
@@ -8,4 +8,13 @@ import {Component, Input} from '@angular/core';
 export class HeaderComponent {
   @Input() context!: 'friends' | 'chat'; // Контекст: "friends" или "chat"
   @Input() friend!: { username: string; avatar: string } | null; // Данные друга для чата
+
+  @Output() filterChanged: EventEmitter<'all' | 'waiting' | 'online'> = new EventEmitter();
+
+  activeFilter: string = 'all';
+
+  changeFilter(filter: 'all' | 'waiting' | 'online') {
+    this.activeFilter = filter;
+    this.filterChanged.emit(filter);
+  }
 }

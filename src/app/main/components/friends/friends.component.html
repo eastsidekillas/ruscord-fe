@@ -1,6 +1,7 @@
-<app-header context="friends"></app-header>
+<app-header context="friends" (filterChanged)="onFilterChanged($event)"></app-header>
 
-<div class="p-6">
+<!-- Показать контент, если фильтр 'all' -->
+<div class="p-6" *ngIf="filter === 'all'">
 
   <!-- Заголовок для поиска -->
   <h2 class="text-2xl font-semibold mb-2 text-white">Добавить в друзья</h2>
@@ -44,4 +45,9 @@
     Пользователи не найдены
   </p>
 
+</div>
+
+<!-- Рендеринг компонента для 'waiting' -->
+<div *ngIf="filter === 'waiting'">
+  <app-pending-friend-requests></app-pending-friend-requests>
 </div>
