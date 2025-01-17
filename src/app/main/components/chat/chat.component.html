@@ -1,33 +1,37 @@
-<div class="flex flex-col h-full">
+<div class="grid grid-rows-[auto,1fr,auto] h-full">
+  <!-- Header -->
   <app-header context="chat" [friend]="friend"></app-header>
 
   <!-- Сообщения -->
-  <div class="flex-grow overflow-auto scroll-smooth" #messagesContainer>
+  <div class="flex-grow overflow-auto p-4 space-y-3 h-[calc(100vh-10rem)]" #messagesContainer>
     <div *ngFor="let msg of messages" class="my-2">
-      <div class="flex items-start space-x-2 p-3 rounded-lg text-white">
-        <!-- Аватар отправителя -->
-        <img *ngIf="msg.sender === sender" src="{{ msg.sender_avatar || 'avatars/default-avatar.png' }} " alt="Avatar" class="w-10 h-10 rounded-full">
-        <img *ngIf="msg.sender !== sender" src="{{ msg.sender_avatar || 'avatars/default-avatar.png' }}" alt="Avatar" class="w-10 h-10 rounded-full">
+      <div class="flex items-start w-full p-4 text-white hover:bg-zinc-600 rounded-lg">
+        <!-- Аватар -->
+        <img *ngIf="msg.sender === sender" src="{{ msg.sender_avatar || 'avatars/default-avatar.png' }} " alt="Avatar" class="w-10 h-10 rounded-full mr-3">
+        <img *ngIf="msg.sender !== sender" src="{{ msg.sender_avatar || 'avatars/default-avatar.png' }}" alt="Avatar" class="w-10 h-10 rounded-full mr-3">
+
 
         <!-- Сообщение и время -->
-        <div class="flex flex-col justify-start space-y-2">
-          <!-- Имя отправителя и сообщение -->
+        <div class="flex flex-col space-y-1">
           <div class="font-semibold text-sm">{{ msg.sender_username }}</div>
-          <div class="mt-2">{{ msg.message || msg.text }}</div>
-        </div>
+          <div class="text-xs text-gray-400 mt-1">
+            {{ msg.timestamp | date: 'short' }}
+          </div>
+          <div class="text-sm break-words">
+            {{ msg.message || msg.text }}
+          </div>
 
-        <!-- Время отправки сообщения (сдвинуто вправо) -->
-        <div class="text-xs text-gray-500 ml-auto self-start">{{ msg.timestamp | date: 'short' }}</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Поле ввода сообщения -->
-  <div class="mt-4 space-x-2 p-4">
+  <!-- Поле ввода -->
+  <div class="p-4">
     <input
       [(ngModel)]="messageInput"
       (keyup.enter)="sendMessage()"
-      class="w-full p-3 border border-gray-300 rounded-lg"
+      class="w-full p-3 border border-zinc-600 rounded-lg focus:outline-none focus:ring focus:ring-blue-400 text-white bg-zinc-800 placeholder-zinc-500"
       placeholder="Напишите сообщение..."
     />
   </div>

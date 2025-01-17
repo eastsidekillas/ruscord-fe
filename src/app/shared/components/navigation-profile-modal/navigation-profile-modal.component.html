@@ -2,34 +2,77 @@
   <div class="bg-zinc-800 p-6 rounded-lg shadow-lg text-gray-200 w-96">
     <h2 class="text-xl font-bold mb-4">Профиль пользователя</h2>
 
-    <div class="flex items-center space-x-4 mb-4">
-      <!-- Аватар пользователя -->
-      <img [src]="user?.avatar" alt="User Avatar" class="w-16 h-16 rounded-full" />
-      <div>
-        <p class="text-lg font-medium">{{ user?.username }}</p>
-        <p class="text-sm text-gray-400">Статус: {{ user?.status || 'Неактивен' }}</p>
-      </div>
+    <!-- Выбор нового аватара -->
+    <div class="flex flex-col items-center mb-4">
+      <img [src]="user?.avatar || 'avatars/default-avatar.png'" alt="User Avatar" class="w-16 h-16 rounded-full mb-2" />
+      <label class="text-sm text-blue-500 cursor-pointer">
+        Изменить аватар
+        <input type="file" accept="image/*" (change)="onAvatarChange($event)" hidden />
+      </label>
     </div>
 
+
+    <!-- Данные пользователя с иконками редактирования -->
     <div class="space-y-2 mb-4">
-      <div>
-        <p class="text-sm font-medium">Email:</p>
-        <p class="text-sm text-gray-400">{{ user?.email }}</p>
+      <!-- Email -->
+      <div class="flex justify-between items-center">
+        <div>
+          <p class="text-sm font-medium">Email:</p>
+          <p class="text-sm text-gray-400">{{ user?.email }}</p>
+        </div>
+        <button *ngIf="!isEditingEmail" (click)="toggleEdit('email')" class="text-blue-500">
+          <svg class="w-5 h-5 text-red-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.779 17.779 4.36 19.918 6.5 13.5m4.279 4.279 8.364-8.643a3.027 3.027 0 0 0-2.14-5.165 3.03 3.03 0 0 0-2.14.886L6.5 13.5m4.279 4.279L6.499 13.5m2.14 2.14 6.213-6.504M12.75 7.04 17 11.28"/>
+          </svg>
+        </button>
+      </div>
+      <div *ngIf="isEditingEmail">
+        <input [(ngModel)]="user.email" class="w-full p-2 border border-gray-600 rounded bg-zinc-700 text-gray-200" />
+        <button (click)="saveEdit('email')" class="text-green-500 mr-2">Сохранить</button>
+        <button (click)="cancelEdit('email')" class="text-red-500">Отменить</button>
       </div>
 
-      <div>
-        <p class="text-sm font-medium">Телефон:</p>
-        <p class="text-sm text-gray-400">{{ user?.phone }}</p>
+      <!-- Телефон -->
+      <div class="flex justify-between items-center">
+        <div>
+          <p class="text-sm font-medium">Телефон:</p>
+          <p class="text-sm text-gray-400">{{ user?.phone }}</p>
+        </div>
+        <button *ngIf="!isEditingPhone" (click)="toggleEdit('phone')" class="text-blue-500">
+          <svg class="w-5 h-5 text-red-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.779 17.779 4.36 19.918 6.5 13.5m4.279 4.279 8.364-8.643a3.027 3.027 0 0 0-2.14-5.165 3.03 3.03 0 0 0-2.14.886L6.5 13.5m4.279 4.279L6.499 13.5m2.14 2.14 6.213-6.504M12.75 7.04 17 11.28"/>
+          </svg>
+        </button>
+      </div>
+      <div *ngIf="isEditingPhone">
+        <input [(ngModel)]="user.phone" class="w-full p-2 border border-gray-600 rounded bg-zinc-700 text-gray-200" />
+        <button (click)="saveEdit('phone')" class="text-green-500 mr-2">Сохранить</button>
+        <button (click)="cancelEdit('phone')" class="text-red-500">Отменить</button>
       </div>
 
-      <div>
-        <p class="text-sm font-medium">Обо мне:</p>
-        <p class="text-sm text-gray-400">{{ user?.bio || 'Нет биографии' }}</p>
+      <!-- Обо мне -->
+      <div class="flex justify-between items-center">
+        <div>
+          <p class="text-sm font-medium">Обо мне:</p>
+          <p class="text-sm text-gray-400">{{ user?.bio || 'Нет биографии' }}</p>
+        </div>
+        <button *ngIf="!isEditingBio" (click)="toggleEdit('bio')" class="text-blue-500">
+          <svg class="w-5 h-5 text-red-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.779 17.779 4.36 19.918 6.5 13.5m4.279 4.279 8.364-8.643a3.027 3.027 0 0 0-2.14-5.165 3.03 3.03 0 0 0-2.14.886L6.5 13.5m4.279 4.279L6.499 13.5m2.14 2.14 6.213-6.504M12.75 7.04 17 11.28"/>
+          </svg>
+
+        </button>
+      </div>
+      <div *ngIf="isEditingBio">
+        <textarea [(ngModel)]="user.bio" class="w-full p-2 border border-gray-600 rounded bg-zinc-700 text-gray-200" rows="4"></textarea>
+        <button (click)="saveEdit('bio')" class="text-green-500 mr-2">Сохранить</button>
+        <button (click)="cancelEdit('bio')" class="text-red-500">Отменить</button>
       </div>
 
+      <!-- Дата регистрации -->
       <div>
         <p class="text-sm font-medium">Дата регистрации:</p>
-        <p class="text-sm text-gray-400">{{ user?.created_at | date:'medium' }}</p>
+        <p class="text-sm text-gray-400">{{ user?.created_at | date: 'medium' }}</p>
       </div>
     </div>
 

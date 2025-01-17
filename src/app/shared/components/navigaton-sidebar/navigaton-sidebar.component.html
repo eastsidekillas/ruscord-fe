@@ -11,7 +11,7 @@
     <!-- Footer (Настройки) -->
     <div class="mt-auto p-4 flex items-center space-x-3 border-t border-gray-700" >
       <img [src]="profile?.avatar || 'avatars/default-avatar.png'" alt="User" class="w-10 h-10 rounded-full" />
-      <div (click)="openProfileModal()">
+      <div>
         <p class="text-sm font-medium">{{profile?.username}}</p>
         <p class="text-xs text-gray-400">Неактивен</p>
       </div>
@@ -23,6 +23,16 @@
         </svg>
         <span>Выход</span>
       </button>
+      <button
+        class="ml-auto flex items-center text-sm text-red-500 hover:underline space-x-1"
+        (click)="openProfileModal()">
+        <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13v-2a1 1 0 0 0-1-1h-.757l-.707-1.707.535-.536a1 1 0 0 0 0-1.414l-1.414-1.414a1 1 0 0 0-1.414 0l-.536.535L14 4.757V4a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v.757l-1.707.707-.536-.535a1 1 0 0 0-1.414 0L4.929 6.343a1 1 0 0 0 0 1.414l.536.536L4.757 10H4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h.757l.707 1.707-.535.536a1 1 0 0 0 0 1.414l1.414 1.414a1 1 0 0 0 1.414 0l.536-.535 1.707.707V20a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-.757l1.707-.708.536.536a1 1 0 0 0 1.414 0l1.414-1.414a1 1 0 0 0 0-1.414l-.535-.536.707-1.707H20a1 1 0 0 0 1-1Z"/>
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+        </svg>
+
+        <span></span>
+      </button>
     </div>
   </div>
 </div>
@@ -31,6 +41,8 @@
 <app-navigation-profile-modal
   [isVisible]="isProfileModalVisible"
   [user]="profile"
-  (onClose)="closeProfileModal()">
+  (onClose)="closeProfileModal()"
+  (onSave)="saveUserProfile($event)">
 </app-navigation-profile-modal>
+
 
