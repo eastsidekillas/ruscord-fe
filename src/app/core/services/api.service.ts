@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import ky from 'ky';
 import { environment } from '../../../environment/environment';
 import { AuthService } from '../../auth/services/auth.service';
-import { from, Observable } from 'rxjs';
+import {catchError, from, Observable, throwError} from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -36,6 +36,19 @@ export class ApiService {
   getProfile(): Observable<any> {
     return from(this.api.get('users/profile/').json());
   }
+
+  updateProfile(formData: FormData): Observable<any> {
+    return from(
+      this.api.put('users/profile_edit/', { body: formData }).json()
+    ).pipe(
+      catchError((error) => {
+        console.error('Ошибка при обновлении профиля:', error);
+        return throwError(error);
+      })
+    );
+  }
+
+
 
   // Отправить запрос на добавление в друзья
   sendFriendRequest(userId: number): Observable<any> {
