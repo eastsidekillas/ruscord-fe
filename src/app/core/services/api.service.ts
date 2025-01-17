@@ -47,6 +47,10 @@ export class ApiService {
     return from(this.api.get('friends/').json());
   }
 
+  getMyFriends(): Observable<any> {
+    return from(this.api.get('friends/my_friends/').json());
+  }
+
   // Поиск пользователей
   searchUsers(username: string): Observable<any> {
     return from(this.api.get(`users/search/?username=${username}`).json());

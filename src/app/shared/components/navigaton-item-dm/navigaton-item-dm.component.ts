@@ -29,21 +29,10 @@ export class NavigatonItemDMComponent implements OnInit {
   }
 
   loadFriends(): void {
-    this.apiService.getFriends().subscribe({
+    // Запрашиваем список только принятых друзей
+    this.apiService.getMyFriends().subscribe({
       next: (friends) => {
-        // Обрабатываем список друзей
-        this.friends = friends.map((friend: {
-          sender: { id: any; username: any; avatar: any; };
-          receiver: { id: any; username: any; avatar: any; };
-        }) => {
-          // Определяем друга как противоположную сторону
-          const isSender = friend.sender.id !== this.currentUser.id;
-          return {
-            id: isSender ? friend.sender.id : friend.receiver.id,
-            username: isSender ? friend.sender.username : friend.receiver.username,
-            avatar: isSender ? friend.sender.avatar : friend.receiver.avatar,
-          };
-        });
+        this.friends = friends;
       },
       error: (err) => {
         console.error('Ошибка получения списка друзей:', err);
