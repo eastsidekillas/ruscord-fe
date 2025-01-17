@@ -2,7 +2,7 @@
 
   <div class="w-full max-w-md bg-zinc-800 shadow-lg rounded-lg p-8">
     <h2 class="text-2xl font-bold text-center mb-6 text-white">
-      {{ isLoginMode ? 'Войти в аккаунт' : 'Регистрация' }}
+      {{ isLoginMode ? 'Авторизация' : 'Регистрация' }}
     </h2>
 
     <form [formGroup]="authForm" (ngSubmit)="onSubmit()" class="space-y-4">
@@ -16,13 +16,13 @@
           type="text"
           class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-black"
           placeholder="Введите имя пользователя"
-          required
         />
         <div *ngIf="authForm.get('username')?.invalid && authForm.get('username')?.touched" class="text-red-500 text-sm">
           Имя пользователя обязательно
         </div>
       </div>
 
+      <!-- Поле для email -->
       <div>
         <label for="email" class="block mb-2 text-sm font-medium text-white">Email</label>
         <input
@@ -31,7 +31,6 @@
           type="email"
           class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-black"
           placeholder="Введите ваш email"
-          required
         />
         <div *ngIf="authForm.get('email')?.invalid && authForm.get('email')?.touched" class="text-red-500 text-sm">
           Введите корректный email
@@ -48,8 +47,15 @@
           placeholder="Введите ваш пароль"
           required
         />
+        <div *ngIf="authForm.get('password')?.hasError('required') && authForm.get('password')?.touched" class="text-red-500 text-sm">
+          Пароль обязателен
+        </div>
+        <div *ngIf="authForm.get('password')?.hasError('minlength') && authForm.get('password')?.touched" class="text-red-500 text-sm">
+          Пароль должен быть не менее 6 символов
+        </div>
       </div>
 
+      <!-- Подтверждение пароля (только при регистрации) -->
       <div *ngIf="!isLoginMode">
         <label for="confirmPassword" class="block mb-2 text-sm font-medium text-white">Подтвердите пароль</label>
         <input
@@ -58,30 +64,33 @@
           type="password"
           class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-black"
           placeholder="Подтвердите ваш пароль"
-          required
         />
-        <div *ngIf="authForm.get('confirmPassword')?.invalid && authForm.get('confirmPassword')?.touched" class="text-red-500 text-sm">
-          Пароли должны совпадать
+        <div *ngIf="authForm.get('password')?.hasError('required') && authForm.get('password')?.touched" class="text-red-500 text-sm">
+          Пароль обязателен
         </div>
+        <div *ngIf="authForm.get('password')?.hasError('minlength') && authForm.get('password')?.touched" class="text-red-500 text-sm">
+          Пароль должен быть не менее 6 символов
+        </div>
+        <div *ngIf="authForm.get('confirmPassword')?.hasError('passwordMismatch') && authForm.get('confirmPassword')?.touched" class="text-red-500 text-sm">
+          Пароли не совпадают.
+        </div>
+      </div>
+
+      <!-- Сообщения об ошибке или успехе -->
+      <div *ngIf="successMessage" class="text-green-500 text-sm text-center mt-4">
+        {{ successMessage }}
+      </div>
+      <div *ngIf="errorMessage" class="text-red-500 text-sm text-center mt-4">
+        {{ errorMessage }}
       </div>
 
       <button
         type="submit"
-        class="text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-500 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center transition"
+        class="text-white bg-red-600 disabled:bg-gray-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-500 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center transition"
       >
         {{ isLoginMode ? 'Войти' : 'Зарегистрироваться' }}
       </button>
     </form>
-
-    <!-- Сообщение об успешной регистрации -->
-    <div *ngIf="successMessage" class="text-green-500 text-sm text-center mt-4">
-      {{ successMessage }}
-    </div>
-
-    <!-- Сообщение об успешной регистрации -->
-    <div *ngIf="errorMessage" class="text-red-600 text-sm text-center mt-4">
-      {{ errorMessage }}
-    </div>
 
     <p class="text-sm text-center mt-4 text-white">
       {{ isLoginMode ? 'Нет аккаунта?' : 'Уже есть аккаунт?' }}
