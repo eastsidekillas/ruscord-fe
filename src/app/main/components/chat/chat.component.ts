@@ -65,7 +65,14 @@ export class ChatComponent implements OnInit {
 
       // Получаем сообщения в чате через WebSocket
       this.socketService.getMessages().subscribe(message => {
-        this.messages.push(message);
+
+        if (!message.timestamp) {
+          message.timestamp = new Date().toISOString();
+        }
+
+        if (message.sender !== this.sender) {
+          this.messages.push(message);
+        }
         this.scrollToBottom();
       });
     });
@@ -112,6 +119,6 @@ export class ChatComponent implements OnInit {
       if (this.messagesContainer) {
         this.messagesContainer.nativeElement.scrollTop = this.messagesContainer.nativeElement.scrollHeight;
       }
-    }, 0);
+    }, 100);
   }
 }

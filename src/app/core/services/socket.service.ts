@@ -8,6 +8,7 @@ interface Message {
   recipient: string;
   sender_username: string;
   recipient_username: string;
+  timestamp?: string;
 }
 
 @Injectable({
