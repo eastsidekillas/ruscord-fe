@@ -1,0 +1,29 @@
+<div class="p-6">
+
+  <h2 class="text-2xl font-semibold mb-2 text-white">Ожидание заявок в друзья</h2>
+  <span class="font-light text-white">Здесь отображаются все заявки, которые вы получили</span>
+
+  <!-- Если есть ожидающие заявки -->
+  <ul *ngIf="pendingRequests.length > 0" class="divide-y divide-gray-600 mt-4">
+    <li *ngFor="let request of pendingRequests" class="flex items-center justify-between p-4 hover:bg-gray-700 rounded-lg transition">
+      <div class="flex items-center space-x-3">
+        <img [src]="request.from_user.avatar || 'avatars/default-avatar.png'" alt="User avatar" class="w-10 h-10 rounded-full" />
+        <span class="text-lg font-medium text-white">{{ request.from_user.username }}</span>
+      </div>
+      <div class="flex space-x-4">
+        <button (click)="acceptRequest(request.from_user.id)" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
+          Принять
+        </button>
+        <button (click)="rejectRequest(request.from_user.id)" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+          Отклонить
+        </button>
+      </div>
+    </li>
+  </ul>
+
+  <!-- Сообщение, если нет заявок -->
+  <p *ngIf="pendingRequests.length === 0" class="text-center text-gray-500 mt-4">
+    У вас нет ожидающих заявок
+  </p>
+
+</div>
