@@ -10,7 +10,7 @@
 
     <!-- Footer (Настройки) -->
     <div class="mt-auto p-4 flex items-center space-x-3 border-t border-gray-700" >
-      <img src="{{ profile?.avatar }}" alt="User" class="w-10 h-10 rounded-full" />
+      <img [src]="profile?.avatar || 'avatars/default-avatar.png'" alt="User" class="w-10 h-10 rounded-full" />
       <div (click)="openProfileModal()">
         <p class="text-sm font-medium">{{profile?.username}}</p>
         <p class="text-xs text-gray-400">Неактивен</p>
