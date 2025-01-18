@@ -1,4 +1,4 @@
-import {Component, OnInit, AfterViewInit, ViewChild, ElementRef, AfterViewChecked} from '@angular/core';
+import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { SocketService } from '../../../core/services/socket.service';
 import { ApiService } from '../../../core/services/api.service';
@@ -22,8 +22,15 @@ export class ChatComponent implements OnInit {
   recipientUsername: string = ''; // Имя получателя
   currentUser: any;
 
+  maxMessageLength: number = 2000;
+  messageError: string = '';
+
   callActive: boolean = false;
 
+  // Для уведомлений
+  showNotification: boolean = false;
+  notificationMessage: string = '';
+  notificationType: 'success' | 'error' = 'success';
 
   constructor(
     private route: ActivatedRoute,
@@ -72,15 +79,29 @@ export class ChatComponent implements OnInit {
           message.timestamp = new Date().toISOString();
         }
 
+        // Если сообщение не от текущего пользователя, показываем уведомление
         if (message.sender !== this.sender) {
           this.messages.push(message);
+
+          // Показ уведомления
+          this.showNotification = true;
+          this.notificationMessage = `${message.sender_username} отправил вам сообщение!`;
+          this.notificationType = 'success';
+
+          // Звуковое уведомление (опционально)
+          const audio = new Audio('sounds/goida.mp3');
+          audio.play();
+
+          // Автоматически скрыть уведомление через 5 секунд
+          setTimeout(() => {
+            this.showNotification = false;
+          }, 5000);
         }
+
         this.scrollToBottom();
       });
     });
   }
-
-
 
   loadHistoryMessage() {
     // Запрашиваем историю сообщений для текущего канала
@@ -100,6 +121,13 @@ export class ChatComponent implements OnInit {
 
   sendMessage(): void {
     if (this.messageInput.trim()) {
+      if (this.messageInput.length > this.maxMessageLength) {
+        this.messageError = `Сообщение не может быть длиннее ${this.maxMessageLength} символов.`;  // Устанавливаем ошибку
+        return;
+      }
+
+      this.messageError = '';
+
       this.socketService.sendMessage(this.messageInput, this.recipient);
 
       this.messages.push({

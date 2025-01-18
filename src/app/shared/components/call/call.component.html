@@ -1,8 +1,12 @@
-<div class="call-container grid grid-rows-[auto,1fr,auto] items-center justify-center bg-zinc-700 text-white h-full p-8">
-  <div class="call-header text-lg font-semibold text-center mb-4">
+<div class="grid grid-rows-[auto,1fr,auto] items-center justify-center bg-zinc-700 text-white h-full p-8">
+  <div class="text-lg font-semibold text-center mb-4">
     Вызов...
   </div>
+  <h2 class="mb-4">Ты куда звонишь?! По какому номеру звонишь?</h2>
+  <h2 class="mb-4 text-center">Сынок ёбаный!</h2>
   <div class="call-controls flex items-center justify-center space-x-4">
+
+
     <!-- Микрофон -->
     <button (click)="toggleMic()" class="p-4 bg-gray-600 rounded-full hover:bg-gray-700 transition">
       <svg *ngIf="!micMuted" class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">

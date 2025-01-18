@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
-import {environment} from "../../../environment/environment";
+import { environment } from "../../../environment/environment";
 
 interface Message {
   message: string;
@@ -17,11 +17,13 @@ interface Message {
 export class SocketService {
   private socket!: WebSocket;
   private messageSubject = new Subject<Message>();
+  private unreadMessagesCount: { [key: string]: number } = {};  // Объект для хранения количества непрочитанных сообщений
+  private unreadMessagesCountSubject = new Subject<{ [key: string]: number }>();  // Subject для обновления данных
 
   constructor() {}
 
   private getUserId(): string | null {
-    return localStorage.getItem('user_id');  // Получаем user_id из localStorage
+    return localStorage.getItem('user_id');
   }
 
   connect(uuid: string) {
@@ -46,6 +48,13 @@ export class SocketService {
         sender_username: data.sender_username || '',
         recipient_username: data.recipient_username || '',
       });
+
+      // Если это сообщение от другого пользователя, увеличиваем счетчик непрочитанных сообщений
+      if (data.sender !== this.getUserId()) {
+        this.unreadMessagesCount[data.sender] = (this.unreadMessagesCount[data.sender] || 0) + 1;
+        this.unreadMessagesCountSubject.next(this.unreadMessagesCount);  // Обновляем Subject с новыми данными
+      }
+
       console.log('Received data from WebSocket:', data);
     };
 
@@ -59,11 +68,11 @@ export class SocketService {
   }
 
   sendMessage(message: string, recipient: string) {
-    const sender = this.getUserId();  // Получаем user_id через метод getUserId
+    const sender = this.getUserId();
     if (sender && this.socket.readyState === WebSocket.OPEN) {
       const data: { sender: string; recipient: string; message: string } = {
         message: message,
-        sender: sender,  // Отправляем sender через WebSocket
+        sender: sender,
         recipient: recipient,
       };
       this.socket.send(JSON.stringify(data));
@@ -74,5 +83,18 @@ export class SocketService {
 
   getMessages() {
     return this.messageSubject.asObservable();
+  }
+
+  // Метод для получения количества непрочитанных сообщений
+  getUnreadMessagesCount() {
+    return this.unreadMessagesCountSubject.asObservable();  // Возвращаем Observable с количеством непрочитанных сообщений
+  }
+
+  // Метод для отметки сообщений как прочитанных
+  markAsRead(friendId: string) {
+    if (this.unreadMessagesCount[friendId]) {
+      this.unreadMessagesCount[friendId] = 0;  // Сбрасываем счетчик для этого друга
+    }
+    this.unreadMessagesCountSubject.next(this.unreadMessagesCount);  // Обновляем Subject
   }
 }
