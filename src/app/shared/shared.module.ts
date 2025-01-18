@@ -10,6 +10,7 @@ import { NavigatonSidebarServersComponent } from './components/navigaton-sidebar
 import { NavigatonSidebarMeComponent } from './components/navigaton-sidebar-me/navigaton-sidebar-me.component';
 import {RouterLink} from "@angular/router";
 import { NavigationProfileModalComponent } from './components/navigation-profile-modal/navigation-profile-modal.component';
+import { CallComponent } from './components/call/call.component';
 
 
 @NgModule({
@@ -19,6 +20,7 @@ import { NavigationProfileModalComponent } from './components/navigation-profile
     NavigatonSidebarServersComponent,
     NavigatonSidebarMeComponent,
     NavigationProfileModalComponent,
+    CallComponent,
   ],
 
   imports: [
@@ -37,7 +39,8 @@ import { NavigationProfileModalComponent } from './components/navigation-profile
     }
   ],
   exports: [
-    NavigatonSidebarComponent
+    NavigatonSidebarComponent,
+    CallComponent
   ],
 })
 export class SharedModule { }
