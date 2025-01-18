@@ -12,6 +12,7 @@
     <input
       [(ngModel)]="username"
       (keyup.enter)="searchFriends()"
+      (input)="onUsernameChange()"
       placeholder="Введите никнейм"
       class="w-full p-3 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
     />
@@ -32,11 +33,14 @@
         <span class="text-lg font-medium text-white">{{ user.username }}</span>
       </div>
       <button
-        (click)="sendFriendRequest(user.id)"
+        *ngIf="!isUserAdded(user.id)"
+        (click)="sendFriendRequest(user.id, user)"
         class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
       >
         Добавить
       </button>
+      <!-- Сообщение, если пользователь уже добавлен -->
+      <span *ngIf="isUserAdded(user.id)" class="text-gray-500 text-sm">Уже добавлен</span>
     </li>
   </ul>
 
@@ -45,6 +49,14 @@
     Пользователи не найдены
   </p>
 
+</div>
+
+<div *ngIf="showNotification" class="fixed top-0 left-1/2 transform -translate-x-1/2 z-50 mt-5 w-96 p-4 rounded-lg"
+     [ngClass]="{
+       'bg-green-500 text-white': notificationType === 'success',
+       'bg-red-500 text-white': notificationType === 'error'
+     }">
+  <p>{{ notificationMessage }}</p>
 </div>
 
 <!-- Рендеринг компонента для 'waiting' -->
