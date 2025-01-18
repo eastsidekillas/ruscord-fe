@@ -22,6 +22,8 @@ export class ChatComponent implements OnInit {
   recipientUsername: string = ''; // Имя получателя
   currentUser: any;
 
+  callActive: boolean = false;
+
 
   constructor(
     private route: ActivatedRoute,
@@ -120,5 +122,13 @@ export class ChatComponent implements OnInit {
         this.messagesContainer.nativeElement.scrollTop = this.messagesContainer.nativeElement.scrollHeight;
       }
     }, 100);
+  }
+
+  startCall(): void {
+    this.callActive = true;
+  }
+
+  endCall(): void {
+    this.callActive = false;
   }
 }
