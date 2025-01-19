@@ -18,10 +18,12 @@
     "@angular/platform-browser": "^18.1.0",
     "@angular/platform-browser-dynamic": "^18.1.0",
     "@angular/router": "^18.1.0",
+    "@ctrl/ngx-emoji-mart": "^9.2.0",
     "flowbite": "^2.5.2",
     "ky": "^1.7.2",
     "ngx-cookie-service": "^18.0.0",
     "rxjs": "~7.8.0",
+    "tailwind-scrollbar": "^3.1.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.14.3"
   },

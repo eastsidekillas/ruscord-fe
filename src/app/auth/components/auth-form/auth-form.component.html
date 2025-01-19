@@ -1,6 +1,6 @@
-<div class="flex flex-col items-center justify-center min-h-screen bg-zinc-900">
+<div class="flex flex-col items-center justify-center min-h-screen bg-main-surface-primary">
 
-  <div class="w-full max-w-md bg-zinc-800 shadow-lg rounded-lg p-8">
+  <div class="w-full max-w-md bg-main-surface-secondary shadow-lg rounded-lg p-8">
     <h2 class="text-2xl font-bold text-center mb-6 text-white">
       {{ isLoginMode ? 'Авторизация' : 'Регистрация' }}
     </h2>
@@ -14,7 +14,7 @@
           id="username"
           formControlName="username"
           type="text"
-          class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-black"
+          class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"
           placeholder="Введите имя пользователя"
         />
         <div *ngIf="authForm.get('username')?.invalid && authForm.get('username')?.touched" class="text-red-500 text-sm">
@@ -29,7 +29,7 @@
           id="email"
           formControlName="email"
           type="email"
-          class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-black"
+          class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"
           placeholder="Введите ваш email"
         />
         <div *ngIf="authForm.get('email')?.invalid && authForm.get('email')?.touched" class="text-red-500 text-sm">
@@ -43,7 +43,7 @@
           id="password"
           formControlName="password"
           type="password"
-          class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-black"
+          class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"
           placeholder="Введите ваш пароль"
           required
         />
@@ -62,7 +62,7 @@
           id="confirmPassword"
           formControlName="confirmPassword"
           type="password"
-          class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-black"
+          class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-black"
           placeholder="Подтвердите ваш пароль"
         />
         <div *ngIf="authForm.get('password')?.hasError('required') && authForm.get('password')?.touched" class="text-red-500 text-sm">
@@ -86,7 +86,7 @@
 
       <button
         type="submit"
-        class="text-white bg-red-600 disabled:bg-gray-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-500 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center transition"
+        class="text-white bg-green-500 disabled:bg-gray-600 hover:bg-gray-600 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center transition"
       >
         {{ isLoginMode ? 'Войти' : 'Зарегистрироваться' }}
       </button>
@@ -94,7 +94,7 @@
 
     <p class="text-sm text-center mt-4 text-white">
       {{ isLoginMode ? 'Нет аккаунта?' : 'Уже есть аккаунт?' }}
-      <a (click)="onSwitchMode()" class="text-red-600 cursor-pointer">
+      <a (click)="onSwitchMode()" class="text-green-500 cursor-pointer">
         {{ isLoginMode ? 'Зарегистрироваться' : 'Войти' }}
       </a>
     </p>

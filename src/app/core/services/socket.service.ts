@@ -41,18 +41,23 @@ export class SocketService {
 
     this.socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      this.messageSubject.next({
-        message: data.message,
-        sender: data.sender,
-        recipient: data.recipient,
-        sender_username: data.sender_username || '',
-        recipient_username: data.recipient_username || '',
-      });
+      const currentUserId = this.getUserId();  // Текущий пользователь
 
-      // Если это сообщение от другого пользователя, увеличиваем счетчик непрочитанных сообщений
-      if (data.sender !== this.getUserId()) {
-        this.unreadMessagesCount[data.sender] = (this.unreadMessagesCount[data.sender] || 0) + 1;
-        this.unreadMessagesCountSubject.next(this.unreadMessagesCount);  // Обновляем Subject с новыми данными
+      // Проверка, что сообщение относится к текущему чату
+      if (data.recipient === currentUserId || data.sender === currentUserId) {
+        this.messageSubject.next({
+          message: data.message,
+          sender: data.sender,
+          recipient: data.recipient,
+          sender_username: data.sender_username || '',
+          recipient_username: data.recipient_username || '',
+        });
+
+        // Если это сообщение от другого пользователя, увеличиваем счетчик непрочитанных сообщений
+        if (data.sender !== currentUserId) {
+          this.unreadMessagesCount[data.sender] = (this.unreadMessagesCount[data.sender] || 0) + 1;
+          this.unreadMessagesCountSubject.next(this.unreadMessagesCount);  // Обновляем Subject с новыми данными
+        }
       }
 
       console.log('Received data from WebSocket:', data);

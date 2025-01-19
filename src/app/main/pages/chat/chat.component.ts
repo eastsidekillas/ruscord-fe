@@ -1,8 +1,9 @@
-import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { SocketService } from '../../../core/services/socket.service';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from "../../../auth/services/auth.service";
+import {EmojiData} from "@ctrl/ngx-emoji-mart/ngx-emoji";
 
 @Component({
   selector: 'app-chat',
@@ -14,6 +15,14 @@ export class ChatComponent implements OnInit {
 
   messages: any[] = [];
   messageInput: string = '';
+  isEmojiPickerVisible: boolean = false;
+  ruEmojiinterface = {
+    search: 'Поиск',
+    categories: {
+      search: 'Результаты поиска',
+      recent: 'Недавние'
+    }
+  }
   friend: { username: string; avatar: string } | null = null; // Информация о друге
   uuid: string = ''; // UUID канала чата
   sender: string = ''; // ID текущего пользователя
@@ -74,31 +83,28 @@ export class ChatComponent implements OnInit {
 
       // Получаем сообщения в чате через WebSocket
       this.socketService.getMessages().subscribe(message => {
+        if (message.recipient === this.sender || message.sender === this.sender) {
+          // Это сообщение для текущего чата, показываем его
+          if (message.sender !== this.sender) {
+            this.messages.push(message);
 
-        if (!message.timestamp) {
-          message.timestamp = new Date().toISOString();
+            // Показ уведомления
+            this.showNotification = true;
+            this.notificationMessage = `${message.sender_username} отправил вам сообщение!`;
+            this.notificationType = 'success';
+
+            // Звуковое уведомление (опционально)
+            const audio = new Audio('sounds/goida.mp3');
+            audio.play();
+
+            // Автоматически скрыть уведомление через 5 секунд
+            setTimeout(() => {
+              this.showNotification = false;
+            }, 5000);
+          }
+
+          this.scrollToBottom();
         }
-
-        // Если сообщение не от текущего пользователя, показываем уведомление
-        if (message.sender !== this.sender) {
-          this.messages.push(message);
-
-          // Показ уведомления
-          this.showNotification = true;
-          this.notificationMessage = `${message.sender_username} отправил вам сообщение!`;
-          this.notificationType = 'success';
-
-          // Звуковое уведомление (опционально)
-          const audio = new Audio('sounds/goida.mp3');
-          audio.play();
-
-          // Автоматически скрыть уведомление через 5 секунд
-          setTimeout(() => {
-            this.showNotification = false;
-          }, 5000);
-        }
-
-        this.scrollToBottom();
       });
     });
   }
@@ -144,6 +150,7 @@ export class ChatComponent implements OnInit {
     }
   }
 
+
   private scrollToBottom(): void {
     setTimeout(() => {
       if (this.messagesContainer) {
@@ -151,6 +158,21 @@ export class ChatComponent implements OnInit {
       }
     }, 100);
   }
+
+  // Toggle the visibility of the emoji picker
+  toggleEmojiPicker() {
+    this.isEmojiPickerVisible = !this.isEmojiPickerVisible;
+  }
+
+  // Handle emoji click and append to input field
+  addEmoji(event: { emoji: EmojiData }) {
+    console.log(event)
+    if (event.emoji && event.emoji.native) {
+      this.messageInput += event.emoji.native; // Append emoji to the input field
+    }
+    this.isEmojiPickerVisible = false; // Close emoji picker after selection
+  }
+
 
   startCall(): void {
     this.callActive = true;
