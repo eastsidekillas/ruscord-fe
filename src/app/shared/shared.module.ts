@@ -8,9 +8,10 @@ import {HTTP_INTERCEPTORS} from "@angular/common/http";
 import {CsrfInterceptor} from "../auth/interceptors/csrf.interceptor";
 import { NavigatonSidebarServersComponent } from './components/navigaton-sidebar-servers/navigaton-sidebar-servers.component';
 import { NavigatonSidebarMeComponent } from './components/navigaton-sidebar-me/navigaton-sidebar-me.component';
-import {RouterLink} from "@angular/router";
+import {RouterLink, RouterOutlet} from "@angular/router";
 import { NavigationProfileModalComponent } from './components/navigation-profile-modal/navigation-profile-modal.component';
 import { CallComponent } from './components/call/call.component';
+import { DarkLayoutComponent } from './layouts/dark-layout/dark-layout.component';
 
 
 @NgModule({
@@ -21,6 +22,7 @@ import { CallComponent } from './components/call/call.component';
     NavigatonSidebarMeComponent,
     NavigationProfileModalComponent,
     CallComponent,
+    DarkLayoutComponent,
   ],
 
   imports: [
@@ -28,6 +30,7 @@ import { CallComponent } from './components/call/call.component';
     FormsModule,
     ReactiveFormsModule,
     RouterLink,
+    RouterOutlet,
 
   ],
   providers: [
@@ -38,9 +41,10 @@ import { CallComponent } from './components/call/call.component';
       multi: true
     }
   ],
-  exports: [
-    NavigatonSidebarComponent,
-    CallComponent
-  ],
+    exports: [
+        NavigatonSidebarComponent,
+        CallComponent,
+        NavigatonSidebarServersComponent
+    ],
 })
 export class SharedModule { }

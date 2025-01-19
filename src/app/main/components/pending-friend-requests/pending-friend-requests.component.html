@@ -1,29 +1,45 @@
-<div class="p-6">
+ <div class="flex flex-col space-y-2 px-6 pt-6">
+    <h2 class="text-xl font-semibold text-typo-secondary">Ожидание заявок в друзья</h2>
+      <span class="text-sm text-typo-secondary">Здесь отображаются все заявки, которые вы получили</span>
+  </div>
 
-  <h2 class="text-2xl font-semibold mb-2 text-white">Ожидание заявок в друзья</h2>
-  <span class="font-light text-white">Здесь отображаются все заявки, которые вы получили</span>
 
-  <!-- Если есть ожидающие заявки -->
-  <ul *ngIf="pendingRequests.length > 0" class="divide-y divide-gray-600 mt-4">
-    <li *ngFor="let request of pendingRequests" class="flex items-center justify-between p-4 hover:bg-gray-700 rounded-lg transition">
-      <div class="flex items-center space-x-3">
-        <img [src]="request.from_user.avatar || 'avatars/default-avatar.png'" alt="User avatar" class="w-10 h-10 rounded-full" />
-        <span class="text-lg font-medium text-white">{{ request.from_user.username }}</span>
+
+  <div class="overflow-y-auto space-y-3 px-6 p-6">
+    <div class="flex items-center space-x-3 py-3 px-3 justify-between rounded-md bg-main-surface-secondary"
+         *ngFor="let request of pendingRequests">
+
+      <div class="flex items-center space-x-3"
+           *ngIf="pendingRequests.length > 0">
+
+        <img class="w-10 h-10 rounded-full"
+             [src]="request.from_user.avatar || 'avatars/default-avatar.png'"
+             alt="{{ request.from_user.username }}">
+
+
+        <span class="text-sm text-gray-300">{{ request.from_user.username }}</span>
       </div>
+
+
       <div class="flex space-x-4">
-        <button (click)="acceptRequest(request.from_user.id)" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
+
+        <button (click)="acceptRequest(request.from_user.id)" class="text-sm text-white p-3 py-3 rounded-2xl bg-green-500 transition duration-300">
           Принять
         </button>
-        <button (click)="rejectRequest(request.from_user.id)" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+
+        <button (click)="rejectRequest(request.from_user.id)" class="text-sm text-white p-3 py-3 rounded-2xl bg-red-500 transition duration-300">
           Отклонить
         </button>
+
       </div>
-    </li>
-  </ul>
+
+
+    </div>
+  </div>
+
 
   <!-- Сообщение, если нет заявок -->
-  <p *ngIf="pendingRequests.length === 0" class="text-center text-gray-500 mt-4">
+  <p *ngIf="pendingRequests.length === 0" class="text-center text-typo-secondary mt-4">
     У вас нет ожидающих заявок
   </p>
 
-</div>

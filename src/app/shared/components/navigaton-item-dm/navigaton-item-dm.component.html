@@ -1,16 +1,1 @@
-<li class="flex items-center p-2 rounded-md hover:bg-gray-700 transition cursor-pointer"
-    *ngFor="let friend of friends"
-    (click)="openChat(friend.id)">
-  <img class="w-8 h-8 rounded-full mr-3"
-       [src]="friend.avatar || 'avatars/default-avatar.png'"
-       alt="{{ friend.username }}"/>
 
-  <div class="flex-grow">
-    <span class="block font-medium text-gray-300">{{ friend.username }}</span>
-  </div>
-
-  <!-- Индикатор непрочитанных сообщений -->
-  <span *ngIf="getUnreadCount(friend.id) > 0" class="top-0 right-0 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white text-xs">
-    {{ getUnreadCount(friend.id) }}
-  </span>
-</li>

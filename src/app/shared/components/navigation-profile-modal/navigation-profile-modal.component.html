@@ -4,7 +4,7 @@
 
     <!-- Выбор нового аватара -->
     <div class="flex flex-col items-center mb-4">
-      <img [src]="user?.avatar || 'avatars/default-avatar.png'" alt="User Avatar" class="w-16 h-16 rounded-full mb-2" />
+      <img [src]="user?.avatar || 'avatars/dark-layout-avatar.png'" alt="User Avatar" class="w-16 h-16 rounded-full mb-2" />
       <label class="text-sm text-blue-500 cursor-pointer">
         Изменить аватар
         <input type="file" accept="image/*" (change)="onAvatarChange($event)" hidden />

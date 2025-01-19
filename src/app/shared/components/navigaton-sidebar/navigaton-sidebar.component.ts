@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from "../../../core/services/api.service";
-import { AuthService } from "../../../auth/services/auth.service";
+import {Router} from "@angular/router";
+import {SocketService} from "../../../core/services/socket.service";
 
 @Component({
   selector: 'app-navigaton-sidebar',
@@ -8,93 +9,68 @@ import { AuthService } from "../../../auth/services/auth.service";
   styleUrls: ['./navigaton-sidebar.component.css']
 })
 export class NavigatonSidebarComponent implements OnInit {
-  profile: any;
-  originalProfile: any; // Для хранения исходных данных профиля
-  isProfileModalVisible: boolean = false;
+  friends: any[] = [];
+  currentUser: any; // Текущий пользователь
+  isLoading: boolean = false;
+  unreadMessagesCount: { [key: string]: number } = {};  // Храним количество непрочитанных сообщений для каждого друга
 
-  constructor(private apiService: ApiService, private authService: AuthService) {}
+  constructor(private apiService: ApiService, private router: Router, private socketService: SocketService) {}
 
   ngOnInit(): void {
-    this.apiService.getProfile().subscribe((data: any) => {
-      this.profile = data;
-      this.originalProfile = { ...data }; // Копируем исходные данные для сравнения
-      localStorage.setItem('user_id', data.id);
-    });
-  }
-
-  // Открытие модального окна
-  openProfileModal(): void {
-    this.isProfileModalVisible = true;
-  }
-
-  closeProfileModal() {
-    this.isProfileModalVisible = false;
-  }
-
-  // Метод выхода из аккаунта
-  logout() {
-    this.authService.logout();
-  }
-
-  // Сохранение изменений профиля
-  saveUserProfile(updatedUser: any) {
-    console.log('Обновленные данные профиля:', updatedUser);
-
-    const changes = this.getChangedFields(updatedUser);
-
-    if (Object.keys(changes).length === 0) {
-      console.log('Нет изменений в профиле');
-      return;
-    }
-
-    const formData = new FormData();
-    Object.keys(changes).forEach((key) => {
-      if (key === 'avatar' && changes['avatar'].startsWith('data:image')) {
-        const blob = this.dataURLtoBlob(changes['avatar']);
-        formData.append(key, blob, 'avatar.png');
-      } else {
-        formData.append(key, changes[key]);
-      }
-    });
-
-    this.apiService.updateProfile(formData).subscribe(
-      (response) => {
-        console.log('Профиль обновлен', response);
-        this.profile = { ...this.profile, ...changes }; // Обновляем локальные данные
-        this.isProfileModalVisible = false; // Закрываем модальное окно
+    // Получаем информацию о текущем пользователе
+    this.apiService.getProfile().subscribe({
+      next: (user) => {
+        this.currentUser = user;
+        this.loadFriends();
       },
-      (error) => {
-        console.error('Ошибка при обновлении профиля', error);
-      }
-    );
-  }
-
-
-  dataURLtoBlob(dataURL: string): Blob {
-    const byteString = atob(dataURL.split(',')[1]);
-    const mimeString = dataURL.split(',')[0].split(':')[1].split(';')[0];
-    const arrayBuffer = new ArrayBuffer(byteString.length);
-    const uintArray = new Uint8Array(arrayBuffer);
-
-    for (let i = 0; i < byteString.length; i++) {
-      uintArray[i] = byteString.charCodeAt(i);
-    }
-
-    return new Blob([arrayBuffer], { type: mimeString });
-  }
-
-
-  // Метод для получения только измененных полей
-  getChangedFields(updatedUser: any): { [key: string]: any } {
-    const changes: { [key: string]: any } = {}; // Указываем тип объекта
-
-    // Проверяем, какие поля изменены
-    Object.keys(updatedUser).forEach((key) => {
-      if (updatedUser[key] !== this.originalProfile[key]) {
-        changes[key] = updatedUser[key]; // Добавляем только измененные поля
-      }
+      error: (err) => {
+        console.error('Ошибка получения профиля:', err);
+      },
     });
 
-    return changes;
+    // Подписываемся на количество непрочитанных сообщений
+    this.socketService.getUnreadMessagesCount().subscribe((unreadCount: { [key: string]: number; }) => {
+      this.unreadMessagesCount = unreadCount;  // Обновляем объект с количеством непрочитанных сообщений
+    });
+  }
+
+  loadFriends(): void {
+    // Запрашиваем список только принятых друзей
+    this.apiService.getMyFriends().subscribe({
+      next: (friends) => {
+        this.friends = friends;
+      },
+      error: (err) => {
+        console.error('Ошибка получения списка друзей:', err);
+      },
+    });
+  }
+
+  openChat(recipientId: number): void {
+    this.isLoading = true;
+
+    this.apiService.createOrGetChannel(recipientId).subscribe({
+      next: (channel) => {
+        this.isLoading = false;
+        if (channel?.uuid) {
+          // Переход с uuid в пути маршрута
+          this.router.navigate([`channels/me/${channel.uuid}`]);
+        } else {
+          console.error('Ошибка: Канал не содержит UUID.');
+        }
+
+        // Отметим сообщения как прочитанные для этого друга
+        this.socketService.markAsRead(recipientId.toString());
+      },
+      error: (err) => {
+        this.isLoading = false;
+        console.error('Ошибка открытия канала:', err);
+      },
+    });
+  }
+
+  // Проверка на непрочитанные сообщения для конкретного друга
+  getUnreadCount(friendId: string): number {
+    return this.unreadMessagesCount[friendId] || 0;  // Возвращаем количество непрочитанных сообщений для конкретного друга
   }
 }

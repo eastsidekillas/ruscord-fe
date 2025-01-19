@@ -1,24 +1,24 @@
-<div class="flex items-center justify-between p-4 bg-zinc-700 text-white shadow-md">
+<div class="h-16 flex items-center justify-between px-6 shadow-xl">
   <!-- Header для друзей -->
   <ng-container *ngIf="context === 'friends'">
-    <div class="flex space-x-4">
+    <div class="flex items-center space-x-4 ">
       <button
-        class="px-4 py-2 rounded-lg transition duration-300"
-        [ngClass]="activeFilter === 'all' ? 'bg-red-600 text-white' : 'bg-gray-600 hover:bg-red-500'"
+        class="text-sm px-4 py-2 rounded-lg transition duration-300"
+        [ngClass]="activeFilter === 'all' ? 'bg-green-500 text-white' : 'bg-main-surface-secondary hover:bg-green-500'"
         (click)="changeFilter('all')"
       >
         Все
       </button>
       <button
-        class="px-4 py-2 rounded-lg transition duration-300"
-        [ngClass]="activeFilter === 'online' ? 'bg-red-600 text-white' : 'bg-gray-600 hover:bg-red-500'"
+        class="text-sm px-4 py-2 rounded-lg transition duration-300"
+        [ngClass]="activeFilter === 'online' ? 'bg-green-500 text-white' : 'bg-main-surface-secondary hover:bg-green-500'"
         (click)="changeFilter('online')"
       >
         В сети
       </button>
       <button
-        class="px-4 py-2 rounded-lg transition duration-300"
-        [ngClass]="activeFilter === 'waiting' ? 'bg-red-600 text-white' : 'bg-gray-600 hover:bg-red-500'"
+        class="text-sm px-4 py-2 rounded-lg transition duration-300"
+        [ngClass]="activeFilter === 'waiting' ? 'bg-green-500 text-white' : 'bg-main-surface-secondary hover:bg-green-500'"
         (click)="changeFilter('waiting')"
       >
         Ожидание
@@ -29,23 +29,28 @@
   <!-- Header для чата -->
   <ng-container *ngIf="context === 'chat' && friend">
     <!-- Информация о друге -->
-    <div class="flex items-center space-x-4">
-      <img [src]="friend.avatar || 'avatars/default-avatar.png'" alt="Avatar" class="w-10 h-10 rounded-full border border-gray-500">
-      <span class="font-semibold text-lg">{{ friend.username }}</span>
+    <div class="flex items-center space-x-3">
+      <img [src]="friend.avatar || 'avatars/default-avatar.png'" alt="{{ friend.username }}" class="w-10 h-10 rounded-full bg-gray-600">
+      <h3 class="text-lg font-semibold text-gray-300">{{ friend.username }}</h3>
     </div>
 
     <!-- Кнопки действий -->
-    <div class="flex space-x-2">
-      <button (click)="onStartCall()" class="p-2 rounded-full hover:bg-gray-600 transition">
-        <svg class="w-6 h-6 text-white hover:text-red-500" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M7.978 4a2.553 2.553 0 0 0-1.926.877C4.233 6.7 3.699 8.751 4.153 10.814c.44 1.995 1.778 3.893 3.456 5.572 1.68 1.679 3.577 3.018 5.57 3.459 2.062.456 4.115-.073 5.94-1.885a2.556 2.556 0 0 0 .001-3.861l-1.21-1.21a2.689 2.689 0 0 0-3.802 0l-.617.618a.806.806 0 0 1-1.14 0l-1.854-1.855a.807.807 0 0 1 0-1.14l.618-.62a2.692 2.692 0 0 0 0-3.803l-1.21-1.211A2.555 2.555 0 0 0 7.978 4Z"/>
+    <div class="flex space-x-4">
+      <button (click)="onStartCall()" class="w-8 h-8 flex items-center justify-center text-white">
+        <svg class="w-5 h-5 hover:text-green-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M6.97825 3.99999c-.3729 0-.74128.08169-1.07926.23933-.32394.1511-.61243.36846-.84696.63787-1.81892 1.82189-2.35302 3.87423-1.89899 5.93671.43916 1.9949 1.77747 3.8929 3.45642 5.572 1.67897 1.6791 3.57614 3.0176 5.57034 3.4591 2.0612.4563 4.1141-.0726 5.9396-1.8853.2705-.2348.4888-.524.6405-.8489.1581-.3387.2401-.7081.2401-1.0819 0-.3739-.082-.7432-.2401-1.0819-.1516-.3247-.3696-.6137-.6398-.8483l-1.2098-1.2106c-.5043-.5041-1.1879-.7872-1.9007-.7872-.7128 0-1.3968.2835-1.9011.7876l-.6178.6181c-.1512.1513-.3563.2363-.5701.2363-.2138 0-.4189-.085-.5701-.2363l-1.85336-1.8545c-.15117-.1513-.23609-.3565-.23609-.5704 0-.214.08493-.4192.23613-.5705l.61812-.61851c.5037-.50461.7867-1.18868.7867-1.90191s-.2833-1.39767-.7871-1.90228L8.90499 4.8778c-.23462-.26969-.5233-.48727-.84749-.63848-.33798-.15764-.70636-.23933-1.07925-.23933Z" />
+          <path fill-rule="evenodd" d="M14.9925 3.99996c0-.55228.4477-.99999 1-.99999l3.03.00002c.5523 0 1 .44772 1 1v2.98135c0 .55228-.4478 1-1 1-.5523 0-1-.44772-1-1v-.58113l-3.3184 3.29112c-.3921.38887-1.0253.38627-1.4142-.00583-.3889-.39213-.3863-1.02529.0059-1.4142l3.2983-3.27133h-.6016c-.5523 0-1-.44772-1-1.00001Z" clip-rule="evenodd" />
         </svg>
       </button>
-      <button class="p-2 rounded-full hover:bg-gray-600 transition">
-        <svg class="w-6 h-6 text-white hover:text-red-500" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-          <path fill-rule="evenodd" d="M14 7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7Zm2 9.387 4.684 1.562A1 1 0 0 0 22 17V7a1 1 0 0 0-1.316-.949L16 7.613v8.774Z" clip-rule="evenodd"/>
+
+      <button class="w-8 h-8 flex items-center justify-center text-white">
+        <svg class="w-5 h-5 hover:text-green-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+          <path fill-rule="evenodd" d="M14 7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7Zm2 9.387 4.684 1.562A1 1 0 0 0 22 17V7a1 1 0 0 0-1.316-.949L16 7.613v8.774Z" clip-rule="evenodd" />
         </svg>
       </button>
     </div>
   </ng-container>
+
 </div>
+
+

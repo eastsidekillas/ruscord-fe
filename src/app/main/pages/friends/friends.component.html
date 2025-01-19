@@ -1,0 +1,71 @@
+
+
+<app-header context="friends" (filterChanged)="onFilterChanged($event)"></app-header>
+
+
+
+<!-- Показать контент, если фильтр 'all' -->
+<div *ngIf="filter === 'all'">
+
+  <div class="flex flex-col space-y-2 px-6 pt-6">
+      <h2 class="text-xl font-semibold text-typo-secondary">Добавить в друзья</h2>
+      <span class="text-sm text-typo-secondary">Вы можете добавить друга по имени пользователя</span>
+    </div>
+
+  <!-- Поле ввода и кнопка поиска -->
+  <div class="h-24 flex items-center px-6 relative">
+    <input
+      [(ngModel)]="username"
+      (keyup.enter)="searchFriends()"
+      (input)="onUsernameChange()"
+      placeholder="Введите никнейм"
+      class="w-full p-3 bg-main-surface-secondary text-sm text-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+    />
+
+    <div class="absolute right-10 flex space-x-4">
+      <svg class="w-5 h-5 text-typo-secondary" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+        <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="m21 21-3.5-3.5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"/>
+      </svg>
+    </div>
+  </div>
+
+
+  <!-- Список найденных пользователей -->
+  <div class="overflow-y-auto space-y-3 px-6 mb-4" >
+
+    <div class="flex items-center space-x-3 py-3 px-3 justify-between rounded-md bg-main-surface-secondary"
+         *ngFor="let user of foundUsers">
+
+      <div class="flex items-center space-x-3" *ngIf="foundUsers.length > 0">
+        <img class="w-10 h-10"
+             [src]="user.avatar || 'avatars/default-avatar.png'"
+              alt="{{ user.username }}">
+        <span class="text-sm text-gray-300">{{ user.username }}</span>
+      </div>
+
+      <button class="text-sm text-white p-3 py-3 rounded-2xl bg-green-500 transition duration-300"
+              *ngIf="!isUserAdded(user.id)"
+              (click)="sendFriendRequest(user.id, user)">
+        Добавить
+      </button>
+
+      <span *ngIf="isUserAdded(user.id)" class="text-typo-secondary text-sm">Уже добавлен</span>
+    </div>
+
+    <p *ngIf="foundUsers.length === 0 && username" class="text-center text-typo-secondary mt-4">
+      Пользователи не найдены
+    </p>
+  </div>
+
+
+</div>
+
+<div *ngIf="showNotification" class="fixed top-0 left-1/2 transform -translate-x-1/2 z-50 mt-5 w-96 p-4 rounded-lg"
+     [ngClass]="{'bg-green-500 text-white': notificationType === 'success', 'bg-red-500 text-white': notificationType === 'error'}">
+  <p>{{ notificationMessage }}</p>
+</div>
+
+<!-- Рендеринг компонента для 'waiting' -->
+<div *ngIf="filter === 'waiting'">
+  <app-pending-friend-requests></app-pending-friend-requests>
+</div>

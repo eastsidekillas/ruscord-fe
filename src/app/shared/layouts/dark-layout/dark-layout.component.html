@@ -1,0 +1,21 @@
+<div class="flex flex-col lg:flex-row h-screen">
+
+  <app-navigaton-sidebar-servers
+    class="w-full lg:w-20 bg-sidebar-surface-primary flex lg:flex-col max-sm:hidden items-center py-4 lg:py-6">
+
+  </app-navigaton-sidebar-servers>
+
+
+
+  <app-navigaton-sidebar
+    class="flex flex-col lg:w-64 bg-sidebar-surface-primary">
+
+  </app-navigaton-sidebar>
+
+
+  <div class="flex-1 flex flex-col bg-main-surface-primary">
+    <router-outlet></router-outlet>
+  </div>
+
+
+</div>

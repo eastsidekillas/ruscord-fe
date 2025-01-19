@@ -1,0 +1,66 @@
+<div class="flex flex-col h-screen">
+
+  <!-- Полоса заголовка или статуса -->
+  <ng-container *ngIf="!callActive">
+    <app-header
+      context="chat"
+      [friend]="friend"
+      (startCall)="startCall()"
+    ></app-header>
+  </ng-container>
+
+  <div *ngIf="callActive" class="items-center justify-center z-10">
+    <app-call (callEnded)="endCall()"></app-call>
+  </div>
+
+  <!-- Область сообщений -->
+  <div class="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-green-500 scrollbar-track-main-surface-secondary" #messagesContainer>
+    <div
+      class="flex items-start space-x-3 px-2"
+      *ngFor="let msg of messages"
+    >
+      <img
+        src="{{ msg.sender_avatar || 'avatars/dark-layout-avatar.png' }}"
+        alt="Avatar"
+        class="w-10 h-10 rounded-full bg-main-surface-secondary"
+      />
+      <div>
+        <div class="flex items-center space-x-2">
+          <div class="text-sm font-medium text-gray-300">{{ msg.sender_username }}</div>
+          <div class="text-xs text-gray-500">{{ msg.timestamp | date: 'short' }}</div>
+        </div>
+        <div class="text-sm text-gray-400">{{ msg.message || msg.text }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Поле ввода -->
+  <div class="h-24 flex items-center px-4 relative">
+    <input
+      class="flex-1 bg-main-surface-secondary text-sm text-gray-200 py-4 pl-4 pr-16 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 border-none"
+      type="text"
+      placeholder="Напишите сообщение..."
+      [(ngModel)]="messageInput"
+      (keyup.enter)="sendMessage()"
+    />
+    <div class="absolute right-8 flex space-x-4">
+
+      <div class="relative">
+      <svg (click)="toggleEmojiPicker()" class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+        <path fill-rule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm5.495.93A.5.5 0 0 0 6.5 13c0 1.19.644 2.438 1.618 3.375C9.099 17.319 10.469 18 12 18c1.531 0 2.9-.681 3.882-1.625.974-.937 1.618-2.184 1.618-3.375a.5.5 0 0 0-.995-.07.764.764 0 0 1-.156.096c-.214.106-.554.208-1.006.295-.896.173-2.111.262-3.343.262-1.232 0-2.447-.09-3.343-.262-.452-.087-.792-.19-1.005-.295a.762.762 0 0 1-.157-.096ZM8.99 8a1 1 0 0 0 0 2H9a1 1 0 1 0 0-2h-.01Zm6 0a1 1 0 1 0 0 2H15a1 1 0 1 0 0-2h-.01Z" clip-rule="evenodd"/>
+      </svg>
+
+      <emoji-mart
+        [i18n]="ruEmojiinterface"
+        *ngIf="isEmojiPickerVisible"
+        (emojiClick)="addEmoji($event)"
+        [style]="{ position: 'absolute', bottom: '100%', right: '2rem', zIndex: 10 }"
+      ></emoji-mart>
+      </div>
+      <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+        <path fill-rule="evenodd" d="M12 3a1 1 0 0 1 .78.375l4 5a1 1 0 1 1-1.56 1.25L13 6.85V14a1 1 0 1 1-2 0V6.85L8.78 9.626a1 1 0 1 1-1.56-1.25l4-5A1 1 0 0 1 12 3ZM9 14v-1H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-4v1a3 3 0 1 1-6 0Zm8 2a1 1 0 1 0 0 2h.01a1 1 0 1 0 0-2H17Z" clip-rule="evenodd"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
