@@ -2,11 +2,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import '@ctrl/ngx-emoji-mart/picker';
 
-
-/* Для всей страницы */
-html {
-  scrollbar-width: thin; /* Для Firefox */
+input, textarea {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
 }
+
+
 
 /* Для других браузеров */
 ::-webkit-scrollbar {

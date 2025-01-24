@@ -20,7 +20,7 @@
       *ngFor="let msg of messages"
     >
       <img
-        src="{{ msg.sender_avatar || 'avatars/dark-layout-avatar.png' }}"
+        src="{{ msg.sender_avatar || 'avatars/default-avatar.png' }}"
         alt="Avatar"
         class="w-10 h-10 rounded-full bg-main-surface-secondary"
       />
@@ -35,14 +35,29 @@
   </div>
 
   <!-- Поле ввода -->
-  <div class="h-24 flex items-center px-4 relative">
+  <div class="h-28 flex items-center px-4 relative">
     <input
       class="flex-1 bg-main-surface-secondary text-sm text-gray-200 py-4 pl-4 pr-16 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 border-none"
       type="text"
       placeholder="Напишите сообщение..."
+      [disabled]="currentTime - lastMessageTimestamp < messageCooldown"
       [(ngModel)]="messageInput"
       (keyup.enter)="sendMessage()"
     />
+
+    <!-- Блок с ошибками или временем -->
+    <div class="absolute bottom-0 right-4 w-full">
+      <!-- Ошибка -->
+      <div *ngIf="messageError" class="text-sm text-red-500 mt-3 mb-1 text-right">
+        {{ messageError }}
+      </div>
+
+      <!-- Время ожидания -->
+      <div *ngIf="currentTime - lastMessageTimestamp < messageCooldown" class="text-sm text-gray-400 mt-1 mb-2 text-right">
+        Подождите {{ ((messageCooldown - (currentTime - lastMessageTimestamp)) / 1000).toFixed(1) }} секунд...
+      </div>
+    </div>
+
     <div class="absolute right-8 flex space-x-4">
 
       <div class="relative">
@@ -51,7 +66,8 @@
       </svg>
 
       <emoji-mart
-        [i18n]="ruEmojiinterface"
+        [i18n]="ruEmojiInterface"
+        set="apple"
         *ngIf="isEmojiPickerVisible"
         (emojiClick)="addEmoji($event)"
         [style]="{ position: 'absolute', bottom: '100%', right: '2rem', zIndex: 10 }"

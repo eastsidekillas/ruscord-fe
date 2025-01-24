@@ -5,6 +5,7 @@ import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from "../../../auth/services/auth.service";
 import {EmojiData} from "@ctrl/ngx-emoji-mart/ngx-emoji";
 
+
 @Component({
   selector: 'app-chat',
   templateUrl: './chat.component.html',
@@ -16,12 +17,32 @@ export class ChatComponent implements OnInit {
   messages: any[] = [];
   messageInput: string = '';
   isEmojiPickerVisible: boolean = false;
-  ruEmojiinterface = {
+  ruEmojiInterface = {
     search: 'Поиск',
+    emojilist: 'Список эмодзи',
+    notfound: 'Эмодзи не найдено',
+    clear: 'Очистить',
     categories: {
       search: 'Результаты поиска',
-      recent: 'Недавние'
-    }
+      recent: 'Недавние',
+      people: 'Смайлики и люди',
+      nature: 'Животные и природа',
+      foods: 'Еда и напитки',
+      activity: 'Активность',
+      places: 'Путешествия и места',
+      objects: 'Объекты',
+      symbols: 'Символы',
+      flags: 'Флаги',
+      custom: 'Свои',
+    },
+    skintones: {
+      1: 'Тон по умолчанию',
+      2: 'Светлый тон',
+      3: 'Средне-светлый тон',
+      4: 'Средний тон',
+      5: 'Средне-темный тон',
+      6: 'Темный тон',
+    },
   }
   friend: { username: string; avatar: string } | null = null; // Информация о друге
   uuid: string = ''; // UUID канала чата
@@ -33,6 +54,11 @@ export class ChatComponent implements OnInit {
 
   maxMessageLength: number = 2000;
   messageError: string = '';
+
+  currentTime: number = Date.now();
+
+  lastMessageTimestamp: number = 0; // Время последнего отправленного сообщения
+  messageCooldown: number = 1000; // Минимальное время между сообщениями в миллисекундах (2 секунды)
 
   callActive: boolean = false;
 
@@ -94,7 +120,7 @@ export class ChatComponent implements OnInit {
             this.notificationType = 'success';
 
             // Звуковое уведомление (опционально)
-            const audio = new Audio('sounds/goida.mp3');
+            const audio = new Audio('sounds/notification.mp3');
             audio.play();
 
             // Автоматически скрыть уведомление через 5 секунд
@@ -107,6 +133,13 @@ export class ChatComponent implements OnInit {
         }
       });
     });
+
+    this.updateCurrentTime();
+    setInterval(() => this.updateCurrentTime(), 1000);
+  }
+
+  updateCurrentTime() {
+    this.currentTime = Date.now();
   }
 
   loadHistoryMessage() {
@@ -126,28 +159,46 @@ export class ChatComponent implements OnInit {
   }
 
   sendMessage(): void {
-    if (this.messageInput.trim()) {
-      if (this.messageInput.length > this.maxMessageLength) {
-        this.messageError = `Сообщение не может быть длиннее ${this.maxMessageLength} символов.`;  // Устанавливаем ошибку
-        return;
-      }
+    const now = this.currentTime;
 
-      this.messageError = '';
-
-      this.socketService.sendMessage(this.messageInput, this.recipient);
-
-      this.messages.push({
-        message: this.messageInput,
-        sender: this.sender,
-        recipient: this.recipient,
-        sender_username: this.senderUsername,
-        recipient_username: this.recipientUsername,
-        timestamp: new Date().toISOString(), // Добавляем временную метку
-      });
-
-      this.messageInput = ''; // Очищаем поле ввода
-      this.scrollToBottom();
+    // Проверяем, прошло ли достаточно времени для отправки нового сообщения
+    if (now - this.lastMessageTimestamp < this.messageCooldown) {
+      console.log("Пожалуйста, подождите перед отправкой следующего сообщения.");
+      return;
     }
+
+    // Проверяем длину сообщения
+    if (this.messageInput.trim().length === 0) {
+      this.messageError = 'Сообщение не может быть пустым.';
+      return;
+    }
+
+    if (this.messageInput.length > this.maxMessageLength) {
+      this.messageError = `Сообщение не может быть длиннее ${this.maxMessageLength} символов.`;
+      return;
+    }
+
+    // Очистить ошибку, если все проверки пройдены
+    this.messageError = '';
+
+    // Отправка сообщения через сокет
+    this.socketService.sendMessage(this.messageInput, this.recipient);
+
+    // Добавляем сообщение в локальный список
+    this.messages.push({
+      message: this.messageInput,
+      sender: this.sender,
+      recipient: this.recipient,
+      sender_username: this.senderUsername,
+      recipient_username: this.recipientUsername,
+      timestamp: new Date().toISOString(), // Добавляем временную метку
+    });
+
+    // Обновляем время последнего отправленного сообщения
+    this.lastMessageTimestamp = now;
+
+    // Очищаем поле ввода
+    this.messageInput = '';
   }
 
 
@@ -159,18 +210,17 @@ export class ChatComponent implements OnInit {
     }, 100);
   }
 
-  // Toggle the visibility of the emoji picker
+
   toggleEmojiPicker() {
     this.isEmojiPickerVisible = !this.isEmojiPickerVisible;
   }
 
-  // Handle emoji click and append to input field
   addEmoji(event: { emoji: EmojiData }) {
     console.log(event)
     if (event.emoji && event.emoji.native) {
-      this.messageInput += event.emoji.native; // Append emoji to the input field
+      this.messageInput += event.emoji.native;
     }
-    this.isEmojiPickerVisible = false; // Close emoji picker after selection
+    this.isEmojiPickerVisible = false;
   }
 
 
@@ -181,4 +231,6 @@ export class ChatComponent implements OnInit {
   endCall(): void {
     this.callActive = false;
   }
+
+
 }
