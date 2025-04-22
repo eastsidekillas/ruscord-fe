@@ -1,0 +1,87 @@
+import {Component, OnInit, OnDestroy, Input} from '@angular/core';
+import { SidebarItem } from './sidebar-item';
+import {RouterLink, ActivatedRoute, Router} from '@angular/router';
+import { ApiService } from '@shared/api/api.service';
+import { Subject } from 'rxjs';
+import { CommonModule } from '@angular/common';
+import {SidebarHeader} from '@widgets/sidebar/ui/sidebar-header';
+import {ServerChannelsItems} from '@widgets/sidebar/ui/server-sidebar/server-channels-items';
+import {ModalService} from '@shared/model/modal.service';
+
+interface Channel {
+  id: string;
+  name: string;
+  channel_type: 'TEXT' | 'AUDIO';
+}
+
+@Component({
+  selector: 'Sidebar',
+  standalone: true,
+  imports: [CommonModule, RouterLink, SidebarItem, SidebarHeader, ServerChannelsItems],
+  template: `
+    <div class="flex flex-col h-full">
+      <SidebarHeader
+        [serverName]="serverName"
+        [isServerRoute]="isServerRoute"
+        (menuAction)="handleMenuAction($event)"
+      />
+
+
+      <ng-container *ngIf="!isServerRoute" >
+        <div class="overflow-y-auto space-y-3 mb-4 px-4">
+          <a [routerLink]="['/channels/me']"
+             class="flex items-center space-x-3 py-3 px-3 rounded-md bg-main-surface-secondary hover:bg-green-500">
+            <svg class="w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
+                 viewBox="0 0 24 24">
+              <path fill-rule="evenodd"
+                    d="M12 6a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm-1.5 8a4 4 0 0 0-4 4 2 2 0 0 0 2 2h7a2 2 0 0 0 2-2 4 4 0 0 0-4-4h-3Zm6.82-3.096a5.51 5.51 0 0 0-2.797-6.293 3.5 3.5 0 1 1 2.796 6.292ZM19.5 18h.5a2 2 0 0 0 2-2 4 4 0 0 0-4-4h-1.1a5.503 5.503 0 0 1-.471.762A5.998 5.998 0 0 1 19.5 18ZM4 7.5a3.5 3.5 0 0 1 5.477-2.889 5.5 5.5 0 0 0-2.796 6.293A3.501 3.501 0 0 1 4 7.5ZM7.1 12H6a4 4 0 0 0-4 4 2 2 0 0 0 2 2h.5a5.998 5.998 0 0 1 3.071-5.238A5.505 5.505 0 0 1 7.1 12Z"
+                    clip-rule="evenodd"/>
+            </svg>
+            <span class="text-sm text-gray-300">Друзья</span>
+          </a>
+        </div>
+        <div class="flex-1 overflow-y-auto space-y-3 px-4">
+          <h3 class="text-lg font-medium text-typo-secondary mb-4">Личные сообщения</h3>
+          <SidebarItem></SidebarItem>
+        </div>
+      </ng-container>
+
+
+      <ng-container *ngIf="isServerRoute">
+        <ServerChannelsItems [serverId]="serverId"></ServerChannelsItems>
+      </ng-container>
+
+    </div>
+  `,
+})
+export class Sidebar implements OnInit, OnDestroy {
+  @Input() serverId: string | null = null;
+  @Input() isServerRoute: boolean = false ;
+  serverName: string | null = null;
+  private ngUnsubscribe = new Subject<void>();
+
+  constructor(private modalService: ModalService, private router: Router) {}
+
+  ngOnInit(): void {}
+
+  ngOnDestroy(): void {
+    this.ngUnsubscribe.next();
+    this.ngUnsubscribe.complete();
+  }
+
+  handleMenuAction(action: string) {
+    switch (action) {
+      case 'invite':
+        this.modalService.open('invite', { serverId: this.serverId });
+        break;
+      case 'editServer':
+        this.router.navigate(['/servers', this.serverId, 'settings']);
+        break;
+      case 'leaveServer':
+        // логика выхода
+        break;
+    }
+  }
+
+
+}

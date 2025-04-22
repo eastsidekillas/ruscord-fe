@@ -1,0 +1,144 @@
+import {Component, OnDestroy, OnInit, ViewChild} from '@angular/core';
+import {ActivatedRoute} from '@angular/router';
+import {CommonModule} from '@angular/common';
+import {ChatHeader} from '@widgets/chat/ui/chat-header';
+import {ChatMessages} from '@widgets/chat/ui/chat-messages';
+import {MessageInput} from '@features/update-message/ui/message-input';
+import {SocketService} from '@shared/api/socket.service';
+import {ApiService} from '@shared/api/api.service';
+import {Subject, takeUntil} from 'rxjs';
+import {AuthService} from '@shared/api/auth.service';
+
+@Component({
+  selector: 'ChannelPage',
+  standalone: true,
+  imports: [CommonModule, ChatHeader, ChatMessages, MessageInput],
+  template: `
+    <div class="flex flex-col h-screen">
+      <ChatHeader
+        [name]="chatHeaderName || 'Чат'"
+        [type]="channel?.scope === 'DM' ? 'conversation' : 'channel'"
+        [serverId]="serverId"
+        [imageUrl]="otherParticipant?.avatar"
+        [userId]="chatHeaderUserId">
+      </ChatHeader>
+
+
+      <ng-container *ngIf="channel?.channel_type === 'TEXT'">
+        <ChatMessages [messages]="messages" class="flex-1 min-h-0" />
+
+        <MessageInput class="h-28 flex items-center px-4 relative"
+                      [channelId]="channel?.id"
+                      (sendMessage)="onSendMessage($event)"
+        />
+      </ng-container>
+    </div>
+  `,
+})
+export class ChannelPage implements OnInit, OnDestroy {
+  messages: any[] = [];
+  channel: any = null;
+  channelId!: string;
+  serverId!: string;
+  currentUserId: string | null = null;
+  chatHeaderName: string | null = null;
+  otherParticipant: any | null = null;
+  chatHeaderUserId: string | null = null;
+  private socket$!: Subject<any>;
+  private ngUnsubscribe = new Subject<void>();
+  @ViewChild(ChatMessages) chatMessagesComponent!: ChatMessages;
+
+  constructor(
+    private route: ActivatedRoute,
+    private api: ApiService,
+    private auth: AuthService,
+    private socketService: SocketService
+  ) {}
+
+  ngOnInit() {
+    this.channelId = this.route.snapshot.paramMap.get('channelId') || '';
+    this.serverId = this.route.snapshot.paramMap.get('serverId') || ''; // Получите serverId
+    this.loadData();
+    console.log(this.otherParticipant);
+    this.connectWebSocket();
+  }
+
+  ngOnDestroy(): void {
+    this.ngUnsubscribe.next();
+    this.ngUnsubscribe.complete();
+    if (this.socket$) {
+      this.socket$.complete();
+    }
+  }
+
+  connectWebSocket() {
+    this.socket$ = this.socketService.connectToChannel(this.channelId);
+
+    this.socket$.pipe(takeUntil(this.ngUnsubscribe)).subscribe({
+      next: (msg) => {
+        if (msg.sender_id !== this.currentUserId) {
+          this.messages.push({
+            sender_username: msg.sender_username,
+            sender_avatar: msg.sender_avatar,
+            message: msg.message,
+            timestamp: msg.timestamp,
+          });
+        }
+      },
+      error: (err) => console.error('Ошибка веб-сокета:', err),
+      complete: () => console.log('Соединение WebSocket закрыто'),
+    });
+  }
+
+  onSendMessage(text: string) {
+    if (this.socket$) {
+      const message = {
+        message: text,
+      };
+      this.socket$.next(message);
+      this.scrollToBottomMessages();
+    } else {
+      console.error('Соединение WebSocket не установлено.');
+    }
+  }
+
+  async loadData() {
+    try {
+      this.channel = await this.api.getChannel(this.channelId).toPromise();
+      this.currentUserId = this.auth.userId;
+
+      if (this.channel?.scope === 'DM' && this.channel?.participants) {
+        this.otherParticipant = this.channel.participants.find(
+          (participant: any) => participant.id !== this.currentUserId
+        );
+        this.chatHeaderName = this.otherParticipant?.name || 'Direct Message';
+        this.chatHeaderUserId = this.otherParticipant?.user?.id;
+      } else if (this.channel?.scope === 'GROUP') {
+        this.chatHeaderName = this.channel.name;
+        this.chatHeaderUserId = null; // или undefined
+      } else {
+        this.chatHeaderName = this.channel?.name || 'Channel';
+        this.chatHeaderUserId = null;
+      }
+
+
+      this.api.getMessagesChannel(this.channelId).subscribe((messages: any[]) => {
+        this.messages = messages.map((msg) => ({
+          sender_avatar: msg.sender.avatar,
+          sender_username: msg.sender.name,
+          timestamp: msg.created_at,
+          message: msg.content,
+        }));
+      });
+    } catch (error) {
+      console.error('Ошибка при загрузке данных канала:', error);
+    }
+  }
+
+  scrollToBottomMessages() {
+    // Безопасно вызываем метод, если компонент ChatMessages инициализирован
+    if (this.chatMessagesComponent) {
+      this.chatMessagesComponent.scrollToBottom();
+    }
+  }
+}
