@@ -6,6 +6,7 @@ import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import {Subscription} from 'rxjs';
 import {InputComponent} from '@shared/ui/input';
+import {environment} from '../../../environment/environment';
 
 @Component({
   selector: 'InviteServerModal',
@@ -144,7 +145,7 @@ export class InviteServerModal implements OnDestroy {
     this.apiService.postInviteLinkServer(this.serverId!, this.maxUses, this.expiresIn).subscribe({
       next: (response) => {
         // Формируем ссылку с токеном
-        this.inviteUrl = `http://localhost:4200/invite/${response.invite_token}`;
+        this.inviteUrl = `${environment.BASE_URL}/invite/${response.invite_token}`;
         this.errorMessage = '';
       },
       error: (error) => {
