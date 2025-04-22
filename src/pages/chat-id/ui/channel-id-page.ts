@@ -43,6 +43,7 @@ export class ChannelPage implements OnInit, OnDestroy {
   chatHeaderUserId: string | null = null;
   private socket$!: Subject<any>;
   private ngUnsubscribe = new Subject<void>();
+  private notificationSound = new Audio('sounds/dm_notification.mp3');
   @ViewChild(ChatMessages) chatMessagesComponent!: ChatMessages;
 
   constructor(
@@ -73,26 +74,36 @@ export class ChannelPage implements OnInit, OnDestroy {
 
   connectWebSocket() {
     if (this.socket$) {
-      this.socket$.complete();  // Закрываем старое соединение
+      this.socket$.complete(); // Закрываем старое соединение
     }
 
     this.socket$ = this.socketService.connectToChannel(this.channelId);
 
     this.socket$.pipe(takeUntil(this.ngUnsubscribe)).subscribe({
       next: (msg) => {
-        if (msg.sender_id !== this.currentUserId) {
+        const isIncoming = msg.sender_id !== this.currentUserId;
+
+        if (isIncoming) {
           this.messages.push({
             sender_username: msg.sender_username,
             sender_avatar: msg.sender_avatar,
             message: msg.message,
             timestamp: msg.timestamp,
           });
+
+          if (document.hidden) {
+            this.playNotificationSound(); // ⬅️ Только если вкладка не активна
+          }
         }
+
+        this.scrollToBottomMessages();
       },
       error: (err) => console.error('Ошибка веб-сокета:', err),
       complete: () => console.log('Соединение WebSocket закрыто'),
     });
   }
+
+
 
   onSendMessage(text: string) {
     if (this.socket$) {
@@ -144,5 +155,10 @@ export class ChannelPage implements OnInit, OnDestroy {
     if (this.chatMessagesComponent) {
       this.chatMessagesComponent.scrollToBottom();
     }
+  }
+
+  private playNotificationSound() {
+    this.notificationSound.currentTime = 0; // Сброс на начало
+    this.notificationSound.play().catch((e) => console.warn('Ошибка воспроизведения звука:', e));
   }
 }
