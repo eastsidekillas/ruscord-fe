@@ -1,4 +1,12 @@
-import {Component, Input, OnInit} from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  Input,
+  OnChanges,
+  OnInit,
+  SimpleChanges
+} from '@angular/core';
 import {CommonModule, NgIf} from '@angular/common';
 import {ModalService} from '@shared/model/modal.service';
 import {ActivatedRoute} from '@angular/router';
@@ -6,15 +14,29 @@ import {ActivatedRoute} from '@angular/router';
 @Component({
   selector: 'ChatHeader',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template:
     `
       <div class="h-16 flex items-center justify-between px-6 shadow-xl">
-      <div class="flex items-center space-x-3 cursor-pointer" (click)="openUserProfileModal()">
-        <img [src]="imageUrl || 'avatars/default-avatar.png'" alt="{{ name }}"
-             class="w-10 h-10 rounded-full bg-gray-600">
-        <h3 class="text-lg font-semibold text-gray-300">{{ name }}</h3>
-      </div>
+        <div class="flex items-center space-x-3" [class.cursor-pointer]="type === 'conversation'" (click)="type === 'conversation' && openUserProfileModal()">
+          <ng-container *ngIf="type === 'conversation'; else serverHeader">
+            <img [src]="imageUrl || 'avatars/default-avatar.png'" alt="{{ name }}"
+                 class="w-10 h-10 rounded-full bg-gray-600">
+            <h3 class="text-lg font-semibold text-gray-300">{{ name }}</h3>
+          </ng-container>
+
+          <ng-template #serverHeader>
+            <h3 class="text-lg font-semibold text-gray-300 flex items-center">
+              <svg class="w-5 h-5 mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                   fill="none" viewBox="0 0 24 24">
+                <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5 7h14M5 12h14M5 17h14"/>
+              </svg>
+              {{ name }}
+            </h3>
+          </ng-template>
+        </div>
+
 
       <!-- Кнопки действий -->
       <div class="flex space-x-4">
@@ -44,16 +66,22 @@ import {ActivatedRoute} from '@angular/router';
 
 })
 
-export class ChatHeader implements OnInit {
+export class ChatHeader implements OnInit, OnChanges {
   @Input() serverId!: string;
   @Input() name!: string;
   @Input() type!: 'channel' | 'conversation';
   @Input() imageUrl?: string;
   @Input() userId?: string | null;
 
-  constructor(private modalService: ModalService, private route: ActivatedRoute) {}
+  constructor(private modalService: ModalService, private route: ActivatedRoute, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['name'] || changes['imageUrl'] || changes['userId']) {
+      this.cdr.markForCheck();
+    }
   }
 
   openUserProfileModal() {

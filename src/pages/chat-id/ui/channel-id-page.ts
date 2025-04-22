@@ -1,13 +1,13 @@
-import {Component, OnDestroy, OnInit, ViewChild} from '@angular/core';
-import {ActivatedRoute} from '@angular/router';
-import {CommonModule} from '@angular/common';
-import {ChatHeader} from '@widgets/chat/ui/chat-header';
-import {ChatMessages} from '@widgets/chat/ui/chat-messages';
-import {MessageInput} from '@features/update-message/ui/message-input';
-import {SocketService} from '@shared/api/socket.service';
-import {ApiService} from '@shared/api/api.service';
-import {Subject, takeUntil} from 'rxjs';
-import {AuthService} from '@shared/api/auth.service';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { ChatHeader } from '@widgets/chat/ui/chat-header';
+import { ChatMessages } from '@widgets/chat/ui/chat-messages';
+import { MessageInput } from '@features/update-message/ui/message-input';
+import { SocketService } from '@shared/api/socket.service';
+import { ApiService } from '@shared/api/api.service';
+import { Subject, takeUntil } from 'rxjs';
+import { AuthService } from '@shared/api/auth.service';
 
 @Component({
   selector: 'ChannelPage',
@@ -23,14 +23,11 @@ import {AuthService} from '@shared/api/auth.service';
         [userId]="chatHeaderUserId">
       </ChatHeader>
 
-
       <ng-container *ngIf="channel?.channel_type === 'TEXT'">
         <ChatMessages [messages]="messages" class="flex-1 min-h-0" />
-
         <MessageInput class="h-28 flex items-center px-4 relative"
                       [channelId]="channel?.id"
-                      (sendMessage)="onSendMessage($event)"
-        />
+                      (sendMessage)="onSendMessage($event)" />
       </ng-container>
     </div>
   `,
@@ -52,15 +49,18 @@ export class ChannelPage implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private api: ApiService,
     private auth: AuthService,
-    private socketService: SocketService
+    private socketService: SocketService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
-    this.channelId = this.route.snapshot.paramMap.get('channelId') || '';
-    this.serverId = this.route.snapshot.paramMap.get('serverId') || ''; // Получите serverId
-    this.loadData();
-    console.log(this.otherParticipant);
-    this.connectWebSocket();
+    // Подписываемся на изменения параметров маршрута
+    this.route.paramMap.pipe(takeUntil(this.ngUnsubscribe)).subscribe(() => {
+      this.channelId = this.route.snapshot.paramMap.get('channelId') || '';
+      this.serverId = this.route.snapshot.paramMap.get('serverId') || '';
+      this.loadData();
+      this.connectWebSocket();
+    });
   }
 
   ngOnDestroy(): void {
@@ -72,6 +72,10 @@ export class ChannelPage implements OnInit, OnDestroy {
   }
 
   connectWebSocket() {
+    if (this.socket$) {
+      this.socket$.complete();  // Закрываем старое соединение
+    }
+
     this.socket$ = this.socketService.connectToChannel(this.channelId);
 
     this.socket$.pipe(takeUntil(this.ngUnsubscribe)).subscribe({
@@ -109,18 +113,19 @@ export class ChannelPage implements OnInit, OnDestroy {
 
       if (this.channel?.scope === 'DM' && this.channel?.participants) {
         this.otherParticipant = this.channel.participants.find(
-          (participant: any) => participant.id !== this.currentUserId
+          (participant: any) => participant.user.id !== this.currentUserId
         );
         this.chatHeaderName = this.otherParticipant?.name || 'Direct Message';
         this.chatHeaderUserId = this.otherParticipant?.user?.id;
       } else if (this.channel?.scope === 'GROUP') {
         this.chatHeaderName = this.channel.name;
-        this.chatHeaderUserId = null; // или undefined
+        this.chatHeaderUserId = null;
       } else {
         this.chatHeaderName = this.channel?.name || 'Channel';
         this.chatHeaderUserId = null;
       }
 
+      this.cdr.detectChanges();
 
       this.api.getMessagesChannel(this.channelId).subscribe((messages: any[]) => {
         this.messages = messages.map((msg) => ({
@@ -136,7 +141,6 @@ export class ChannelPage implements OnInit, OnDestroy {
   }
 
   scrollToBottomMessages() {
-    // Безопасно вызываем метод, если компонент ChatMessages инициализирован
     if (this.chatMessagesComponent) {
       this.chatMessagesComponent.scrollToBottom();
     }
