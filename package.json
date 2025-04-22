@@ -23,7 +23,7 @@
     "livekit-client": "^2.9.9",
     "ngx-cookie-service": "^19.1.2",
     "rxjs": "~7.8.0",
-    "tailwind-scrollbar": "^3.1.0",
+    "tailwind-scrollbar": "^4.0.2",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"
   },

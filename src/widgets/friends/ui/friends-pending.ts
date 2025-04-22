@@ -23,11 +23,11 @@ import {ApiService} from '@shared/api/api.service';
                *ngIf="pendingRequests.length > 0">
 
             <img class="w-10 h-10 rounded-full"
-                 [src]="request.to_user.avatar || 'avatars/default-avatar.png'"
-                 alt="{{ request.to_user.name }}">
+                 [src]="request.from_user.avatar || 'avatars/default-avatar.png'"
+                 alt="{{ request.from_user.name }}">
 
 
-            <span class="text-sm text-gray-300">{{ request.to_user.name }}</span>
+            <span class="text-sm text-gray-300">{{ request.from_user.name }}</span>
           </div>
 
 
@@ -71,7 +71,7 @@ export class FriendPending implements OnInit {
   getPendingRequests() {
     this.friendService.getFriendRequests().subscribe(
       (response: any) => {
-        this.pendingRequests = response.outgoing; // Присваиваем полученные заявки
+        this.pendingRequests = response.incoming; // Присваиваем полученные заявки
       },
       (error) => {
         console.error('Ошибка при загрузке заявок:', error);
