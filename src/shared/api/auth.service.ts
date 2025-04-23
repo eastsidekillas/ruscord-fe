@@ -100,4 +100,12 @@ export class AuthService {
   get userId(): string {
     return this.currentUserValue?.user_id || '';
   }
+
+  get userAvatar(): string {
+    return this.currentUserValue?.avatar || '';
+  }
+
+  get userName(): string {
+    return this.currentUserValue?.name || 'Guest';
+  }
 }

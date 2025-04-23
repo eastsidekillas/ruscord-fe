@@ -66,7 +66,7 @@ import { AuthService } from '@shared/api/auth.service';
 
       <ng-container *ngIf="channel?.channel_type === 'TEXT'">
         <ChatMessages [messages]="messages" class="flex-1 min-h-0" />
-        <div *ngIf="typing && typing !== chatHeaderName" class="typing-indicator text-xs text-gray-500 ml-4 -mb-5">
+        <div *ngIf="typing" class="typing-indicator text-xs text-gray-500 ml-4 -mb-5">
           {{ typing }} печатает
           <span class="dot"></span>
           <span class="dot"></span>
