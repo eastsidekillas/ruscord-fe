@@ -57,7 +57,7 @@ interface Channel {
 export class Sidebar implements OnInit, OnDestroy {
   @Input() serverId: string | null = null;
   @Input() isServerRoute: boolean = false ;
-  serverName: string | null = null;
+  @Input() serverName: string | null = null;
   private ngUnsubscribe = new Subject<void>();
 
   constructor(private modalService: ModalService, private router: Router) {}
