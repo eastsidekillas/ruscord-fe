@@ -67,7 +67,6 @@ import {ActivatedRoute} from '@angular/router';
 })
 
 export class ChatHeader implements OnInit, OnChanges {
-  @Input() serverId!: string;
   @Input() name!: string;
   @Input() type!: 'channel' | 'conversation';
   @Input() imageUrl?: string;

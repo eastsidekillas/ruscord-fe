@@ -6,13 +6,15 @@ import { ChatMessages } from '@widgets/chat/ui/chat-messages';
 import { MessageInput } from '@features/update-message/ui/message-input';
 import { SocketService } from '@shared/api/socket.service';
 import { ApiService } from '@shared/api/api.service';
-import { Subject, takeUntil } from 'rxjs';
+import {Observable, Subject, takeUntil} from 'rxjs';
 import { AuthService } from '@shared/api/auth.service';
+import {ServerMembersSidebar} from '@widgets/sidebar/ui/server-sidebar/server-members-sidebar';
+import {map} from 'rxjs/operators';
 
 @Component({
   selector: 'ChannelPage',
   standalone: true,
-  imports: [CommonModule, ChatHeader, ChatMessages, MessageInput],
+  imports: [CommonModule, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar],
   styles:
     `
       .typing-indicator {
@@ -56,35 +58,54 @@ import { AuthService } from '@shared/api/auth.service';
   `,
   template: `
     <div class="flex flex-col h-screen">
+      <!-- Верхняя панель -->
       <ChatHeader
         [name]="chatHeaderName || 'Чат'"
         [type]="channel?.scope === 'DM' ? 'conversation' : 'channel'"
-        [serverId]="serverId"
         [imageUrl]="otherParticipant?.avatar"
-        [userId]="chatHeaderUserId">
-      </ChatHeader>
+        [userId]="chatHeaderUserId"
+      />
 
-      <ng-container *ngIf="channel?.channel_type === 'TEXT'">
-        <ChatMessages [messages]="messages" class="flex-1 min-h-0" />
-        <div *ngIf="typing" class="typing-indicator text-xs text-gray-500 ml-4 -mb-5">
-          {{ typing }} печатает
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
+      <!-- Основная область: сообщения + боковая панель -->
+      <div class="flex flex-1 overflow-hidden">
+        <!-- Левая часть: сообщения + input -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <ChatMessages [messages]="messages" class="flex-1 min-h-0" />
+
+          <div *ngIf="typing" class="typing-indicator text-xs text-gray-500 ml-4 -mb-5">
+            {{ typing }} печатает
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+
+          <MessageInput
+            class="h-28 flex items-center px-4 relative"
+            [channelId]="channel?.id"
+            (sendMessage)="onSendMessage($event)"
+            (typing)="onTyping($event)"
+          />
         </div>
-        <MessageInput class="h-28 flex items-center px-4 relative"
-                      [channelId]="channel?.id"
-                      (sendMessage)="onSendMessage($event)"
-                      (typing)="onTyping($event)"/>
-      </ng-container>
+
+        <ng-container *ngIf="serverId$ && serverId !== 'me' && channel?.scope !== 'DM'">
+          <ServerMembersSidebar
+            class="w-64 border-l border-border border-gray-500 bg-sidebar-surface-secondary hidden lg:block"
+            [serverId]="serverId$"
+          />
+        </ng-container>
+
+
+      </div>
     </div>
+
   `,
 })
 export class ChannelPage implements OnInit, OnDestroy {
   messages: any[] = [];
   channel: any = null;
   channelId!: string;
-  serverId!: string;
+  serverId: string | null = null; // это может быть null
+  serverId$: Observable<string | null>; // это Observable
   sender_id!: number;
   currentUserId: string | null = null;
   chatHeaderName: string | null = null;
@@ -96,21 +117,38 @@ export class ChannelPage implements OnInit, OnDestroy {
   private notificationSound = new Audio('sounds/dm_notification.mp3');
   @ViewChild(ChatMessages) chatMessagesComponent!: ChatMessages;
 
+
+
   constructor(
     private route: ActivatedRoute,
     private api: ApiService,
     private auth: AuthService,
     private socketService: SocketService,
     private cdr: ChangeDetectorRef
-  ) {}
+  ) {
+
+    // Оборачиваем serverId в Observable
+    this.serverId$ = this.route.parent?.paramMap.pipe(
+      map(params => params.get('serverId'))
+    ) ?? new Observable<string | null>();
+
+  }
 
   ngOnInit() {
     this.route.paramMap.pipe(takeUntil(this.ngUnsubscribe)).subscribe(() => {
       this.channelId = this.route.snapshot.paramMap.get('channelId') || '';
-      this.serverId = this.route.snapshot.paramMap.get('serverId') || '';
+
       this.loadData();
       this.connectWebSocket();
+
     });
+
+    console.log(this.serverId)
+
+    this.serverId$.subscribe((serverId) => {
+      this.serverId = serverId;
+    });
+
   }
 
   ngOnDestroy(): void {
@@ -227,9 +265,5 @@ export class ChannelPage implements OnInit, OnDestroy {
   private playNotificationSound() {
     this.notificationSound.currentTime = 0;
     this.notificationSound.play().catch((e) => console.warn('Ошибка воспроизведения звука:', e));
-  }
-
-  getCurrentUserId(): string {
-    return this.auth.userId || '';
   }
 }

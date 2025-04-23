@@ -96,6 +96,14 @@ export class ApiService {
     return from(this.api.get('servers/', { credentials: 'include' }).json());
   }
 
+  getServerDetails(serverId: string): Observable<any> {
+    return from(this.api.get(`servers/${serverId}/`, { credentials: 'include' }).json());
+  }
+
+  getServerMembers(serverId: string): Observable<any> {
+    return from(this.api.get(`servers/${serverId}/members/`, { credentials: 'include' }).json());
+  }
+
   getServerChannels(serverId: string): Observable<any> {
     return from(this.api.get(`servers/${serverId}/channels/`, { credentials: 'include' }).json());
   }
