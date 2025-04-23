@@ -5,6 +5,7 @@ import {SidebarCreateServer} from '../sidebar-create-server';
 import {AuthService} from '@shared/api/auth.service';
 import {ApiService} from '@shared/api/api.service';
 
+
 interface Server {
   id: string;
   name: string;
@@ -59,16 +60,6 @@ interface Server {
 
       </div>
 
-
-
-      <button (click)="logout()"
-              class="w-12 h-12 bg-main-surface-secondary rounded-full mt-auto flex items-center justify-center hover:bg-gray-500">
-        <svg class="w-6 h-6 text-green-500 hover:text-green-50" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
-             width="24" height="24" fill="none" viewBox="0 0 24 24">
-          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M16 12H4m12 0-4 4m4-4-4-4m3-4h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-2"/>
-        </svg>
-      </button>
 
     `,
 })

@@ -1,7 +1,6 @@
 import {Component, OnInit, OnDestroy, Input} from '@angular/core';
 import { SidebarItem } from './sidebar-item';
 import {RouterLink, ActivatedRoute, Router} from '@angular/router';
-import { ApiService } from '@shared/api/api.service';
 import { Subject } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import {SidebarHeader} from '@widgets/sidebar/ui/sidebar-header';
@@ -52,6 +51,7 @@ interface Channel {
       </ng-container>
 
     </div>
+
   `,
 })
 export class Sidebar implements OnInit, OnDestroy {
