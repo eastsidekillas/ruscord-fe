@@ -19,7 +19,7 @@ import {ServerSidebar} from '@widgets/sidebar/ui/server-sidebar/server-sidebar';
       <div class="flex-1 flex flex-col bg-main-surface-primary">
         <router-outlet></router-outlet>
       </div>
-      <div class="absolute bottom-4 left-4 z-50 w-[calc(100%-2rem)] lg:w-80 max-sm:hidden">
+      <div class="absolute bottom-4 left-2 z-50 w-[calc(100%-2rem)] lg:w-80 max-sm:hidden">
         <SidebarUserProfile [username]="userName" [avatarUrl]="userAvatar" [userId]="userId" />
       </div>
     </div>

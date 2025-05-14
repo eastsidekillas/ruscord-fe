@@ -1,7 +1,7 @@
-import { Component, OnInit, OnDestroy, Input } from '@angular/core';
-import { StatusSocketService } from '@entities/gateway/api/status-socket';// Укажите правильный путь к сервису
-import { Subscription } from 'rxjs';
-import {CommonModule} from '@angular/common';
+import { Component, Input, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { UserStatusStoreService } from '@shared/model/status-store.service';
+import { Observable } from 'rxjs';
 
 @Component({
   selector: 'StatusUIText',
@@ -11,43 +11,33 @@ import {CommonModule} from '@angular/common';
     <div class="flex items-center space-x-1">
       <span class="text-xs text-gray-300"
             [ngClass]="{
-      'text-green-400': status === 'online',
-      'text-yellow-400': status === 'idle',
-      'text-red-400': status === 'busy',
-      'text-gray-400': status === 'offline'
-    }">
+              'text-green-400': status === 'online',
+              'text-yellow-400': status === 'idle',
+              'text-red-400': status === 'dnd',
+              'text-gray-400': status === 'offline'
+            }">
         {{ getStatusText(status) }}
       </span>
     </div>
   `,
 })
-export class StatusUIText implements OnInit, OnDestroy {
-  @Input() userId!: string;
-  status: string = 'offline';
-  private socketSubscription!: Subscription;
+export class StatusUIText implements OnInit {
+  @Input() userId!: number; // Здесь должен быть number, как в UserStatusStoreService
+  status: 'online' | 'idle' | 'dnd' | 'offline' = 'offline';
 
-  constructor(private statusSocketService: StatusSocketService) {}
+  constructor(private userStatusStore: UserStatusStoreService) {}
 
   ngOnInit(): void {
-    this.socketSubscription = this.statusSocketService.getMessage().subscribe((data) => {
-      if (data && data.userId === this.userId && data.op === 'STATUS_UPDATE') {
-        this.status = data.status || 'offline';
-      }
+    this.userStatusStore.getStatus$(this.userId).subscribe(status => {
+      this.status = status;
     });
-  }
-
-  ngOnDestroy(): void {
-    if (this.socketSubscription) {
-      this.socketSubscription.unsubscribe();
-    }
-    this.statusSocketService.disconnect();
   }
 
   getStatusText(status: string): string {
     switch (status) {
       case 'online': return 'В сети';
       case 'idle': return 'Не активен';
-      case 'busy': return 'Занят';
+      case 'dnd': return 'Занят';
       case 'offline': return 'Не в сети';
       default: return 'Неизвестно';
     }

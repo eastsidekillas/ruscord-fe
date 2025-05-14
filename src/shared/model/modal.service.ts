@@ -14,6 +14,8 @@ export type ModalType =
   | 'messageAttachment'
   | 'deleteMessage'
   | 'userProfile'
+  | 'userSettings'
+  | 'incomingCall'
 
 export interface ModalData {
   [key: string]: any;

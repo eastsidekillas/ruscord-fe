@@ -1,7 +1,8 @@
-import { Component, Input, OnInit } from '@angular/core';
+import {Component, Input, OnChanges, OnInit, SimpleChanges} from '@angular/core';
 import { ApiService } from '@shared/api/api.service';
-import {CommonModule} from '@angular/common';
-import {RouterLink} from '@angular/router';
+import { CommonModule } from '@angular/common';
+import {Router, RouterLink} from '@angular/router';
+import { LivekitService} from '@shared/api/livekit.service';
 
 interface Channel {
   id: string;
@@ -34,27 +35,26 @@ interface Channel {
         <h4 class="text-xs font-semibold text-typo-secondary uppercase mb-2">Голосовые каналы</h4>
         <div class="space-y-1">
           <a *ngFor="let channel of audioChannels"
-             [routerLink]="['/channels', serverId, channel.id]"
-             class="flex items-center space-x-2 py-2 px-2 rounded-md hover:bg-main-surface-secondary text-gray-300 hover:text-white transition">
-            <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                 fill="none" viewBox="0 0 24 24">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M15.5 8.43A4.985 4.985 0 0 1 17 12a4.984 4.984 0 0 1-1.43 3.5m2.794 2.864A8.972 8.972 0 0 0 21 12a8.972 8.972 0 0 0-2.636-6.364M12 6.135v11.73a1 1 0 0 1-1.64.768L6 15H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h2l4.36-3.633a1 1 0 0 1 1.64.768Z"/>
-            </svg>
-            <span class="text-sm">{{ channel.name }}</span>
+             (click)="joinAudioChannel(channel)"
+          class="flex items-center space-x-2 py-2 px-2 rounded-md hover:bg-main-surface-secondary text-gray-300 hover:text-white transition">
+          <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+               fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15.5 8.43A4.985 4.985 0 0 1 17 12a4.984 4.984 0 0 1-1.43 3.5m2.794 2.864A8.972 8.972 0 0 0 21 12a8.972 8.972 0 0 0-2.636-6.364M12 6.135v11.73a1 1 0 0 1-1.64.768L6 15H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h2l4.36-3.633a1 1 0 0 1 1.64.768Z"/>
+          </svg>
+          <span class="text-sm">{{ channel.name }}</span>
           </a>
         </div>
       </div>
     </div>
   `,
-
 })
-export class ServerChannelsItems implements OnInit {
+export class ServerChannelsItems implements OnInit, OnChanges {
   @Input() serverId: string | null = null;
   textChannels: Channel[] = [];
   audioChannels: Channel[] = [];
 
-  constructor(private apiService: ApiService) {}
+  constructor(private apiService: ApiService, private livekitService: LivekitService, private router: Router) {}
 
   ngOnInit(): void {
     if (this.serverId) {
@@ -62,15 +62,48 @@ export class ServerChannelsItems implements OnInit {
     }
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['serverId'] && changes['serverId'].currentValue) {
+      this.loadServerChannels(changes['serverId'].currentValue);
+    }
+  }
+
   loadServerChannels(serverId: string): void {
     this.apiService.getServerChannels(serverId).subscribe({
       next: (channels) => {
-        this.textChannels = channels.filter((channel: { channel_type: string; }) => channel.channel_type === 'TEXT');
-        this.audioChannels = channels.filter((channel: { channel_type: string; }) => channel.channel_type === 'AUDIO');
+        console.log('Полученные каналы с сервера:', channels);
+
+        // Преобразуем serverId и channel.server в одинаковый тип (число или строку)
+        this.textChannels = channels.filter((channel: { server: string | number; channel_type: string }) => {
+          return Number(channel.server) === Number(serverId) && channel.channel_type === 'TEXT';
+        });
+
+        this.audioChannels = channels.filter((channel: { server: string | number; channel_type: string }) => {
+          return Number(channel.server) === Number(serverId) && channel.channel_type === 'AUDIO';
+        });
+
+        console.log('Text Channels:', this.textChannels);
+        console.log('Audio Channels:', this.audioChannels);
+
       },
       error: (error) => {
         console.error('Ошибка загрузки каналов сервера:', error);
       },
     });
+  }
+
+  joinAudioChannel(channel: Channel): void {
+    // Обработчик для подключения к голосовому каналу
+    if (this.serverId) {
+
+      this.livekitService.joinRoom(channel.id)
+        .then(() => {
+          console.log(`Successfully joined the room ${channel.name}`);
+          this.router.navigate(['/channels', this.serverId, channel.id]);
+        })
+        .catch((error) => {
+          console.error('Error joining room:', error);
+        });
+    }
   }
 }

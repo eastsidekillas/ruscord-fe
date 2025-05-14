@@ -164,7 +164,7 @@ export class InviteServerModal implements OnDestroy {
     this.apiService.postInviteLinkServer(this.serverId, this.maxUses, this.expiresIn).subscribe({
       next: (response) => {
         // Формируем ссылку с токеном
-        this.inviteUrl = `http://localhost:4200/invite/${response.invite_token}`;
+        this.inviteUrl = `${environment.BASE_URL}/invite/${response.invite_token}`;
         this.errorMessage = '';
         this.editing = false; // Закрыть форму после создания
       },

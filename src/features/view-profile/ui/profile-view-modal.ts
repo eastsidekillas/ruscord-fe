@@ -47,11 +47,23 @@ import {ApiService} from '@shared/api/api.service';
 
         <ng-template #profileContent>
           <div class="flex flex-col items-center text-center" *ngIf="user">
-            <img
-              [src]="user.avatar"
-              alt="Аватар"
-              class="w-24 h-24 rounded-full border-4 border-main-surface-secondary mb-4 object-cover"
-            />
+            <!-- Аватар или инициал -->
+            <ng-container *ngIf="user.avatar; else initialAvatar">
+              <img
+                [src]="user.avatar"
+                alt="Аватар"
+                class="w-24 h-24 rounded-full border-4 border-main-surface-secondary mb-4 object-cover"
+              />
+            </ng-container>
+
+            <ng-template #initialAvatar>
+              <div
+                class="w-24 h-24 rounded-full bg-gray-600 text-white flex items-center justify-center text-3xl font-semibold border-4 border-main-surface-secondary mb-4"
+              >
+                {{ user.name?.charAt(0).toUpperCase() }}
+              </div>
+            </ng-template>
+
 
             <h2 class="text-2xl font-semibold">{{ user.name }}</h2>
             <p class="text-sm text-gray-400">{{ user.global_name }}</p>
@@ -71,13 +83,13 @@ import {ApiService} from '@shared/api/api.service';
               </p>
             </ng-container>
 
-            <h2 class="mt-4 text-xs text-gray-500">Обо мне</h2>
+            <h2 class="mt-4 text-xs text-gray-500" *ngIf="user.bio">Обо мне</h2>
 
-            <p class="mt-2 text-sm text-typo-secondary whitespace-pre-line">
+            <p *ngIf="user.bio" class="mt-2 text-sm text-typo-secondary whitespace-pre-line">
               {{ user.bio }}
             </p>
 
-            <p class="mt-2 text-xs text-gray-500">
+            <p class="mt-4 text-xs text-gray-500">
               Участник с {{ user.created_at | date: 'dd.MM.yyyy' }}
             </p>
           </div>

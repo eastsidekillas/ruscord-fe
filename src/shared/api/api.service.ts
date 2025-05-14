@@ -86,6 +86,10 @@ export class ApiService {
     return from(this.api.get(`channels/${channelId}/messages/`, { credentials: 'include' }).json());
   }
 
+  getLiveKitToken(channelId: string): Observable<any> {
+    return from(this.api.get(`channels/${channelId}/livekit-token/`, { credentials: 'include' }).json());
+  }
+
   // **Работа с серверами **
 
   postCreateServer(formData: FormData): Observable<any> {
@@ -126,16 +130,5 @@ export class ApiService {
   getInviteServerDetails(token: string): Observable<any> {
     return from(this.api.get(`invite/${token}/`, {
       credentials: 'include' }).json());
-  }
-
-
-
-  getLivekitToken(channelUuid: string): Observable<any> {
-    return from(this.api.get(`livekit/token/${channelUuid}/`).json()).pipe(
-      catchError((error) => {
-        console.error('Ошибка при получении токена:', error);
-        return throwError(error);
-      })
-    );
   }
 }

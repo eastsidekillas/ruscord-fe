@@ -31,7 +31,7 @@ export class AuthService {
   }
 
   refreshToken(): Observable<void> {
-    return this.http.post<void>(`${environment.API_URL}/auth/refresh/`, {}, { withCredentials: true })
+    return this.http.post<void>(`${environment.API_URL}/auth/refreesh/`, {}, { withCredentials: true })
       .pipe(
         tap(() => console.log("Token refreshed")),
         catchError(() => {
