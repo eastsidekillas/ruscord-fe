@@ -2,6 +2,8 @@ import { Routes } from '@angular/router';
 import { AuthGuard } from '@shared/guards/auth.guard';
 import { ChannelPage } from '@pages/chat-id/ui/channel-id-page';
 import {RelationshipsPage} from '@pages/friends-list/ui/relationships-page';
+import {ServerMediaRoom} from '@widgets/sidebar/ui/server-sidebar/server-media-room';
+import {TextChannelResolver} from '@shared/model/text-channel.resolver';
 
 export const appRoutes: Routes = [
   { path: 'login', loadComponent: () => import('./auth/sign-in').then(m => m.SignIn) },
@@ -24,6 +26,9 @@ export const appRoutes: Routes = [
       {
         path: ':serverId',
         loadComponent: () => import('../shared/themes/ServerLayout').then(m => m.ServerLayout),
+        resolve: {
+          fallbackTextChannel: TextChannelResolver
+        },
         children: [
           { path: ':channelId', component: ChannelPage },
         ],

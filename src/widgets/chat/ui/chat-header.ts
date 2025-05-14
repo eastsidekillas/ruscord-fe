@@ -1,10 +1,10 @@
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
-  Component,
+  Component, EventEmitter,
   Input,
   OnChanges,
-  OnInit,
+  OnInit, Output,
   SimpleChanges
 } from '@angular/core';
 import {CommonModule, NgIf} from '@angular/common';
@@ -21,10 +21,18 @@ import {ActivatedRoute} from '@angular/router';
       <div class="h-16 flex items-center justify-between px-6 shadow-xl">
         <div class="flex items-center space-x-3" [class.cursor-pointer]="type === 'conversation'" (click)="type === 'conversation' && openUserProfileModal()">
           <ng-container *ngIf="type === 'conversation'; else serverHeader">
-            <img [src]="imageUrl || 'avatars/default-avatar.png'" alt="{{ name }}"
-                 class="w-10 h-10 rounded-full bg-gray-600">
+            <ng-container *ngIf="imageUrl; else noAvatar">
+              <img [src]="imageUrl" alt="{{ name }}" class="w-10 h-10 rounded-full object-cover bg-gray-600" />
+            </ng-container>
+            <ng-template #noAvatar>
+              <div class="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold">
+                {{ name.charAt(0).toUpperCase() }}
+              </div>
+            </ng-template>
+
             <h3 class="text-lg font-semibold text-gray-300">{{ name }}</h3>
           </ng-container>
+
 
           <ng-template #serverHeader>
             <h3 class="text-lg font-semibold text-gray-300 flex items-center">
@@ -39,8 +47,9 @@ import {ActivatedRoute} from '@angular/router';
 
 
       <!-- Кнопки действий -->
-      <div class="flex space-x-4">
-        <button class="w-8 h-8 flex items-center justify-center text-white">
+        <div *ngIf="type === 'conversation'" class="flex space-x-4">
+
+        <button class="w-8 h-8 flex items-center justify-center text-white" (click)="initiateCall()">
           <svg class="w-5 h-5 hover:text-green-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24"
                height="24" fill="currentColor" viewBox="0 0 24 24">
             <path
@@ -71,6 +80,8 @@ export class ChatHeader implements OnInit, OnChanges {
   @Input() type!: 'channel' | 'conversation';
   @Input() imageUrl?: string;
   @Input() userId?: string | null;
+  @Output() callInitiated = new EventEmitter<string>();
+
 
   constructor(private modalService: ModalService, private route: ActivatedRoute, private cdr: ChangeDetectorRef) {}
 
@@ -80,6 +91,12 @@ export class ChatHeader implements OnInit, OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['name'] || changes['imageUrl'] || changes['userId']) {
       this.cdr.markForCheck();
+    }
+  }
+
+  initiateCall() {
+    if (this.userId) {
+      this.callInitiated.emit(this.userId);
     }
   }
 

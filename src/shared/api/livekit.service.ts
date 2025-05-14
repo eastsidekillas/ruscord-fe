@@ -1,18 +1,31 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import { ApiService } from './api.service';
 import {
   Room,
+  RemoteParticipant,
+  LogLevel,
+  setLogLevel,
   RemoteTrack,
   RemoteTrackPublication,
-  RemoteParticipant,
-  LocalParticipant,
-  LocalTrackPublication,
   Track,
-  LogLevel,
-  setLogLevel
+  VideoPresets,
+  RoomEvent, Participant, LocalVideoTrack, createLocalVideoTrack, createLocalAudioTrack,
 } from 'livekit-client';
-import { ApiService } from './api.service';
-import { environment } from '../../environment/environment';
+import {environment} from '../../environment/environment';
+
+
+export interface VideoTrackInfo {
+  track: MediaStreamTrack;
+  stream: MediaStream;
+  id: string;
+  name?: string;
+  avatar?: string;
+}
+
+
+
+
 
 @Injectable({
   providedIn: 'root',
@@ -20,161 +33,205 @@ import { environment } from '../../environment/environment';
 export class LivekitService {
   private room!: Room;
   private livekitToken: string = '';
-  private roomUuid!: string;
-
-  // Стейт для UI
-  // Добавь в класс:
-  public participants$ = new BehaviorSubject<{ identity: string; isSpeaking: boolean }[]>([]);
-
-
-  public micMuted$ = new BehaviorSubject<boolean>(false);
-  public videoDisabled$ = new BehaviorSubject<boolean>(false);
-  public soundDisabled$ = new BehaviorSubject<boolean>(false);
+  public participants$ = new BehaviorSubject<{ identity: string; isSpeaking: boolean; name: string }[]>([]);
   public connected$ = new BehaviorSubject<boolean>(false);
+  public videoStreams$ = new BehaviorSubject<VideoTrackInfo[]>([]); // Для хранения видеопотоков
+
+
+  public localVideoTrack: LocalVideoTrack | null = null;
 
   constructor(private apiService: ApiService) {
     setLogLevel(LogLevel.debug);
   }
 
-  async joinRoom(roomUuid: string, currentUser: string, recipient: string): Promise<void> {
-    this.roomUuid = roomUuid;
 
+  async joinRoom(roomUuid: string): Promise<void> {
     try {
       this.livekitToken = await this.getToken(roomUuid);
-      this.room = new Room({ adaptiveStream: true, dynacast: true });
 
-      // Подписываемся на события
+      this.room = new Room;
+
+
       this.room
-        .on('trackSubscribed', this.handleTrackSubscribed)
-        .on('trackUnsubscribed', this.handleTrackUnsubscribed)
-        .on('disconnected', this.handleDisconnect)
-        .on('localTrackUnpublished', this.handleLocalTrackUnpublished);
+        .on(RoomEvent.TrackSubscribed, this.handleTrackSubscribed)
+        .on(RoomEvent.TrackUnsubscribed, this.handleTrackUnsubscribed)
+        .on(RoomEvent.ParticipantConnected, this.subscribeToSpeaking)
+        .on(RoomEvent.ParticipantDisconnected, this.handleDisconnect);
 
-      await this.room.connect(environment.API_WS_LIVEKIT_URL, this.livekitToken);
-      console.log('Connected to room:', this.room.name);
+      await this.room.connect(`${environment.API_WS_LIVEKIT_URL}`, this.livekitToken);
       this.connected$.next(true);
 
+      // 👉 Включаем только микрофон (аудио)
+      const audioTrack = await createLocalAudioTrack();
+      await this.room.localParticipant.publishTrack(audioTrack);
 
-      await this.room.localParticipant.setMicrophoneEnabled(true);
-      this.attachLocalTracks();
-
-      // Подписка на события "говорит/не говорит"
-      this.room.localParticipant.on('isSpeakingChanged', () => {
-        this.updateSpeakingParticipants();
-      });
-
-      this.room.remoteParticipants.forEach((p) => {
-        p.on('isSpeakingChanged', () => {
-          this.updateSpeakingParticipants();
-        });
-      });
-
-      this.updateSpeakingParticipants(); // первичная инициализация
-
-
+      this.updateParticipants();
     } catch (error) {
       console.error('Error connecting to room:', error);
+      this.connected$.next(false);
     }
   }
 
-  async toggleMic(): Promise<void> {
-    const newState = !this.micMuted$.value;
-    await this.room.localParticipant.setMicrophoneEnabled(newState);
-    this.micMuted$.next(newState);
+
+  getRoom(): Room {
+    return this.room;
   }
 
-  async toggleSound(): Promise<void> {
-    const newState = !this.soundDisabled$.value;
+  getUsernameFromIdentity(identity: string): string {
+    const currentUserRaw = localStorage.getItem('currentUser');
+    if (!currentUserRaw) return identity;
 
-    this.room.remoteParticipants.forEach((participant) => {
-      participant.audioTrackPublications.forEach((pub) => {
-        const track = pub.track as RemoteTrack | null; // Явно указываем тип
-        if (track && pub.isSubscribed) {
-          track.isMuted = !newState;
-        }
-      });
+    const currentUser = JSON.parse(currentUserRaw);
+
+    // Если это local user
+    if (identity === 'local' || identity === String(currentUser.user_id)) {
+      return currentUser.name;
+    }
+
+    // Тут можно добавить логику для сопоставления других участников
+    return identity; // fallback
+  }
+
+
+
+
+  private updateParticipants = () => {
+    if (!this.room) return;
+
+    const remote = Array.from(this.room.remoteParticipants.values()).map((p) => {
+      const metadata = this.parseMetadata(p.metadata);
+      return {
+        identity: p.identity,
+        isSpeaking: p.isSpeaking,
+        name: metadata?.name || this.getUsernameFromIdentity(p.identity),
+      };
     });
 
-    this.soundDisabled$.next(newState);
+    const localMetadata = this.parseMetadata(this.room.localParticipant.metadata);
+    const localUser = localMetadata?.name || this.getUsernameFromIdentity('local');
+
+    remote.unshift({
+      identity: 'local',
+      isSpeaking: this.room.localParticipant.isSpeaking,
+      name: localUser,
+    });
+
+    this.participants$.next(remote);
+  };
+
+
+
+
+
+  private handleTrackSubscribed = (
+    track: RemoteTrack,
+    _: RemoteTrackPublication,
+    participant: RemoteParticipant
+  ) => {
+    if (track.kind === Track.Kind.Video) {
+
+      const meta = participant.metadata ? JSON.parse(participant.metadata) : {};
+      const name = meta.name || this.getUsernameFromIdentity(participant.identity);
+      const avatar = meta.avatar || undefined;
+
+      const mediaTrack = track.mediaStreamTrack;
+      const stream = new MediaStream([mediaTrack]);
+
+      this.videoStreams$.next([
+        ...this.videoStreams$.getValue(),
+        { track: mediaTrack, stream, id: participant.identity, name, avatar }
+      ]);
+    }
+
+    if (track.kind === Track.Kind.Audio) {
+      if (participant.identity === this.room.localParticipant.identity) {
+        return;
+      }
+
+      const mediaTrack = track.mediaStreamTrack;
+      const stream = new MediaStream([mediaTrack]);
+
+      const audioElement = new Audio();
+      audioElement.srcObject = stream;
+      audioElement.autoplay = true;
+      audioElement.play().catch(e => {
+        console.warn('Audio playback failed', e);
+      });
+    }
+  };
+
+
+
+
+  private handleTrackUnsubscribed = (
+    track: RemoteTrack,
+    _: RemoteTrackPublication,
+    participant: RemoteParticipant
+  ) => {
+    this.videoStreams$.next(this.videoStreams$.getValue().filter(t => t.track !== track.mediaStreamTrack));
+  };
+
+
+  public async enableLocalVideo() {
+    const track = await createLocalVideoTrack({ resolution: VideoPresets.h720.resolution });
+    this.localVideoTrack = track;
+    await this.room.localParticipant.publishTrack(track);
+
+    const stream = new MediaStream([track.mediaStreamTrack]);
+
+    this.videoStreams$.next([
+      ...this.videoStreams$.getValue(),
+      { track: track.mediaStreamTrack, stream, id: 'local' }
+    ]);
   }
 
 
-
-  async toggleVideo(): Promise<void> {
-    const newState = !this.videoDisabled$.value;
-    await this.room.localParticipant.setCameraEnabled(newState);
-    this.videoDisabled$.next(newState);
+  public disableLocalVideo() {
+    if (this.localVideoTrack) {
+      this.localVideoTrack.mute();
+      this.localVideoTrack.stop();
+      this.videoStreams$.next(
+        this.videoStreams$.getValue().filter(t => t.id !== 'local')
+      );
+      this.localVideoTrack = null;
+    }
   }
 
-  async leaveRoom(): Promise<void> {
+
+  private subscribeToSpeaking = (participant: Participant) => {
+    participant.on('isSpeakingChanged', this.updateParticipants);
+  };
+
+  private handleDisconnect = () => {
+    console.log('Disconnected from room');
+    this.connected$.next(false);
+  };
+
+  public disconnectRoom(): void {
     if (this.room) {
       this.room.disconnect();
       this.connected$.next(false);
-      console.log('Disconnected from room');
     }
   }
 
+
   private async getToken(roomUuid: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      this.apiService.getLivekitToken(roomUuid).subscribe(
+      this.apiService.getLiveKitToken(roomUuid).subscribe(
         (response) => resolve(response.token),
         (error) => reject(error)
       );
     });
   }
 
-  private updateSpeakingParticipants() {
-    const remote = Array.from(this.room.remoteParticipants.values()).map((p) => ({
-      identity: p.identity,
-      isSpeaking: p.isSpeaking,
-    }));
-
-    const local = {
-      identity: this.room.localParticipant.identity,
-      isSpeaking: this.room.localParticipant.isSpeaking,
-    };
-
-    this.participants$.next([...remote, local]);
-  }
-
-
-  private attachLocalTracks(): void {
-    this.room.localParticipant.videoTrackPublications.forEach((pub) => {
-      if (pub.track) {
-        const element = pub.track.attach();
-        document.getElementById('videoContainer')?.appendChild(element);
-      }
-    });
-  }
-
-  private handleTrackSubscribed = (
-    track: RemoteTrack,
-    publication: RemoteTrackPublication,
-    participant: RemoteParticipant
-  ) => {
-    if (track.kind === Track.Kind.Video || track.kind === Track.Kind.Audio) {
-      const element = track.attach();
-      document.getElementById('videoContainer')?.appendChild(element);
+  private parseMetadata(raw?: string): { name?: string; avatar?: string } | null {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      console.warn('Invalid metadata JSON', e);
+      return null;
     }
-  };
+  }
 
-  private handleTrackUnsubscribed = (
-    track: RemoteTrack,
-    publication: RemoteTrackPublication,
-    participant: RemoteParticipant
-  ) => {
-    track.detach();
-  };
-
-  private handleLocalTrackUnpublished = (
-    publication: LocalTrackPublication,
-    participant: LocalParticipant
-  ) => {
-    publication.track?.detach();
-  };
-
-  private handleDisconnect = () => {
-    this.connected$.next(false);
-    console.log('Disconnected from room');
-  };
 }

@@ -2,6 +2,7 @@ import { Component, Input, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '@shared/api/api.service';
 import { Observable, Subject, switchMap, takeUntil } from 'rxjs';
+import {StatusUi} from '@shared/ui/status-ui';
 
 export interface ServerMember {
   id: number; // ID участника сервера
@@ -30,26 +31,22 @@ export interface ServerMember {
 @Component({
   selector: 'ServerMembersSidebar',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, StatusUi],
   template:
     `
       <div class="bg-sidebar-surface-secondary border-l border-gray-700 h-full overflow-y-auto px-3 py-4">
         <h2 class="text-md font-semibold text-typo-secondary mb-2">Участники</h2>
         <div *ngIf="members && members.length > 0; else noMembers">
           <div *ngFor="let member of members" class="flex items-center space-x-2 py-2">
-            <div class="relative w-8 h-8 rounded-full overflow-hidden">
+            <div class="relative w-10 h-10">
+              <div class="w-full h-full rounded-full overflow-hidden">
+
               <img *ngIf="member.profile.avatar" [src]="member.profile.avatar" alt="{{ member.profile.name }}" class="w-full h-full object-cover">
               <div *ngIf="!member.profile.avatar" class="w-full h-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold">{{ member.profile.name.charAt(0).toUpperCase() }}</div>
-              <span *ngIf="member.profile.status"
-                    class="absolute bottom-0 right-0 w-2 h-2 rounded-full border-2 border-sidebar-surface-secondary"
-                    [ngClass]="{
-                'bg-green-500': member.profile.status === 'online',
-                'bg-gray-400': member.profile.status === 'offline',
-                'bg-yellow-500': member.profile.status === 'idle',
-                'bg-red-500': member.profile.status === 'dnd'
-              }">
-        </span>
+              </div>
+              <StatusUI [userId]="member.profile.user.id"></StatusUI>
             </div>
+
             <span class="text-sm text-typo-primary">{{ member.profile.name }} ({{ member.profile.user.username }})</span>
           </div>
         </div>

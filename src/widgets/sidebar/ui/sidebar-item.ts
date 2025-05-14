@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '@shared/api/api.service';
 import { Router } from '@angular/router';
-import { SocketService } from '@shared/api/socket.service';
 import { NgIf, NgForOf } from '@angular/common';
 import {StatusUi} from '@shared/ui/status-ui';
 
@@ -16,15 +15,26 @@ import {StatusUi} from '@shared/ui/status-ui';
         *ngFor="let friend of friends"
         (click)="openChat(friend.id)">
 
-        <div class="relative">
-          <img
-            class="w-8 h-8 rounded-full"
-            [src]="friend.avatar || 'avatars/default-avatar.png'"
-            [alt]="friend.name" />
-          <StatusUI
-            [userId]="friend.user.id"
-            class="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 w-2.5 h-2.5 rounded-full border-2 border-white"></StatusUI>
+        <div class="relative w-10 h-10">
+          <div class="w-full h-full rounded-full overflow-hidden">
+            <img
+              *ngIf="friend.avatar"
+              class="w-full h-full object-cover"
+              [src]="friend.avatar"
+              [alt]="friend.name" />
+            <div
+              *ngIf="!friend.avatar"
+              class="w-full h-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold">
+              {{ friend.name.charAt(0).toUpperCase() }}
+            </div>
+          </div>
+
+          <StatusUI [userId]="friend.user.id"></StatusUI>
         </div>
+
+
+
+
         <span class="text-gray-300 text-sm">{{ friend.name }}</span>
 
         <span
