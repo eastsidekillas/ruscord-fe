@@ -1,13 +1,15 @@
 import {
   Component,
+  EventEmitter,
   Input,
+  Output,
   ViewChild,
   ElementRef,
   AfterViewInit,
   OnDestroy
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ChatItem } from './chat-item';
+import { ChatItem, ChatMessage } from './chat-item';
 
 @Component({
   selector: 'ChatMessages',
@@ -20,12 +22,16 @@ import { ChatItem } from './chat-item';
     >
 
 
-      <ChatItem class="flex items-start space-x-3 px-2" *ngFor="let msg of messages" [msg]="msg" />
+      <ChatItem *ngFor="let msg of messages" [msg]="msg"
+                (replyClicked)="replyTo.emit($event)"
+                (forwardClicked)="forwardMessage.emit($event)" />
     </div>
   `,
 })
 export class ChatMessages implements AfterViewInit, OnDestroy {
   @Input() messages: any[] = [];
+  @Output() replyTo = new EventEmitter<ChatMessage>();
+  @Output() forwardMessage = new EventEmitter<ChatMessage>();
   @ViewChild('messagesContainer') messagesContainer!: ElementRef;
   private observer: MutationObserver | null = null;
   private initialScrollDone = false;

@@ -18,11 +18,11 @@ import { AccountSettingsSectionComponent } from '@widgets/user/ui/sections/accou
       </div>
 
       <!-- Right content panel (covers the rest) -->
-      <div class="flex-1 bg-main-surface-secondary flex overflow-hidden">
+      <div class="flex-1 bg-main-surface-secondary relative overflow-hidden">
 
         <!-- Scrollable content area -->
-        <div class="flex-1 overflow-y-auto">
-          <div class="px-8 pt-10 pb-24" style="max-width: 680px">
+        <div class="h-full overflow-y-auto">
+          <div class="px-10 pt-10 pb-24" style="max-width: 740px">
 
             <h2 class="text-xl font-bold text-white mb-1">{{ sectionLabel() }}</h2>
             <div class="border-b border-white/10 mb-6"></div>
@@ -44,8 +44,8 @@ import { AccountSettingsSectionComponent } from '@widgets/user/ui/sections/accou
           </div>
         </div>
 
-        <!-- Close button column -->
-        <div class="flex-none flex flex-col items-center pt-10 px-5">
+        <!-- Close button: absolute so it doesn't affect scroll area width -->
+        <div class="absolute top-6 right-6 flex flex-col items-center z-10">
           <button
             (click)="modalService.close()"
             class="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center

@@ -15,6 +15,7 @@ export type ModalType =
   | 'userProfile'
   | 'userSettings'
   | 'incomingCall'
+  | 'forwardMessage'
 
 export interface ModalData {
   [key: string]: any;
