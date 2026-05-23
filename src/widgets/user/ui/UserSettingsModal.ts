@@ -13,7 +13,7 @@ import { AccountSettingsSectionComponent } from '@widgets/user/ui/sections/accou
     <div class="fixed inset-0 z-50 flex">
 
       <!-- Left navigation panel (covers left portion of screen) -->
-      <div class="bg-[#1e1e1e] flex-none flex justify-end" style="width: clamp(200px, 28%, 320px)">
+      <div class="bg-[#1e1e1e] flex-none flex justify-end">
         <SettingsSidebar (itemSelected)="currentSection.set($event)" />
       </div>
 
