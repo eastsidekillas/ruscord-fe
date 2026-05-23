@@ -107,7 +107,16 @@ export class CallStateService {
     }
   }
 
-  initiateCall(channelId: string, callee: { id: string; name: string; avatar: string }): void {
+  async initiateCall(channelId: string, callee: { id: string; name: string; avatar: string }): Promise<void> {
+    const hasPermission = await this.livekit.requestMicPermission();
+    if (!hasPermission) {
+      this.notifications.show(
+        'Нет доступа к микрофону. Разрешите доступ в настройках браузера.',
+        'error',
+        5000,
+      );
+      return;
+    }
     this.status.set('calling');
     this.party.set({ userId: callee.id, name: callee.name, avatar: callee.avatar, channelId });
     this.socketService.send({
@@ -119,7 +128,16 @@ export class CallStateService {
     });
   }
 
-  acceptCall(): void {
+  async acceptCall(): Promise<void> {
+    const hasPermission = await this.livekit.requestMicPermission();
+    if (!hasPermission) {
+      this.notifications.show(
+        'Нет доступа к микрофону. Разрешите доступ в настройках браузера.',
+        'error',
+        5000,
+      );
+      return;
+    }
     const p = this.party();
     if (!p) return;
     this.socketService.send({

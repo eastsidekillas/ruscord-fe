@@ -53,9 +53,20 @@ export class LivekitService {
   public localVideoTrack: LocalVideoTrack | null = null;
 
   private joiningRoomId: string | null = null;
+  private audioElements = new Map<string, HTMLAudioElement>();
 
   constructor(private apiService: ApiService) {
     setLogLevel(LogLevel.warn);
+  }
+
+  async requestMicPermission(): Promise<boolean> {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async joinRoom(roomUuid: string): Promise<void> {
@@ -177,12 +188,22 @@ export class LivekitService {
     this.updateParticipants();
   };
 
-  private handleParticipantDisconnected = () => {
+  private handleParticipantDisconnected = (participant: RemoteParticipant) => {
+    this.stopAudioForParticipant(participant.identity);
     this.updateParticipants();
     if (this.room && this.room.remoteParticipants.size === 0) {
       this.allParticipantsLeft$.next();
     }
   };
+
+  private stopAudioForParticipant(identity: string): void {
+    const audio = this.audioElements.get(identity);
+    if (audio) {
+      audio.pause();
+      audio.srcObject = null;
+      this.audioElements.delete(identity);
+    }
+  }
 
   private handleTrackSubscribed = (
     track: RemoteTrack,
@@ -205,15 +226,25 @@ export class LivekitService {
 
     if (track.kind === Track.Kind.Audio) {
       if (participant.identity === this.room.localParticipant.identity) return;
+      this.stopAudioForParticipant(participant.identity);
       const stream = new MediaStream([track.mediaStreamTrack]);
       const audio = new Audio();
       audio.srcObject = stream;
       audio.autoplay = true;
+      audio.muted = this.soundDisabled();
+      this.audioElements.set(participant.identity, audio);
       audio.play().catch(e => console.warn('Audio playback failed', e));
     }
   };
 
-  private handleTrackUnsubscribed = (track: RemoteTrack) => {
+  private handleTrackUnsubscribed = (
+    track: RemoteTrack,
+    _pub: RemoteTrackPublication,
+    participant: RemoteParticipant,
+  ) => {
+    if (track.kind === Track.Kind.Audio) {
+      this.stopAudioForParticipant(participant.identity);
+    }
     this.videoStreams$.next(
       this.videoStreams$.getValue().filter(t => t.track !== track.mediaStreamTrack),
     );
@@ -232,10 +263,16 @@ export class LivekitService {
 
   async disableLocalVideo(): Promise<void> {
     if (this.localVideoTrack) {
-      await this.room.localParticipant.unpublishTrack(this.localVideoTrack);
-      this.localVideoTrack.stop();
-      this.videoStreams$.next(this.videoStreams$.getValue().filter(t => t.id !== 'local'));
+      const track = this.localVideoTrack;
       this.localVideoTrack = null;
+      this.videoStreams$.next(this.videoStreams$.getValue().filter(t => t.id !== 'local'));
+      try {
+        await this.room.localParticipant.unpublishTrack(track);
+      } catch (e) {
+        console.warn('unpublishTrack failed', e);
+      } finally {
+        track.stop();
+      }
     }
   }
 
@@ -254,6 +291,8 @@ export class LivekitService {
 
   toggleSound(): void {
     this.soundDisabled.update(v => !v);
+    const muted = this.soundDisabled();
+    this.audioElements.forEach(audio => { audio.muted = muted; });
   }
 
   disconnectRoom(): void {
@@ -263,7 +302,15 @@ export class LivekitService {
       this.currentChannelId.set(null);
       this.participants$.next([]);
       this.videoStreams$.next([]);
-      this.localVideoTrack = null;
+      if (this.localVideoTrack) {
+        this.localVideoTrack.stop();
+        this.localVideoTrack = null;
+      }
+      this.audioElements.forEach(audio => {
+        audio.pause();
+        audio.srcObject = null;
+      });
+      this.audioElements.clear();
       this.joiningRoomId = null;
       this.micMuted.set(false);
       this.videoDisabled.set(true);
