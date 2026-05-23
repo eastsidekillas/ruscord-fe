@@ -124,8 +124,8 @@ interface InviteDetails {
           <!-- Divider -->
           <div class="border-t border-white/10 mt-5 mb-4"></div>
 
-          <!-- CTA -->
-          <div *ngIf="!joined()" class="flex flex-col gap-2">
+          <!-- CTA — авторизован -->
+          <div *ngIf="!joined() && isLoggedIn()" class="flex flex-col gap-2">
             <button (click)="joinServer()"
                     [disabled]="joining()"
                     class="w-full py-3 rounded-xl bg-green-500 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition">
@@ -133,6 +133,17 @@ interface InviteDetails {
             </button>
             <p class="text-center text-gray-500 text-xs">
               Присоединяясь, вы принимаете правила сервера.
+            </p>
+          </div>
+
+          <!-- CTA — не авторизован -->
+          <div *ngIf="!isLoggedIn()" class="flex flex-col gap-2">
+            <button (click)="goLogin()"
+                    class="w-full py-3 rounded-xl bg-green-500 hover:opacity-90 text-white font-semibold text-sm transition">
+              Войти, чтобы принять
+            </button>
+            <p class="text-center text-gray-500 text-xs">
+              Нужна учётная запись Ruscord.
             </p>
           </div>
 
@@ -164,6 +175,7 @@ export class InvitePage implements OnInit {
   protected readonly joining = signal(false);
   protected readonly joined = signal(false);
   protected readonly joinError = signal<string | null>(null);
+  protected readonly isLoggedIn = signal(!!localStorage.getItem('currentUser'));
 
   private token: string | null = null;
 
@@ -219,6 +231,12 @@ export class InvitePage implements OnInit {
         this.joinError.set('Не удалось присоединиться. Возможно, вы уже участник.');
         this.joining.set(false);
       },
+    });
+  }
+
+  protected goLogin(): void {
+    this.router.navigate(['/login'], {
+      queryParams: { returnUrl: `/invite/${this.token}` },
     });
   }
 

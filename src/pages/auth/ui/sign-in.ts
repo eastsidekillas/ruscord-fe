@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import {FormBuilder, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import { AuthService } from '@entities/session/api/auth.service';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {NgIf} from '@angular/common';
 
 @Component({
@@ -127,7 +127,12 @@ export class SignIn implements OnInit {
   errorMessage: string = '';
   successMessage: string = '';
 
-  constructor(private fb: FormBuilder, private authService: AuthService, private router: Router) {}
+  constructor(
+    private fb: FormBuilder,
+    private authService: AuthService,
+    private router: Router,
+    private route: ActivatedRoute,
+  ) {}
 
   ngOnInit(): void {
     this.initForm();
@@ -172,7 +177,8 @@ export class SignIn implements OnInit {
         () => {
           this.successMessage = 'Успешный вход!';
           setTimeout(() => {
-            this.router.navigate(['/channels/me/']);
+            const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+            this.router.navigateByUrl(returnUrl ?? '/channels/me/');
           }, 1000);
         },
         () => {
