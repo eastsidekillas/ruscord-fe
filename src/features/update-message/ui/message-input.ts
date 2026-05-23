@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatMessage } from '@widgets/chat/ui/chat-item';
+import { LucideAngularModule, Reply, SendHorizonal, X } from 'lucide-angular';
 
 export interface SendPayload {
   text: string;
@@ -11,15 +12,13 @@ export interface SendPayload {
 @Component({
   selector: 'MessageInput',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule],
   template: `
-    <!-- Reply preview bar (above the card) -->
-    <div *ngIf="replyTo"
-         class="flex items-center gap-2 mb-2 pl-3 pr-2 py-1.5
-                bg-main-surface-secondary rounded-xl text-xs border border-white/5">
-      <svg class="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/>
-      </svg>
+
+    <div *ngIf="replyTo" class="flex items-center gap-2 mb-2 pl-3 pr-2 py-1.5 bg-main-surface-secondary rounded-xl text-xs border border-white/5">
+
+      <lucide-angular [img]="Reply" class="w-3.5 h-3.5 text-green-500 shrink-0"></lucide-angular>
+
       <span class="text-gray-400">Ответ для</span>
       <span class="text-green-400 font-medium">{{ replyTo.sender_username }}</span>
       <span class="text-gray-500 truncate flex-1">{{ replyTo.message || replyTo.text }}</span>
@@ -28,13 +27,11 @@ export interface SendPayload {
         class="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors shrink-0"
         title="Отменить ответ"
       >
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
+        <lucide-angular [img]="X" class="w-3.5 h-3.5"></lucide-angular>
+
       </button>
     </div>
 
-    <!-- Input card — same style as SidebarUserProfile -->
     <div class="bg-main-surface-secondary rounded-xl shadow-lg px-4 py-4 flex items-center gap-3">
       <input
         class="flex-1 bg-transparent text-sm text-gray-200 focus:outline-none placeholder-typo-secondary h-10"
@@ -46,14 +43,10 @@ export interface SendPayload {
       />
       <button
         (click)="handleSend()"
-        [class.opacity-0]="!message.trim()"
-        [class.pointer-events-none]="!message.trim()"
         class="text-green-500 hover:text-green-400 transition-all shrink-0"
         title="Отправить"
       >
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-        </svg>
+        <lucide-angular class="w-5 h-5"  [img]="SendHorizonal"></lucide-angular>
       </button>
     </div>
   `
@@ -108,4 +101,8 @@ export class MessageInput {
   private emitTyping(isTyping: boolean) {
     this.typing.emit(isTyping);
   }
+
+  protected readonly SendHorizonal = SendHorizonal;
+  protected readonly Reply = Reply;
+  protected readonly X = X;
 }

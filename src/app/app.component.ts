@@ -11,14 +11,17 @@ import { UserSettingsModal } from '@widgets/user/ui/UserSettingsModal';
 import { IncomingCallModal } from '@features/incoming-call/ui/incoming-call-modal';
 import { ForwardMessageModal } from '@features/forward-message/ui/forward-message-modal';
 import { CallStateService } from '@entities/call';
+import { ConnectionOverlay } from '@shared/ui/connection-overlay';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, UserSettingsModal, IncomingCallModal, ForwardMessageModal],
+  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, UserSettingsModal, IncomingCallModal, ForwardMessageModal, ConnectionOverlay],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <router-outlet></router-outlet>
+
+    <ConnectionOverlay></ConnectionOverlay>
 
     <CreateServerModal *ngIf="modalService.modalType() === 'createServer'"></CreateServerModal>
     <ProfileViewModal *ngIf="modalService.modalType() === 'userProfile'"></ProfileViewModal>
@@ -30,7 +33,6 @@ import { CallStateService } from '@entities/call';
   `,
 })
 export class AppComponent {
-  // Eagerly instantiate CallStateService so it subscribes to socket messages from app start
   constructor(
     public notificationService: NotificationService,
     public modalService: ModalService,

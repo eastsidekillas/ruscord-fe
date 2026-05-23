@@ -92,7 +92,7 @@ export class ApiService {
   }
 
   // Инвайты
-  postInviteLinkServer(serverId: string, maxUses: number, expiresIn: number): Observable<any> {
+  postInviteLinkServer(serverId: string, maxUses: number | null, expiresIn: number | null): Observable<any> {
     return this.http.post(this.url(`servers/invite/${serverId}/`), {
       max_uses: maxUses,
       expires_in: expiresIn,

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 import { environment } from '../../../environment/environment';
 
@@ -10,6 +10,8 @@ export class StatusSocketService {
   private messageSubject = new Subject<any>();
   private reconnectTimeout: any;
   private pingInterval: any;
+
+  readonly connected = signal(false);
 
   constructor() {
     this.connect();
@@ -28,7 +30,7 @@ export class StatusSocketService {
     this.socket = new WebSocket(`${environment.API_WS_URL}status/?token=${user.token}`);
 
     this.socket.onopen = () => {
-      console.log('WebSocket connected');
+      this.connected.set(true);
       this.startPingPong();
     };
 
@@ -38,13 +40,12 @@ export class StatusSocketService {
     };
 
     this.socket.onclose = () => {
-      console.log('WebSocket connection closed');
+      this.connected.set(false);
       this.reconnect();
     };
 
-    this.socket.onerror = (error) => {
-      console.error('WebSocket Error:', error);
-      this.reconnect();
+    this.socket.onerror = () => {
+      this.connected.set(false);
     };
   }
 

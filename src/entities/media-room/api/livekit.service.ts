@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { BehaviorSubject, lastValueFrom } from 'rxjs';
+import { BehaviorSubject, Subject, lastValueFrom } from 'rxjs';
 import { ApiService } from '@shared/api/api.service';
 import {
   Room,
@@ -41,22 +41,30 @@ export class LivekitService {
 
   readonly currentChannelId = signal<string | null>(null);
   readonly micMuted = signal(false);
-  readonly videoDisabled = signal(false);
+  readonly videoDisabled = signal(true);
   readonly soundDisabled = signal(false);
 
   public participants$ = new BehaviorSubject<ParticipantInfo[]>([]);
   public connected$ = new BehaviorSubject<boolean>(false);
   public videoStreams$ = new BehaviorSubject<VideoTrackInfo[]>([]);
+  /** Emits when all remote participants have left the room. */
+  public allParticipantsLeft$ = new Subject<void>();
 
   public localVideoTrack: LocalVideoTrack | null = null;
+
+  private joiningRoomId: string | null = null;
 
   constructor(private apiService: ApiService) {
     setLogLevel(LogLevel.warn);
   }
 
   async joinRoom(roomUuid: string): Promise<void> {
+    if (this.joiningRoomId === roomUuid) return;
+    if (this.currentChannelId() === roomUuid && this.connected$.getValue()) return;
+
+    this.joiningRoomId = roomUuid;
     try {
-      if (this.room) this.room.disconnect();
+      if (this.room) await this.room.disconnect();
 
       this.livekitToken = await this.getToken(roomUuid);
       this.room = new Room();
@@ -66,6 +74,10 @@ export class LivekitService {
         .on(RoomEvent.TrackUnsubscribed, this.handleTrackUnsubscribed)
         .on(RoomEvent.ParticipantConnected, this.handleParticipantConnected)
         .on(RoomEvent.ParticipantDisconnected, this.handleParticipantDisconnected)
+        // v2: separate events for name, metadata, and attributes
+        .on(RoomEvent.ParticipantNameChanged, () => this.updateParticipants())
+        .on(RoomEvent.ParticipantMetadataChanged, () => this.updateParticipants())
+        .on(RoomEvent.ParticipantAttributesChanged, () => this.updateParticipants())
         .on(RoomEvent.ActiveSpeakersChanged, () => this.updateParticipants())
         .on(RoomEvent.TrackMuted, () => this.updateParticipants())
         .on(RoomEvent.TrackUnmuted, () => this.updateParticipants())
@@ -78,6 +90,16 @@ export class LivekitService {
       this.connected$.next(true);
       this.currentChannelId.set(roomUuid);
 
+      // Publish identity data so remote participants can display name + avatar.
+      // v2 preferred: setName() + setAttributes() instead of JSON metadata.
+      const u = this.getLocalUser();
+      if (u) {
+        await Promise.allSettled([
+          this.room.localParticipant.setName(u.name ?? ''),
+          this.room.localParticipant.setAttributes({ avatar: u.avatar ?? '' }),
+        ]);
+      }
+
       const audioTrack = await createLocalAudioTrack();
       await this.room.localParticipant.publishTrack(audioTrack);
 
@@ -85,45 +107,65 @@ export class LivekitService {
     } catch (error) {
       console.error('Error connecting to room:', error);
       this.connected$.next(false);
+    } finally {
+      this.joiningRoomId = null;
     }
   }
 
-  getRoom(): Room {
-    return this.room;
+  private resolveAvatar(p: { attributes?: Record<string, string>; metadata?: string }): string | undefined {
+    // v2: check attributes first, then fall back to JSON metadata
+    const fromAttr = p.attributes?.['avatar'];
+    if (fromAttr) return fromAttr;
+    return this.parseMetadata(p.metadata)?.avatar;
+  }
+
+  private resolveName(p: RemoteParticipant): string {
+    // v2: p.name is a first-class property set from the token
+    if (p.name) return p.name;
+    return this.parseMetadata(p.metadata)?.name ?? this.getUsernameFromIdentity(p.identity);
   }
 
   getUsernameFromIdentity(identity: string): string {
-    const raw = localStorage.getItem('currentUser');
-    if (!raw) return identity;
-    try {
-      const u = JSON.parse(raw);
-      if (identity === 'local' || identity === String(u.user_id)) return u.name;
-    } catch { /* ignore */ }
+    const u = this.getLocalUser();
+    if (!u) return identity;
+    if (identity === 'local' || identity === String(u.user_id)) return u.name;
     return identity;
+  }
+
+  private getLocalUser(): { user_id: number; name: string; avatar?: string } | null {
+    try {
+      const raw = localStorage.getItem('currentUser');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
   }
 
   private updateParticipants = () => {
     if (!this.room) return;
 
     const fromRemote = (p: RemoteParticipant): ParticipantInfo => {
-      const meta = this.parseMetadata(p.metadata);
       const micPub = p.getTrackPublication(Track.Source.Microphone);
       return {
         identity: p.identity,
-        name: meta?.name ?? this.getUsernameFromIdentity(p.identity),
+        name: this.resolveName(p),
         isSpeaking: p.isSpeaking,
         isMuted: micPub?.isMuted ?? true,
-        avatar: meta?.avatar,
+        avatar: this.resolveAvatar(p),
       };
     };
 
-    const localMeta = this.parseMetadata(this.room.localParticipant.metadata);
+    // Local participant: use first-class properties, fall back to localStorage.
+    const localUser = this.getLocalUser();
     const local: ParticipantInfo = {
       identity: 'local',
-      name: localMeta?.name ?? this.getUsernameFromIdentity('local'),
+      name:
+        this.room.localParticipant.name ||
+        localUser?.name ||
+        this.getUsernameFromIdentity('local'),
       isSpeaking: this.room.localParticipant.isSpeaking,
       isMuted: this.micMuted(),
-      avatar: localMeta?.avatar,
+      avatar: this.resolveAvatar(this.room.localParticipant) ?? localUser?.avatar,
     };
 
     const remote = Array.from(this.room.remoteParticipants.values()).map(fromRemote);
@@ -137,6 +179,9 @@ export class LivekitService {
 
   private handleParticipantDisconnected = () => {
     this.updateParticipants();
+    if (this.room && this.room.remoteParticipants.size === 0) {
+      this.allParticipantsLeft$.next();
+    }
   };
 
   private handleTrackSubscribed = (
@@ -145,11 +190,16 @@ export class LivekitService {
     participant: RemoteParticipant,
   ) => {
     if (track.kind === Track.Kind.Video) {
-      const meta = this.parseMetadata(participant.metadata);
       const stream = new MediaStream([track.mediaStreamTrack]);
       this.videoStreams$.next([
         ...this.videoStreams$.getValue(),
-        { track: track.mediaStreamTrack, stream, id: participant.identity, name: meta?.name, avatar: meta?.avatar },
+        {
+          track: track.mediaStreamTrack,
+          stream,
+          id: participant.identity,
+          name: this.resolveName(participant),
+          avatar: this.resolveAvatar(participant),
+        },
       ]);
     }
 
@@ -174,12 +224,15 @@ export class LivekitService {
     this.localVideoTrack = track;
     await this.room.localParticipant.publishTrack(track);
     const stream = new MediaStream([track.mediaStreamTrack]);
-    this.videoStreams$.next([...this.videoStreams$.getValue(), { track: track.mediaStreamTrack, stream, id: 'local' }]);
+    this.videoStreams$.next([
+      ...this.videoStreams$.getValue(),
+      { track: track.mediaStreamTrack, stream, id: 'local' },
+    ]);
   }
 
-  disableLocalVideo(): void {
+  async disableLocalVideo(): Promise<void> {
     if (this.localVideoTrack) {
-      this.localVideoTrack.mute();
+      await this.room.localParticipant.unpublishTrack(this.localVideoTrack);
       this.localVideoTrack.stop();
       this.videoStreams$.next(this.videoStreams$.getValue().filter(t => t.id !== 'local'));
       this.localVideoTrack = null;
@@ -196,7 +249,7 @@ export class LivekitService {
   async toggleVideo(): Promise<void> {
     const next = !this.videoDisabled();
     this.videoDisabled.set(next);
-    if (next) this.disableLocalVideo(); else await this.enableLocalVideo();
+    if (next) await this.disableLocalVideo(); else await this.enableLocalVideo();
   }
 
   toggleSound(): void {
@@ -205,13 +258,15 @@ export class LivekitService {
 
   disconnectRoom(): void {
     if (this.room) {
-      this.room.disconnect();
+      void this.room.disconnect();
       this.connected$.next(false);
       this.currentChannelId.set(null);
       this.participants$.next([]);
       this.videoStreams$.next([]);
+      this.localVideoTrack = null;
+      this.joiningRoomId = null;
       this.micMuted.set(false);
-      this.videoDisabled.set(false);
+      this.videoDisabled.set(true);
       this.soundDisabled.set(false);
     }
   }

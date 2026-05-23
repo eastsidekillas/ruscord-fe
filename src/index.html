@@ -6,8 +6,77 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="ruscord_logo_green.ico">
+  <style>
+    #app-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #212121;
+      transition: opacity .4s ease, visibility .4s ease;
+    }
+    #app-splash.splash-hide {
+      opacity: 0;
+      visibility: hidden;
+    }
+    #app-splash-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      animation: splash-in .5s cubic-bezier(.16,1,.3,1) both;
+    }
+    @keyframes splash-in {
+      from { opacity: 0; transform: translateY(16px) scale(.95); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+    #app-splash-title {
+      font-family: Inter, system-ui, sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -.5px;
+    }
+    #app-splash-dots {
+      display: flex;
+      gap: 6px;
+    }
+    #app-splash-dots span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #01796F;
+      animation: splash-dot 1.2s ease-in-out infinite;
+    }
+    #app-splash-dots span:nth-child(2) { animation-delay: .2s; }
+    #app-splash-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes splash-dot {
+      0%, 80%, 100% { opacity: .25; transform: scale(.8); }
+      40%           { opacity: 1;   transform: scale(1); }
+    }
+  </style>
 </head>
 <body class="bg-main-surface-secondary text-gray-200 font-sans">
+
+  <div id="app-splash">
+    <div id="app-splash-inner">
+      <img src="logo.png" alt="Ruscord" width="88" height="88" style="border-radius:22px">
+      <span id="app-splash-title">Ruscord</span>
+      <div id="app-splash-dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    if (window.location.pathname === '/') {
+      var s = document.getElementById('app-splash');
+      if (s) s.style.display = 'none';
+    }
+  </script>
+
   <app-root></app-root>
 </body>
 </html>
