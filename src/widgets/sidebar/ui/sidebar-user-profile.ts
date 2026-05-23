@@ -1,20 +1,19 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import {StatusUIText} from '@shared/ui/status-ui-text';
-import {ModalService} from '@shared/model/modal.service';
+import { StatusUIText } from '@entities/user-status';
+import { ModalService } from '@shared/model/modal.service';
+import { AvatarUI } from '@shared/ui/avatar';
 
 @Component({
   selector: 'SidebarUserProfile',
   standalone: true,
-  imports: [CommonModule, StatusUIText,],
+  imports: [CommonModule, StatusUIText, AvatarUI],
   template: `
     <div class="bg-main-surface-secondary rounded-xl shadow-lg p-4 flex items-center">
       <div class="flex items-center space-x-3">
-        <img
-          [src]="avatarUrl"
-          alt="avatar"
-          class="w-10 h-10 rounded-full object-cover border border-gray-600"
-        />
+        <div class="w-10 h-10 rounded-full overflow-hidden border border-gray-600 shrink-0">
+          <AvatarUI [src]="avatarUrl" [name]="username" />
+        </div>
         <div>
           <div class="text-sm font-semibold text-white">{{ username }}</div>
           <StatusUIText [userId]="userId" />
@@ -32,8 +31,8 @@ import {ModalService} from '@shared/model/modal.service';
 })
 export class SidebarUserProfile {
   @Input() username: string = 'Пользователь';
-  @Input() avatarUrl: string = 'https://via.placeholder.com/150';
-  @Input() userId!: number;
+  @Input() avatarUrl: string = '';
+  @Input() userId!: string;
 
   constructor(private modalService: ModalService) {
   }

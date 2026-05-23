@@ -2,14 +2,15 @@ import { Component, Input, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '@shared/api/api.service';
 import { Observable, Subject, switchMap, takeUntil } from 'rxjs';
-import {StatusUi} from '@shared/ui/status-ui';
+import { StatusUi } from '@entities/user-status';
+import { AvatarUI } from '@shared/ui/avatar';
 
 export interface ServerMember {
-  id: number; // ID участника сервера
+  id: string;
   profile: {
-    id: number; // ID профиля пользователя
+    id: string;
     user: {
-      id: number;
+      id: string;
       email: string;
       username: string;
       is_active: boolean;
@@ -31,7 +32,7 @@ export interface ServerMember {
 @Component({
   selector: 'ServerMembersSidebar',
   standalone: true,
-  imports: [CommonModule, StatusUi],
+  imports: [CommonModule, StatusUi, AvatarUI],
   template:
     `
       <div class="bg-sidebar-surface-secondary border-l border-gray-700 h-full overflow-y-auto px-3 py-4">
@@ -40,9 +41,7 @@ export interface ServerMember {
           <div *ngFor="let member of members" class="flex items-center space-x-2 py-2">
             <div class="relative w-10 h-10">
               <div class="w-full h-full rounded-full overflow-hidden">
-
-              <img *ngIf="member.profile.avatar" [src]="member.profile.avatar" alt="{{ member.profile.name }}" class="w-full h-full object-cover">
-              <div *ngIf="!member.profile.avatar" class="w-full h-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold">{{ member.profile.name.charAt(0).toUpperCase() }}</div>
+                <AvatarUI [src]="member.profile.avatar" [name]="member.profile.name" />
               </div>
               <StatusUI [userId]="member.profile.user.id"></StatusUI>
             </div>
@@ -69,17 +68,14 @@ export class ServerMembersSidebar implements OnInit, OnDestroy {
       this.serverId.pipe(
         switchMap(serverId => {
           if (serverId && serverId !== 'me') {
-            console.log('Загружаем участников для сервер ID:', serverId);
             return this.apiService.getServerMembers(serverId);
           } else {
-            console.log('Нет нужды загружать участников, так как это DM или неверный serverId');
             return new Observable<ServerMember[]>();
           }
         }),
         takeUntil(this.ngUnsubscribe)
       ).subscribe({
         next: (members) => {
-          console.log('Получены участники:', members);
           this.members = members;
         },
         error: (error) => {

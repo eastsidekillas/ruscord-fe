@@ -1,134 +1,109 @@
 import { Injectable } from '@angular/core';
-import ky from 'ky';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { environment } from '../../environment/environment';
-import {catchError, from, Observable, throwError} from 'rxjs';
-
 
 @Injectable({
   providedIn: 'root',
 })
 export class ApiService {
-  private api = ky.create({
-    prefixUrl: environment.API_URL,
-  });
+  private readonly base = environment.API_URL;
 
-  constructor() {}
+  constructor(private http: HttpClient) {}
 
-  // Поиск пользователей
+  private url(path: string): string {
+    return `${this.base}/${path}`;
+  }
+
+  // Пользователи
   searchUsers(name: string): Observable<any> {
-    return from(this.api.get(`users/search/?name=${name}`, {credentials: 'include'}).json());
+    return this.http.get(this.url(`users/search/?name=${encodeURIComponent(name)}`));
   }
 
-  // Вернет профиль пользователя
-  getUserProfile(id: number): Observable<any> {
-    return from(this.api.get(`users/${id}/profile/`, {credentials: 'include'}).json());
+  getUserProfile(id: string): Observable<any> {
+    return this.http.get(this.url(`users/${id}/profile/`));
   }
 
+  getMyProfile(): Observable<any> {
+    return this.http.get(this.url('users/me/profile/'));
+  }
 
-  // Вернет друзей пользователя
+  updateMyProfile(formData: FormData): Observable<any> {
+    return this.http.patch(this.url('users/me/profile/'), formData);
+  }
+
+  // Друзья
   getMyFriends(): Observable<any> {
-    return from(this.api.get('users/me/relationships/',
-      {
-        credentials: 'include'
-      }).json());
+    return this.http.get(this.url('users/me/relationships/'));
   }
 
-
-  // Отправит запрос на добавление в друзья
-  postFriendRequest(userId: number): Observable<any> {
-    return from(this.api.post(`users/me/friends/send/`,
-      {
-        json: { to_user_id: userId },
-        credentials: 'include'
-      }).json());
+  postFriendRequest(userId: string): Observable<any> {
+    return this.http.post(this.url('users/me/friends/send/'), { to_user_id: userId });
   }
 
-
-  // Вернет список ожидающих заявок
   getFriendRequests(): Observable<any> {
-    return from(this.api.get('users/me/friends/requests/',
-      {
-        credentials: 'include'
-      }).json());
+    return this.http.get(this.url('users/me/friends/requests/'));
   }
 
-  // Отправит запрос accept
-  postToFriendRequestAccept(requestId: number): Observable<any> {
-    return from(this.api.post(`users/me/friends/${requestId}/respond/`,
-      {
-        json: { action: 'accept' },
-        credentials: 'include'
-      }).json());
+  postToFriendRequestAccept(requestId: string): Observable<any> {
+    return this.http.post(this.url(`users/me/friends/${requestId}/respond/`), { action: 'accept' });
   }
 
-  // Отправит запрос reject
-  postToFriendRequestReject(requestId: number): Observable<any> {
-    return from(this.api.post(`users/me/friends/${requestId}/respond/`,
-      {
-        json: { action: 'reject' },
-        credentials: 'include'
-      }).json());
+  postToFriendRequestReject(requestId: string): Observable<any> {
+    return this.http.post(this.url(`users/me/friends/${requestId}/respond/`), { action: 'reject' });
   }
 
-
-
-
-  // **Работа с каналами **
+  // Каналы
   getChannel(channelId: string): Observable<any> {
-    return from(this.api.get(`channels/${channelId}/`, { credentials: 'include' }).json());
+    return this.http.get(this.url(`channels/${channelId}/`));
   }
 
-  postCreateChannel(to_user: number): Observable<any> {
-    return from(this.api.post('channels/dm/', { json: { target_user_id: to_user }, credentials: 'include' }).json());
+  postCreateChannel(to_user: string): Observable<any> {
+    return this.http.post(this.url('channels/dm/'), { target_user_id: to_user });
   }
 
   getMessagesChannel(channelId: string): Observable<any> {
-    return from(this.api.get(`channels/${channelId}/messages/`, { credentials: 'include' }).json());
+    return this.http.get(this.url(`channels/${channelId}/messages/`));
   }
 
   getLiveKitToken(channelId: string): Observable<any> {
-    return from(this.api.get(`channels/${channelId}/livekit-token/`, { credentials: 'include' }).json());
+    return this.http.get(this.url(`channels/${channelId}/livekit-token/`));
   }
 
-  // **Работа с серверами **
-
+  // Серверы
   postCreateServer(formData: FormData): Observable<any> {
-    return from(this.api.post('servers/', { body: formData, credentials: 'include' }).json());
+    return this.http.post(this.url('servers/'), formData);
   }
 
   getMyServers(): Observable<any> {
-    return from(this.api.get('servers/', { credentials: 'include' }).json());
+    return this.http.get(this.url('servers/'));
   }
 
   getServerDetails(serverId: string): Observable<any> {
-    return from(this.api.get(`servers/${serverId}/`, { credentials: 'include' }).json());
+    return this.http.get(this.url(`servers/${serverId}/`));
   }
 
   getServerMembers(serverId: string): Observable<any> {
-    return from(this.api.get(`servers/${serverId}/members/`, { credentials: 'include' }).json());
+    return this.http.get(this.url(`servers/${serverId}/members/`));
   }
 
   getServerChannels(serverId: string): Observable<any> {
-    return from(this.api.get(`servers/${serverId}/channels/`, { credentials: 'include' }).json());
+    return this.http.get(this.url(`servers/${serverId}/channels/`));
   }
 
-  // **Работа с инвайтами серверов **
-
+  // Инвайты
   postInviteLinkServer(serverId: string, maxUses: number, expiresIn: number): Observable<any> {
-    return from(this.api.post(`servers/invite/${serverId}/`, {
-      json: {
-        max_uses: maxUses,
-        expires_in: expiresIn,
-      },
-      credentials: 'include' }).json());
+    return this.http.post(this.url(`servers/invite/${serverId}/`), {
+      max_uses: maxUses,
+      expires_in: expiresIn,
+    });
   }
 
   postServerByInvite(token: string): Observable<any> {
-    return from(this.api.post(`invite/${token}/join`, { credentials: 'include' }).json());
+    return this.http.post(this.url(`invite/${token}/join`), {});
   }
 
   getInviteServerDetails(token: string): Observable<any> {
-    return from(this.api.get(`invite/${token}/`, {
-      credentials: 'include' }).json());
+    return this.http.get(this.url(`invite/${token}/`));
   }
 }

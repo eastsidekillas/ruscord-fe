@@ -13,6 +13,10 @@ export class SocketService {
   constructor() {}
 
   connectToChannel(channelId: string) {
+    if (this.socket) {
+      this.socket.complete();
+    }
+
     const tokenString = localStorage.getItem('currentUser');
     let token: string | null = null;
 
