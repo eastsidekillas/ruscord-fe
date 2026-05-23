@@ -12,7 +12,7 @@ import { ServerSidebar } from '@widgets/sidebar/ui/server-sidebar/server-sidebar
   imports: [Sidebar, RouterOutlet, SidebarUserProfile, ServerSidebar],
   template: `
     <div class="flex h-screen relative">
-      <ServerSidebar class="w-full lg:w-20 bg-sidebar-surface-primary flex lg:flex-col max-sm:hidden items-center py-4 lg:py-6" />
+      <ServerSidebar class="w-full lg:w-20 bg-sidebar-surface-primary flex lg:flex-col max-sm:hidden items-center pt-2 pb-4 lg:pb-6" />
       <Sidebar
         class="flex flex-col w-64 bg-sidebar-surface-primary"
         [isServerRoute]="false"

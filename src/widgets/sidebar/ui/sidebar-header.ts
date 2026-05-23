@@ -7,7 +7,7 @@ import {DropdownMenu, DropdownMenuItem} from '@shared/ui/dropdown-menu';
   standalone: true,
   imports: [CommonModule, DropdownMenu],
   template: `
-    <div class="flex items-center justify-between h-16 px-4 shadow-xl">
+    <div class="flex items-center justify-between h-16 px-6 shadow-xl">
       <h3 class="text-lg font-semibold text-typo-secondary">
         {{ isServerRoute ? serverName || 'Сервер' : 'Главная' }}
       </h3>

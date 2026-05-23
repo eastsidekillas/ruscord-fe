@@ -9,10 +9,12 @@ import { ModalService } from '@shared/model/modal.service';
 import { InviteServerModal } from '@features/invite-server/ui/invite-server-modal';
 import { UserSettingsModal } from '@widgets/user/ui/UserSettingsModal';
 import { IncomingCallModal } from '@features/incoming-call/ui/incoming-call-modal';
+import { ForwardMessageModal } from '@features/forward-message/ui/forward-message-modal';
+import { CallStateService } from '@entities/call';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, UserSettingsModal, IncomingCallModal],
+  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, UserSettingsModal, IncomingCallModal, ForwardMessageModal],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -23,9 +25,15 @@ import { IncomingCallModal } from '@features/incoming-call/ui/incoming-call-moda
     <InviteServerModal *ngIf="modalService.modalType() === 'invite'"></InviteServerModal>
     <UserSettingsModal *ngIf="modalService.modalType() === 'userSettings'"></UserSettingsModal>
     <IncomingCallModal *ngIf="modalService.modalType() === 'incomingCall'"></IncomingCallModal>
+    <ForwardMessageModal *ngIf="modalService.modalType() === 'forwardMessage'"></ForwardMessageModal>
     <Notification *ngIf="notificationService.state().visible"></Notification>
   `,
 })
 export class AppComponent {
-  constructor(public notificationService: NotificationService, public modalService: ModalService) {}
+  // Eagerly instantiate CallStateService so it subscribes to socket messages from app start
+  constructor(
+    public notificationService: NotificationService,
+    public modalService: ModalService,
+    _call: CallStateService,
+  ) {}
 }

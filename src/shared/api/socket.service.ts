@@ -40,14 +40,7 @@ export class SocketService {
 
 
   handleMessage(message: any) {
-    switch (message.type) {
-      case 'chat.message':
-      case 'user.typing':
-        this.messagesSubject.next(message);
-        break;
-      default:
-        console.warn('Необработанный тип сообщения:', message);
-    }
+    this.messagesSubject.next(message);
   }
 
   send(message: any) {

@@ -106,4 +106,15 @@ export class ApiService {
   getInviteServerDetails(token: string): Observable<any> {
     return this.http.get(this.url(`invite/${token}/`));
   }
+
+  // Пересылка
+  getForwardTargets(): Observable<any> {
+    return this.http.get(this.url('messages/forward-targets/'));
+  }
+
+  forwardMessage(messageId: string, targetChannelId: string): Observable<any> {
+    return this.http.post(this.url(`messages/${messageId}/forward/`), {
+      target_channel_id: targetChannelId,
+    });
+  }
 }
