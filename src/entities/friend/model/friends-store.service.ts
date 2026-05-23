@@ -10,8 +10,8 @@ export class FriendsStoreService {
 
   constructor(private api: ApiService) {
     this.refresh();
-    // Poll incoming requests every 30s to catch new ones in real time
-    interval(30_000).subscribe(() => this.loadPendingRequests());
+    // Poll both lists every 30s to pick up remote changes (friend accepted, new request)
+    interval(30_000).subscribe(() => this.refresh());
   }
 
   loadFriends(): void {

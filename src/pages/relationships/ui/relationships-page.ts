@@ -1,25 +1,28 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '@shared/api/api.service';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { FriendsHeader } from '@widgets/friends/ui/friends-header';
 import { InputComponent } from '@shared/ui/input';
 import { NotificationService } from '@shared/model/notification.service';
 import { FriendPending } from '@widgets/friends/ui/friends-pending';
 import { AvatarUI } from '@shared/ui/avatar';
+import { StatusUi } from '@entities/user-status';
 import { FriendsStoreService } from '@entities/friend';
 
 @Component({
   selector: 'RelationshipsPage',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, FriendsHeader, InputComponent, FriendPending, AvatarUI],
+  imports: [CommonModule, FormsModule, FriendsHeader, InputComponent, FriendPending, AvatarUI, StatusUi],
   template: `
     <FriendsHeader
       [pendingCount]="store.pendingCount()"
       (filterChanged)="onFilterChanged($event)"
     />
 
+    <!-- ── ВСЕ ДРУЗЬЯ ── -->
     <div *ngIf="filter === 'all'">
       <div class="flex flex-col space-y-2 px-6 pt-6">
         <h2 class="text-xl font-semibold text-typo-secondary">Добавить в друзья</h2>
@@ -64,6 +67,39 @@ import { FriendsStoreService } from '@entities/friend';
       </div>
     </div>
 
+    <!-- ── В СЕТИ ── -->
+    <div *ngIf="filter === 'online'" class="flex flex-col px-6 pt-6 gap-2">
+      <div class="flex flex-col space-y-2 mb-4">
+        <h2 class="text-xl font-semibold text-typo-secondary">В сети — {{ onlineFriends().length }}</h2>
+      </div>
+
+      <div *ngIf="onlineFriends().length === 0"
+           class="text-center text-typo-secondary text-sm mt-8">
+        Никого нет в сети
+      </div>
+
+      <div class="flex items-center space-x-3 py-3 px-3 justify-between rounded-md bg-main-surface-secondary hover:bg-main-surface-primary transition cursor-pointer"
+           *ngFor="let friend of onlineFriends()"
+           (click)="openChat(friend.id)">
+        <div class="flex items-center space-x-3">
+          <div class="relative w-10 h-10">
+            <div class="w-full h-full rounded-full overflow-hidden">
+              <AvatarUI [src]="friend.avatar" [name]="friend.name" />
+            </div>
+            <StatusUI [userId]="friend.user.id"></StatusUI>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-sm text-gray-200 font-medium">{{ friend.name }}</span>
+            <span class="text-xs text-green-500">В сети</span>
+          </div>
+        </div>
+        <button class="text-xs text-gray-400 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition">
+          Написать
+        </button>
+      </div>
+    </div>
+
+    <!-- ── ОЖИДАНИЕ ── -->
     <div *ngIf="filter === 'waiting'">
       <FriendPending />
     </div>
@@ -73,6 +109,12 @@ export class RelationshipsPage {
   protected readonly store = inject(FriendsStoreService);
   private readonly apiService = inject(ApiService);
   private readonly notification = inject(NotificationService);
+  private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
+
+  protected readonly onlineFriends = computed(() =>
+    this.store.friends().filter((f: any) => f.status === 'online')
+  );
 
   username = '';
   foundUsers: any[] = [];
@@ -80,6 +122,13 @@ export class RelationshipsPage {
   filter: 'all' | 'waiting' | 'online' = 'all';
 
   private typingTimeout: any;
+
+  constructor() {
+    effect(() => {
+      this.store.friends();
+      this.cdr.markForCheck();
+    });
+  }
 
   searchFriends() {
     this.apiService.searchUsers(this.username).subscribe({
@@ -93,8 +142,20 @@ export class RelationshipsPage {
       next: () => {
         this.notification.show('Запрос на дружбу отправлен!', 'success');
         this.addedUsers.add(userId);
+        this.store.loadFriends();
       },
       error: () => this.notification.show('Упс, какая-то ошибка сервера.', 'error'),
+    });
+  }
+
+  openChat(friendId: string) {
+    this.apiService.postCreateChannel(friendId).subscribe({
+      next: (channel: any) => {
+        if (channel.id) {
+          this.router.navigate(['/channels/me', channel.id]);
+        }
+      },
+      error: (err) => console.error('Ошибка при открытии канала:', err),
     });
   }
 

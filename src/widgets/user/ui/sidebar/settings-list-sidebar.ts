@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, inject, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '@entities/session/api/auth.service';
+import { ModalService } from '@shared/model/modal.service';
 
 interface SettingsItem {
   key: string;
@@ -59,6 +60,7 @@ export class SettingsSidebar {
   @Output() itemSelected = new EventEmitter<string>();
 
   private readonly authService = inject(AuthService);
+  private readonly modalService = inject(ModalService);
 
   readonly groups: SettingsGroup[] = [
     {
@@ -106,6 +108,7 @@ export class SettingsSidebar {
   }
 
   logout() {
+    this.modalService.close();
     this.authService.logout();
   }
 }

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, effect, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { NgForOf } from '@angular/common';
 import { StatusUi } from '@entities/user-status';
@@ -10,7 +10,6 @@ import { ApiService } from '@shared/api/api.service';
   selector: 'SidebarItem',
   standalone: true,
   imports: [NgForOf, StatusUi, AvatarUI],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex flex-col space-y-2">
       <button
@@ -34,6 +33,17 @@ export class SidebarItem {
   protected readonly store = inject(FriendsStoreService);
   private readonly router = inject(Router);
   private readonly api = inject(ApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
+
+  constructor() {
+    // Явно форсируем перепроверку при каждом изменении сигнала.
+    // Нужно потому что HTTP-колбэки могут обновить сигнал вне текущего
+    // цикла zone.js, и OnPush-компонент не получает нотификацию.
+    effect(() => {
+      this.store.friends();
+      this.cdr.markForCheck();
+    });
+  }
 
   openChat(friendId: string): void {
     this.api.postCreateChannel(friendId).subscribe({
