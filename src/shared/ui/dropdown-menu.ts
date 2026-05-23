@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import {LucideAngularModule, Settings} from 'lucide-angular';
 
 export interface DropdownMenuItem {
   label: string;
@@ -10,15 +11,15 @@ export interface DropdownMenuItem {
 @Component({
   selector: 'DropdownMenu',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LucideAngularModule],
   template: `
     <div class="relative inline-block text-left">
       <button
         (click)="toggle()"
-        class="hover:text-green-400"
+        class="text-typo-secondary pt-2"
         aria-label="Меню настроек"
       >
-        ⚙️
+        <lucide-angular class="w-5 h-5 hover:text-gray-200" [img]="Settings"></lucide-angular>
       </button>
 
       <div
@@ -52,4 +53,6 @@ export class DropdownMenu {
     this.itemSelected.emit(item);
     this.open = false;
   }
+
+  protected readonly Settings = Settings;
 }

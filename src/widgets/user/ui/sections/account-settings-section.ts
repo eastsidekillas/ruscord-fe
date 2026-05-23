@@ -1,119 +1,306 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import {FormsModule} from '@angular/forms';
-import {InputComponent} from '@shared/ui/input';
-import {TextareaComponent} from '@shared/ui/textarea';
+import { FormsModule } from '@angular/forms';
+import { ApiService } from '@shared/api/api.service';
+import { AuthService } from '@entities/session/api/auth.service';
+import { NotificationService } from '@shared/model/notification.service';
+import { AvatarUI } from '@shared/ui/avatar';
 
 @Component({
   selector: 'AccountSettingsSection',
   standalone: true,
-  imports: [CommonModule, FormsModule, InputComponent, TextareaComponent],
+  imports: [CommonModule, FormsModule, AvatarUI],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="bg-sidebar-surface-primary p-6 rounded-xl shadow-lg space-y-4">
-      <!-- Режим просмотра -->
-      <div *ngIf="!isEditing">
-        <div>
-          <label class="block text-sm font-medium text-gray-300">Имя пользователя</label>
-          <p class="mt-1 text-white">{{ username }}</p>
-        </div>
+    <div class="pb-24">
 
-        <div>
-          <label class="block text-sm font-medium text-gray-300">Имя</label>
-          <p class="mt-1 text-white">{{ name }}</p>
-        </div>
+      <!-- Loading -->
+      <div *ngIf="isLoading()" class="flex items-center justify-center py-20">
+        <div class="w-8 h-8 rounded-full border-2 border-green-500 border-t-transparent animate-spin"></div>
+      </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-300">Глобальное имя</label>
-          <p class="mt-1 text-white">{{ globalName }}</p>
-        </div>
+      <ng-container *ngIf="!isLoading()">
 
-        <div>
-          <label class="block text-sm font-medium text-gray-300">Биография</label>
-          <p class="mt-1 text-white">{{ bio }}</p>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-300">Аватар</label>
-          <div class="mt-1">
-            <img *ngIf="avatar" [src]="avatar" alt="Avatar" class="w-16 h-16 rounded-full" />
-            <p *ngIf="!avatar" class="text-gray-500">Аватар не загружен</p>
+        <!-- Profile card preview -->
+        <div class="rounded-lg overflow-hidden mb-8 border border-white/5 shadow-lg">
+          <!-- Banner -->
+          <div class="h-20 bg-gradient-to-r from-green-800 via-emerald-700 to-teal-700 relative">
+            <!-- Avatar -->
+            <div class="absolute -bottom-9 left-5">
+              <div class="w-[72px] h-[72px] rounded-full border-[4px] border-main-surface-secondary bg-gray-700 overflow-hidden">
+                <AvatarUI [src]="avatarPreview()" [name]="name() || username()" />
+              </div>
+            </div>
+          </div>
+          <!-- Name row -->
+          <div class="bg-sidebar-surface-primary pt-12 px-5 pb-4">
+            <div class="text-white font-bold text-lg leading-tight">{{ name() || username() }}</div>
+            <div class="text-gray-400 text-sm">{{ username() }}</div>
           </div>
         </div>
 
-        <div class="text-right">
-          <button (click)="isEditing = true" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-md font-semibold">
-            Редактировать профиль
-          </button>
-        </div>
-      </div>
+        <!-- Account info -->
+        <section class="mb-6">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Учётная запись</h3>
+          <div class="bg-sidebar-surface-primary rounded-lg divide-y divide-white/5">
+            <div class="px-4 py-3">
+              <label class="block text-xs text-gray-500 mb-1">Имя пользователя</label>
+              <p class="text-white text-sm">{{ username() }}</p>
+            </div>
+            <div class="px-4 py-3">
+              <label class="block text-xs text-gray-500 mb-1">Электронная почта</label>
+              <p class="text-white text-sm">{{ email() }}</p>
+            </div>
+          </div>
+        </section>
 
-      <!-- Режим редактирования -->
-      <div *ngIf="isEditing">
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-300">Имя пользователя</label>
-          <app-input type="text" [(ngModel)]="username"></app-input>
-        </div>
+        <!-- Profile editing -->
+        <section class="mb-6">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Профиль</h3>
+          <div class="space-y-4">
 
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-300">Имя</label>
-          <app-input type="text" [(ngModel)]="name"></app-input>
-        </div>
+            <!-- Display name -->
+            <div class="bg-sidebar-surface-primary rounded-lg px-4 py-3">
+              <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                Отображаемое имя
+              </label>
+              <input
+                type="text"
+                [value]="name()"
+                (input)="name.set(getInputValue($event))"
+                maxlength="64"
+                placeholder="Ваше имя..."
+                class="w-full bg-main-surface-secondary text-white text-sm rounded-md px-3 py-2.5
+                       border border-transparent focus:outline-none focus:border-green-500 transition-colors"
+              />
+            </div>
 
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-300">Глобальное имя</label>
-          <app-input type="text" [(ngModel)]="globalName"></app-input>
-        </div>
+            <!-- Global name -->
+            <div class="bg-sidebar-surface-primary rounded-lg px-4 py-3">
+              <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                Глобальное имя
+              </label>
+              <input
+                type="text"
+                [value]="globalName()"
+                (input)="globalName.set(getInputValue($event))"
+                maxlength="64"
+                placeholder="Псевдоним..."
+                class="w-full bg-main-surface-secondary text-white text-sm rounded-md px-3 py-2.5
+                       border border-transparent focus:outline-none focus:border-green-500 transition-colors"
+              />
+            </div>
 
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-300">Обо Мне</label>
-          <app-textarea [(ngModel)]="bio"></app-textarea>
-        </div>
+            <!-- Bio -->
+            <div class="bg-sidebar-surface-primary rounded-lg px-4 py-3">
+              <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                Обо мне
+              </label>
+              <textarea
+                [value]="bio()"
+                (input)="bio.set(getInputValue($event))"
+                maxlength="190"
+                rows="3"
+                placeholder="Расскажи о себе..."
+                class="w-full bg-main-surface-secondary text-white text-sm rounded-md px-3 py-2.5 resize-none
+                       border border-transparent focus:outline-none focus:border-green-500 transition-colors"
+              ></textarea>
+              <p class="text-xs text-gray-600 mt-1 text-right">{{ bio().length }}/190</p>
+            </div>
 
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-300">Аватар</label>
-          <input type="file" (change)="onAvatarChange($event)" class="mt-1 block w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-2 text-white" />
-        </div>
+          </div>
+        </section>
 
-        <div class="text-right">
-          <button (click)="saveChanges()" class="px-4 py-2 bg-green-500 text-sm rounded-xl text-white hover:bg-green-600 transition">
-            Сохранить
-          </button>
-          <button (click)="isEditing = false" class="px-4 py-2 bg-green-500 text-sm rounded-xl text-white hover:bg-green-600 transition ml-2">
-            Отменить
-          </button>
-        </div>
-      </div>
+        <!-- Avatar -->
+        <section class="mb-6">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Аватар</h3>
+          <div class="bg-sidebar-surface-primary rounded-lg px-4 py-4 flex items-center gap-4">
+            <div class="w-14 h-14 rounded-full overflow-hidden bg-gray-700 shrink-0">
+              <AvatarUI [src]="avatarPreview()" [name]="name() || username()" />
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                (click)="avatarInput.click()"
+                class="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-sm font-medium text-white transition-colors"
+              >
+                Загрузить изображение
+              </button>
+              <button
+                *ngIf="avatarPreview()"
+                (click)="removeAvatar()"
+                class="px-3 py-1.5 bg-white/10 hover:bg-red-500/20 hover:text-red-300 rounded-md text-sm text-gray-300 transition-colors"
+              >
+                Удалить
+              </button>
+            </div>
+            <input #avatarInput type="file" accept="image/*" class="hidden" (change)="onAvatarChange($event)" />
+          </div>
+        </section>
+
+      </ng-container>
+    </div>
+
+    <!-- Sticky save bar -->
+    <div
+      *ngIf="hasChanges()"
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50
+             bg-[#111] border border-white/10 rounded-xl
+             px-5 py-3 shadow-2xl flex items-center gap-4 text-sm whitespace-nowrap"
+    >
+      <span class="text-gray-300">Есть несохранённые изменения</span>
+      <button
+        (click)="discardChanges()"
+        class="text-gray-400 hover:text-white transition-colors px-2"
+      >
+        Сбросить
+      </button>
+      <button
+        (click)="saveChanges()"
+        [disabled]="isSaving()"
+        class="px-4 py-1.5 bg-green-600 hover:bg-green-500 disabled:opacity-50
+               disabled:cursor-not-allowed rounded-lg font-medium text-white transition-colors"
+      >
+        {{ isSaving() ? 'Сохранение...' : 'Сохранить' }}
+      </button>
     </div>
   `,
 })
-export class AccountSettingsSectionComponent {
-  isEditing = false; // Состояние редактирования
-  username = 'Username'; // Данные пользователя
-  name = 'Имя'; // Данные пользователя
-  globalName = 'Глобальное имя'; // Данные пользователя
-  bio = 'Описание профиля...'; // Данные пользователя
-  avatar = 'https://via.placeholder.com/150'; // Данные аватара
+export class AccountSettingsSectionComponent implements OnInit {
+  private readonly api = inject(ApiService);
+  private readonly auth = inject(AuthService);
+  private readonly notifications = inject(NotificationService);
 
-  // Метод для сохранения изменений
-  saveChanges() {
-    // Здесь можно добавить логику для отправки изменений на сервер
-    console.log('Сохранены изменения:', { username: this.username, name: this.name, globalName: this.globalName, bio: this.bio, avatar: this.avatar });
+  readonly isLoading = signal(true);
+  readonly isSaving = signal(false);
 
-    // После сохранения изменений переключаемся в режим просмотра
-    this.isEditing = false;
+  readonly name = signal('');
+  readonly globalName = signal('');
+  readonly bio = signal('');
+  readonly username = signal('');
+  readonly email = signal('');
+  readonly avatarPreview = signal<string | null>(null);
+  readonly newAvatarFile = signal<File | null>(null);
+  readonly avatarRemoved = signal(false);
+
+  private originalName = '';
+  private originalGlobalName = '';
+  private originalBio = '';
+  private originalAvatar: string | null = null;
+
+  readonly hasChanges = computed(() =>
+    this.name() !== this.originalName ||
+    this.bio() !== this.originalBio ||
+    this.globalName() !== this.originalGlobalName ||
+    this.newAvatarFile() !== null ||
+    this.avatarRemoved()
+  );
+
+  @ViewChild('avatarInput') avatarInputRef!: ElementRef<HTMLInputElement>;
+
+  ngOnInit() {
+    this.loadProfile();
   }
 
-  // Обработка изменения аватара
+  private loadProfile() {
+    this.isLoading.set(true);
+    this.api.getMyProfile().subscribe({
+      next: (profile: any) => {
+        this.applyProfile(profile);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        // Fallback to auth cache
+        const user = this.auth.currentUserValue;
+        if (user) {
+          this.username.set(user.username || '');
+          this.email.set(user.email || '');
+          this.name.set(user.name || '');
+          this.avatarPreview.set(user.avatar || null);
+          this.originalName = user.name || '';
+          this.originalAvatar = user.avatar || null;
+        }
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  private applyProfile(profile: any) {
+    const userName = profile.user?.username || '';
+    const emailVal = profile.user?.email || '';
+    this.username.set(userName);
+    this.email.set(emailVal);
+    this.name.set(profile.name || '');
+    this.globalName.set(profile.global_name || '');
+    this.bio.set(profile.bio || '');
+    this.avatarPreview.set(profile.avatar || null);
+
+    this.originalName = profile.name || '';
+    this.originalGlobalName = profile.global_name || '';
+    this.originalBio = profile.bio || '';
+    this.originalAvatar = profile.avatar || null;
+
+    this.newAvatarFile.set(null);
+    this.avatarRemoved.set(false);
+  }
+
+  getInputValue(event: Event): string {
+    return (event.target as HTMLInputElement | HTMLTextAreaElement).value;
+  }
+
   onAvatarChange(event: Event) {
     const input = event.target as HTMLInputElement;
-    if (input.files?.length) {
-      const file = input.files[0];
-      // Здесь можно реализовать логику загрузки аватара (например, отправить файл на сервер)
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.avatar = e.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    }
+    const file = input.files?.[0];
+    if (!file) return;
+    this.newAvatarFile.set(file);
+    this.avatarRemoved.set(false);
+    const reader = new FileReader();
+    reader.onload = (e) => this.avatarPreview.set(e.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  removeAvatar() {
+    this.avatarPreview.set(null);
+    this.newAvatarFile.set(null);
+    this.avatarRemoved.set(true);
+  }
+
+  discardChanges() {
+    this.name.set(this.originalName);
+    this.globalName.set(this.originalGlobalName);
+    this.bio.set(this.originalBio);
+    this.avatarPreview.set(this.originalAvatar);
+    this.newAvatarFile.set(null);
+    this.avatarRemoved.set(false);
+  }
+
+  saveChanges() {
+    this.isSaving.set(true);
+    const formData = new FormData();
+    formData.append('name', this.name());
+    formData.append('bio', this.bio());
+    formData.append('global_name', this.globalName());
+    if (this.newAvatarFile()) formData.append('avatar', this.newAvatarFile()!);
+    if (this.avatarRemoved()) formData.append('remove_avatar', 'true');
+
+    this.api.updateMyProfile(formData).subscribe({
+      next: (profile: any) => {
+        this.applyProfile(profile);
+        this.isSaving.set(false);
+        this.notifications.show('Профиль обновлён', 'success');
+        // Sync auth cache
+        const current = this.auth.currentUserValue;
+        if (current) {
+          localStorage.setItem('currentUser', JSON.stringify({
+            ...current,
+            name: profile.name,
+            avatar: profile.avatar,
+          }));
+        }
+      },
+      error: () => {
+        this.isSaving.set(false);
+        this.notifications.show('Ошибка при сохранении', 'error');
+      },
+    });
   }
 }

@@ -1,5 +1,4 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
 
 export type ModalType =
   | 'createServer'
@@ -23,23 +22,16 @@ export interface ModalData {
 
 @Injectable({ providedIn: 'root' })
 export class ModalService {
-  private modalTypeSubject = new BehaviorSubject<ModalType | null>(null);
-  private modalDataSubject = new BehaviorSubject<ModalData>({});
-  private isOpenSubject = new BehaviorSubject<boolean>(false);
-
-  modalType$ = this.modalTypeSubject.asObservable();
-  modalData$ = this.modalDataSubject.asObservable();
-  isOpen$ = this.isOpenSubject.asObservable();
+  modalType = signal<ModalType | null>(null);
+  modalData = signal<ModalData>({});
 
   open(type: ModalType, data: ModalData = {}) {
-    this.modalTypeSubject.next(type);
-    this.modalDataSubject.next(data);
-    this.isOpenSubject.next(true);
+    this.modalData.set(data);
+    this.modalType.set(type);
   }
 
   close() {
-    this.modalTypeSubject.next(null);
-    this.modalDataSubject.next({});
-    this.isOpenSubject.next(false);
+    this.modalType.set(null);
+    this.modalData.set({});
   }
 }

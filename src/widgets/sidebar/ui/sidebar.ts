@@ -1,17 +1,10 @@
-import {Component, OnInit, OnDestroy, Input} from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { SidebarItem } from './sidebar-item';
-import {RouterLink, ActivatedRoute, Router} from '@angular/router';
-import { Subject } from 'rxjs';
+import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import {SidebarHeader} from '@widgets/sidebar/ui/sidebar-header';
-import {ServerChannelsItems} from '@widgets/sidebar/ui/server-sidebar/server-channels-items';
-import {ModalService} from '@shared/model/modal.service';
-
-interface Channel {
-  id: string;
-  name: string;
-  channel_type: 'TEXT' | 'AUDIO';
-}
+import { SidebarHeader } from '@widgets/sidebar/ui/sidebar-header';
+import { ServerChannelsItems } from '@widgets/sidebar/ui/server-sidebar/server-channels-items';
+import { ModalService } from '@shared/model/modal.service';
 
 @Component({
   selector: 'Sidebar',
@@ -25,8 +18,7 @@ interface Channel {
         (menuAction)="handleMenuAction($event)"
       />
 
-
-      <ng-container *ngIf="!isServerRoute" >
+      <ng-container *ngIf="!isServerRoute">
         <div class="overflow-y-auto space-y-3 mb-4 px-4">
           <a [routerLink]="['/channels/me']"
              class="flex items-center space-x-3 py-3 px-3 rounded-md bg-main-surface-secondary hover:bg-green-500">
@@ -45,29 +37,18 @@ interface Channel {
         </div>
       </ng-container>
 
-
       <ng-container *ngIf="isServerRoute">
         <ServerChannelsItems [serverId]="serverId"></ServerChannelsItems>
       </ng-container>
-
     </div>
-
   `,
 })
-export class Sidebar implements OnInit, OnDestroy {
+export class Sidebar {
   @Input() serverId: string | null = null;
-  @Input() isServerRoute: boolean = false ;
+  @Input() isServerRoute: boolean = false;
   @Input() serverName: string | null = null;
-  private ngUnsubscribe = new Subject<void>();
 
-  constructor(private modalService: ModalService, private router: Router) {}
-
-  ngOnInit(): void {}
-
-  ngOnDestroy(): void {
-    this.ngUnsubscribe.next();
-    this.ngUnsubscribe.complete();
-  }
+  constructor(private modalService: ModalService) {}
 
   handleMenuAction(action: string) {
     switch (action) {
@@ -75,13 +56,11 @@ export class Sidebar implements OnInit, OnDestroy {
         this.modalService.open('invite', { serverId: this.serverId });
         break;
       case 'editServer':
-        this.router.navigate(['/servers', this.serverId, 'settings']);
+        this.modalService.open('editServer', { serverId: this.serverId });
         break;
       case 'leaveServer':
-        // логика выхода
+        this.modalService.open('leaveServer', { serverId: this.serverId });
         break;
     }
   }
-
-
 }
