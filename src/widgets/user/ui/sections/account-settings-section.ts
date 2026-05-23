@@ -5,11 +5,12 @@ import { ApiService } from '@shared/api/api.service';
 import { AuthService } from '@entities/session/api/auth.service';
 import { NotificationService } from '@shared/model/notification.service';
 import { AvatarUI } from '@shared/ui/avatar';
+import {LucideAngularModule, Upload} from 'lucide-angular';
 
 @Component({
   selector: 'AccountSettingsSection',
   standalone: true,
-  imports: [CommonModule, FormsModule, AvatarUI],
+  imports: [CommonModule, FormsModule, AvatarUI, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="pb-24">
@@ -25,19 +26,48 @@ import { AvatarUI } from '@shared/ui/avatar';
         <div class="rounded-lg overflow-hidden mb-8 border border-white/5 shadow-lg">
           <!-- Banner -->
           <div class="h-20 bg-gradient-to-r from-green-800 via-emerald-700 to-teal-700 relative">
-            <!-- Avatar -->
+
+            <!-- Avatar (Кликабельный) -->
             <div class="absolute -bottom-9 left-5">
-              <div class="w-[72px] h-[72px] rounded-full border-[4px] border-main-surface-secondary bg-gray-700 overflow-hidden">
+              <button
+                type="button"
+                (click)="avatarInput.click()"
+                class="group relative block w-[72px] h-[72px] rounded-full border-[4px] border-main-surface-secondary bg-gray-700 overflow-hidden focus:outline-none"
+                title="Изменить аватар"
+              >
+                <!-- Сам компонент аватара -->
                 <AvatarUI [src]="avatarPreview()" [name]="name() || username()" />
-              </div>
+
+                <!-- Эффект затемнения и иконка при наведении -->
+                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <lucide-angular class="w-5 h-5 text-white" [img]="Upload"></lucide-angular>
+                </div>
+              </button>
             </div>
+
           </div>
-          <!-- Name row -->
-          <div class="bg-sidebar-surface-primary pt-12 px-5 pb-4">
-            <div class="text-white font-bold text-lg leading-tight">{{ name() || username() }}</div>
-            <div class="text-gray-400 text-sm">{{ username() }}</div>
+          <!-- Name row + Кнопка удаления -->
+          <div class="bg-sidebar-surface-primary pt-12 px-5 pb-4 flex items-center justify-between gap-4">
+            <div>
+              <div class="text-white font-bold text-lg leading-tight">{{ name() || username() }}</div>
+              <div class="text-gray-400 text-sm">{{ username() }}</div>
+            </div>
+
+            <!-- Кнопка удаления аватара (показывается, только если он установлен) -->
+            <button
+              *ngIf="avatarPreview()"
+              type="button"
+              (click)="removeAvatar()"
+              class="px-2.5 py-1.5 text-xs bg-white/5 hover:bg-red-500/20 hover:text-red-300 rounded-md text-gray-400 transition-colors"
+              title="Удалить текущий аватар"
+            >
+              Удалить аватар
+            </button>
           </div>
         </div>
+
+        <!-- Скрытый инпут для выбора файлов (теперь живет тут) -->
+        <input #avatarInput type="file" accept="image/*" class="hidden" (change)="onAvatarChange($event)" />
 
         <!-- Account info -->
         <section class="mb-6">
@@ -71,7 +101,7 @@ import { AvatarUI } from '@shared/ui/avatar';
                 maxlength="64"
                 placeholder="Ваше имя..."
                 class="w-full bg-main-surface-secondary text-white text-sm rounded-md px-3 py-2.5
-                       border border-transparent focus:outline-none focus:border-green-500 transition-colors"
+                   border border-transparent focus:outline-none focus:border-green-500 transition-colors"
               />
             </div>
 
@@ -87,7 +117,7 @@ import { AvatarUI } from '@shared/ui/avatar';
                 maxlength="64"
                 placeholder="Псевдоним..."
                 class="w-full bg-main-surface-secondary text-white text-sm rounded-md px-3 py-2.5
-                       border border-transparent focus:outline-none focus:border-green-500 transition-colors"
+                   border border-transparent focus:outline-none focus:border-green-500 transition-colors"
               />
             </div>
 
@@ -103,37 +133,11 @@ import { AvatarUI } from '@shared/ui/avatar';
                 rows="3"
                 placeholder="Расскажи о себе..."
                 class="w-full bg-main-surface-secondary text-white text-sm rounded-md px-3 py-2.5 resize-none
-                       border border-transparent focus:outline-none focus:border-green-500 transition-colors"
+                   border border-transparent focus:outline-none focus:border-green-500 transition-colors"
               ></textarea>
               <p class="text-xs text-gray-600 mt-1 text-right">{{ bio().length }}/190</p>
             </div>
 
-          </div>
-        </section>
-
-        <!-- Avatar -->
-        <section class="mb-6">
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Аватар</h3>
-          <div class="bg-sidebar-surface-primary rounded-lg px-4 py-4 flex items-center gap-4">
-            <div class="w-14 h-14 rounded-full overflow-hidden bg-gray-700 shrink-0">
-              <AvatarUI [src]="avatarPreview()" [name]="name() || username()" />
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button
-                (click)="avatarInput.click()"
-                class="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-sm font-medium text-white transition-colors"
-              >
-                Загрузить изображение
-              </button>
-              <button
-                *ngIf="avatarPreview()"
-                (click)="removeAvatar()"
-                class="px-3 py-1.5 bg-white/10 hover:bg-red-500/20 hover:text-red-300 rounded-md text-sm text-gray-300 transition-colors"
-              >
-                Удалить
-              </button>
-            </div>
-            <input #avatarInput type="file" accept="image/*" class="hidden" (change)="onAvatarChange($event)" />
           </div>
         </section>
 
@@ -144,8 +148,8 @@ import { AvatarUI } from '@shared/ui/avatar';
     <div
       *ngIf="hasChanges()"
       class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50
-             bg-[#111] border border-white/10 rounded-xl
-             px-5 py-3 shadow-2xl flex items-center gap-4 text-sm whitespace-nowrap"
+         bg-[#111] border border-white/10 rounded-xl
+         px-5 py-3 shadow-2xl flex items-center gap-4 text-sm whitespace-nowrap"
     >
       <span class="text-gray-300">Есть несохранённые изменения</span>
       <button
@@ -158,7 +162,7 @@ import { AvatarUI } from '@shared/ui/avatar';
         (click)="saveChanges()"
         [disabled]="isSaving()"
         class="px-4 py-1.5 bg-green-600 hover:bg-green-500 disabled:opacity-50
-               disabled:cursor-not-allowed rounded-lg font-medium text-white transition-colors"
+           disabled:cursor-not-allowed rounded-lg font-medium text-white transition-colors"
       >
         {{ isSaving() ? 'Сохранение...' : 'Сохранить' }}
       </button>
@@ -303,4 +307,6 @@ export class AccountSettingsSectionComponent implements OnInit {
       },
     });
   }
+
+  protected readonly Upload = Upload;
 }
