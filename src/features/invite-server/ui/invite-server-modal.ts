@@ -1,138 +1,199 @@
-import { ChangeDetectionStrategy, Component, effect } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ModalService } from '@shared/model/modal.service';
 import { ApiService } from '@shared/api/api.service';
-import { Router } from '@angular/router';
-import { FormsModule } from '@angular/forms';
-import { InputComponent } from '@shared/ui/input';
 import { environment } from '../../../environment/environment';
+
+interface ExpiryOption { label: string; minutes: number | null; }
+interface UsesOption   { label: string; value: number | null; }
+
+const EXPIRY_OPTIONS: ExpiryOption[] = [
+  { label: '30 минут',  minutes: 30 },
+  { label: '1 час',     minutes: 60 },
+  { label: '6 часов',   minutes: 360 },
+  { label: '12 часов',  minutes: 720 },
+  { label: '1 день',    minutes: 1440 },
+  { label: '7 дней',    minutes: 10080 },
+  { label: 'Никогда',   minutes: null },
+];
+
+const USES_OPTIONS: UsesOption[] = [
+  { label: 'Без ограничений', value: null },
+  { label: '1 использование',  value: 1 },
+  { label: '5 использований',  value: 5 },
+  { label: '10 использований', value: 10 },
+  { label: '25 использований', value: 25 },
+  { label: '50 использований', value: 50 },
+  { label: '100 использований',value: 100 },
+];
 
 @Component({
   selector: 'InviteServerModal',
   standalone: true,
-  imports: [CommonModule, FormsModule, InputComponent],
+  imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: `
+    @keyframes fade-scale {
+      from { opacity: 0; transform: scale(.96) translateY(8px); }
+      to   { opacity: 1; transform: scale(1)  translateY(0); }
+    }
+    .modal-enter { animation: fade-scale .2s ease both; }
+  `,
   template: `
-    <div class="fixed inset-0 flex items-center justify-center z-50">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+    <div class="fixed inset-0 flex items-center justify-center z-50" (click)="closeModal()">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
 
-      <div class="relative bg-main-surface-primary text-white w-full max-w-md p-6 rounded-2xl shadow-xl">
-        <button
-          (click)="closeModal()"
-          class="absolute top-4 right-4 text-gray-400 hover:text-white transition"
-          aria-label="Закрыть"
-        >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+      <div class="relative bg-main-surface-secondary text-white w-full max-w-md rounded-2xl shadow-2xl modal-enter"
+           (click)="$event.stopPropagation()">
 
-        <h2 class="text-xl font-semibold mb-4">Пригласить друзей</h2>
-
-        <div *ngIf="inviteUrl && !editing" class="mt-4 animate-fade-in">
-          <h3 class="font-medium text-sm mb-2">Отправьте другу ссылку-приглашение на сервер</h3>
-          <div class="flex items-center gap-2 mb-2">
-            <app-input type="text" class="w-full" [(ngModel)]="inviteUrl" [disabled]="true" />
-            <button
-              (click)="copyToClipboard()"
-              class="px-4 py-2 bg-green-500 text-sm rounded-xl text-white hover:bg-gray-400 transition"
-            >
-              Скопировать
-            </button>
+        <!-- Header -->
+        <div class="flex items-start justify-between px-6 pt-6 pb-4">
+          <div>
+            <h2 class="text-lg font-bold">Пригласить друзей</h2>
+            <p class="text-gray-400 text-sm mt-0.5">Поделитесь ссылкой, чтобы пригласить на сервер</p>
           </div>
-          <span class="text-xs">Ваша ссылка-приглашение перестанет действовать через 7 дней.</span>
-          <button (click)="editing = true" class="mt-2 text-xs text-gray-400 hover:text-white transition">
-            Изменить ссылку-приглашение
+          <button (click)="closeModal()"
+                  class="text-gray-400 hover:text-white transition mt-0.5 flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+            </svg>
           </button>
         </div>
 
-        <form *ngIf="editing" (ngSubmit)="onCreateInvite()">
-          <div class="mb-4">
-            <label for="maxUses" class="block text-typo-secondary text-sm font-medium mb-1">
-              Максимальное количество использований
-            </label>
-            <app-input id="maxUses" name="maxUses" type="number" placeholder="Максимальное количество использований" [(ngModel)]="maxUses" />
-          </div>
+        <div class="px-6 pb-6 flex flex-col gap-5">
 
-          <div class="mb-4">
-            <label for="expiresIn" class="block text-typo-secondary text-sm font-medium mb-1">
-              Время истечения (в минутах)
-            </label>
-            <app-input id="expiresIn" name="expiresIn" type="number" placeholder="Время истечения в минутах" [(ngModel)]="expiresIn" />
-          </div>
-
-          <div class="flex justify-center gap-2 mt-6">
-            <button type="submit" class="px-4 py-2 bg-green-500 text-sm rounded-xl text-white hover:bg-gray-400 transition">
-              Создать инвайт
+          <!-- Link display -->
+          <div class="flex items-center gap-2">
+            <div class="flex-1 bg-main-surface-primary rounded-xl px-4 py-2.5 flex items-center min-w-0">
+              <span *ngIf="loading()" class="text-gray-500 text-sm animate-pulse">Генерация ссылки...</span>
+              <span *ngIf="!loading() && inviteUrl()"
+                    class="text-gray-200 text-sm truncate font-mono select-all">
+                {{ inviteUrl() }}
+              </span>
+            </div>
+            <button (click)="copy()"
+                    [disabled]="!inviteUrl()"
+                    class="px-4 py-2.5 rounded-xl text-sm font-semibold transition flex-shrink-0"
+                    [ngClass]="copied()
+                      ? 'bg-green-500/70 text-white cursor-default'
+                      : 'bg-green-500 hover:opacity-90 text-white disabled:opacity-40 disabled:cursor-not-allowed'">
+              {{ copied() ? 'Скопировано!' : 'Копировать' }}
             </button>
           </div>
-          <div *ngIf="errorMessage" class="text-red-500 mt-2">{{ errorMessage }}</div>
-        </form>
+
+          <!-- Settings -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-gray-400 font-medium uppercase tracking-wide">Срок действия</label>
+              <select [(ngModel)]="selectedExpiry"
+                      (ngModelChange)="regenerate()"
+                      class="bg-main-surface-primary text-white text-sm rounded-xl px-3 py-2.5 border border-white/10 outline-none cursor-pointer hover:border-white/20 transition">
+                <option *ngFor="let opt of expiryOptions" [ngValue]="opt">{{ opt.label }}</option>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-gray-400 font-medium uppercase tracking-wide">Макс. использований</label>
+              <select [(ngModel)]="selectedUses"
+                      (ngModelChange)="regenerate()"
+                      class="bg-main-surface-primary text-white text-sm rounded-xl px-3 py-2.5 border border-white/10 outline-none cursor-pointer hover:border-white/20 transition">
+                <option *ngFor="let opt of usesOptions" [ngValue]="opt">{{ opt.label }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Error -->
+          <p *ngIf="error()" class="text-red-400 text-sm text-center">{{ error() }}</p>
+
+          <!-- Info line -->
+          <p *ngIf="inviteUrl() && !error()" class="text-gray-500 text-xs text-center">
+            <ng-container *ngIf="selectedExpiry.minutes; else noExpiry">
+              Ссылка истечёт через {{ selectedExpiry.label | lowercase }}.
+            </ng-container>
+            <ng-template #noExpiry>Ссылка действует бессрочно.</ng-template>
+          </p>
+        </div>
       </div>
     </div>
   `,
 })
 export class InviteServerModal {
-  maxUses = 1;
-  expiresIn = 60;
-  errorMessage = '';
-  inviteUrl: string | null = null;
-  serverId: string | null = null;
-  editing = false;
+  protected readonly expiryOptions = EXPIRY_OPTIONS;
+  protected readonly usesOptions   = USES_OPTIONS;
+
+  protected selectedExpiry: ExpiryOption = EXPIRY_OPTIONS[5]; // 7 дней
+  protected selectedUses: UsesOption     = USES_OPTIONS[0];   // без ограничений
+
+  protected readonly inviteUrl = signal<string | null>(null);
+  protected readonly loading   = signal(false);
+  protected readonly copied    = signal(false);
+  protected readonly error     = signal<string | null>(null);
+
+  private serverId: string | null = null;
+  private copyTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     public modalService: ModalService,
     private apiService: ApiService,
-    private router: Router
   ) {
     effect(() => {
-      const serverId = this.modalService.modalData()?.['serverId'];
-      if (serverId) {
-        this.serverId = serverId;
-        this.inviteUrl = null;
-        this.editing = false;
-        this.createInitialInvite();
+      const id = this.modalService.modalData()?.['serverId'];
+      if (id && id !== this.serverId) {
+        this.serverId = id;
+        this.inviteUrl.set(null);
+        this.error.set(null);
+        this.copied.set(false);
+        this.selectedExpiry = EXPIRY_OPTIONS[5];
+        this.selectedUses   = USES_OPTIONS[0];
+        this.createInvite();
       }
     });
   }
 
-  private createInitialInvite() {
-    this.apiService.postInviteLinkServer(this.serverId!, this.maxUses, this.expiresIn).subscribe({
-      next: (response) => {
-        this.inviteUrl = `${environment.BASE_URL}/invite/${response.invite_token}`;
-        this.errorMessage = '';
+  protected regenerate(): void {
+    this.inviteUrl.set(null);
+    this.error.set(null);
+    this.createInvite();
+  }
+
+  private createInvite(): void {
+    if (!this.serverId) return;
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.apiService.postInviteLinkServer(
+      this.serverId,
+      this.selectedUses.value,
+      this.selectedExpiry.minutes,
+    ).subscribe({
+      next: (res) => {
+        this.inviteUrl.set(`${environment.BASE_URL}/invite/${res.invite_token}`);
+        this.loading.set(false);
       },
       error: () => {
-        this.errorMessage = 'Не удалось создать инвайт. Попробуйте еще раз.';
+        this.error.set('Не удалось создать ссылку. Попробуйте ещё раз.');
+        this.loading.set(false);
       },
     });
   }
 
-  onCreateInvite() {
-    if (!this.serverId) {
-      this.errorMessage = 'Ошибка: не выбран сервер.';
-      return;
-    }
-
-    this.apiService.postInviteLinkServer(this.serverId, this.maxUses, this.expiresIn).subscribe({
-      next: (response) => {
-        this.inviteUrl = `${environment.BASE_URL}/invite/${response.invite_token}`;
-        this.errorMessage = '';
-        this.editing = false;
-      },
-      error: () => {
-        this.errorMessage = 'Не удалось создать инвайт. Попробуйте еще раз.';
-      },
+  protected copy(): void {
+    const url = this.inviteUrl();
+    if (!url || this.copied()) return;
+    navigator.clipboard.writeText(url).then(() => {
+      this.copied.set(true);
+      clearTimeout(this.copyTimer);
+      this.copyTimer = setTimeout(() => this.copied.set(false), 2500);
     });
   }
 
-  copyToClipboard() {
-    if (this.inviteUrl) {
-      navigator.clipboard.writeText(this.inviteUrl);
-    }
-  }
-
-  closeModal() {
+  protected closeModal(): void {
     this.modalService.close();
   }
 }

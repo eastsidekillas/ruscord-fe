@@ -16,6 +16,9 @@ export interface CallParty {
   channelId: string;
 }
 
+const PENDING_CALL_KEY = 'pendingCall';
+const PENDING_CALL_TTL = 30_000;
+
 @Injectable({ providedIn: 'root' })
 export class CallStateService {
   readonly status = signal<CallStatus>('idle');
@@ -39,6 +42,21 @@ export class CallStateService {
     this.socketService.listenMessages().subscribe(msg => this.dispatch(msg));
     // Listen on status socket for cross-channel call notifications
     this.statusSocket.getMessage().subscribe(msg => this.dispatch(msg));
+
+    // If the remote participant drops off LiveKit (e.g. they closed the tab),
+    // treat it as a call end so the UI doesn't get stuck.
+    this.livekit.allParticipantsLeft$.subscribe(() => {
+      if (this.status() === 'active') {
+        this.notifications.show('Звонок завершён', 'info');
+        this.livekit.disconnectRoom();
+        this.status.set('idle');
+        this.party.set(null);
+        this.clearPendingCall();
+      }
+    });
+
+    // Restore a pending incoming call after a page reload.
+    setTimeout(() => this.restorePendingCall(), 0);
   }
 
   private dispatch(msg: any): void {
@@ -49,19 +67,22 @@ export class CallStateService {
     const isOwnMessage = senderId !== '' && senderId === this.auth.userId;
 
     if (type === 'call.request' && !isOwnMessage) {
-      this.status.set('incoming');
-      this.party.set({
+      const party: CallParty = {
         userId: msg.fromUserId ?? senderId,
         name: msg.fromName ?? msg.sender_name ?? senderId,
         avatar: msg.fromAvatar ?? '',
         channelId: msg.channelId,
-      });
+      };
+      this.status.set('incoming');
+      this.party.set(party);
+      this.savePendingCall(party);
       this.modalService.open('incomingCall');
     }
 
     if (type === 'call.response' && !isOwnMessage) {
       if (msg.accepted) {
         this.status.set('active');
+        this.clearPendingCall();
         const channelId = this.party()?.channelId;
         if (channelId) {
           this.livekit.joinRoom(channelId).catch(console.error);
@@ -70,6 +91,7 @@ export class CallStateService {
         this.notifications.show('Звонок отклонён', 'info');
         this.status.set('idle');
         this.party.set(null);
+        this.clearPendingCall();
       }
     }
 
@@ -80,6 +102,7 @@ export class CallStateService {
         this.livekit.disconnectRoom();
         this.status.set('idle');
         this.party.set(null);
+        this.clearPendingCall();
       }
     }
   }
@@ -107,6 +130,7 @@ export class CallStateService {
     });
     this.modalService.close();
     this.status.set('active');
+    this.clearPendingCall();
     this.router.navigate(['/channels/me', p.channelId]);
     this.livekit.joinRoom(p.channelId).catch(console.error);
   }
@@ -123,6 +147,7 @@ export class CallStateService {
     this.modalService.close();
     this.status.set('idle');
     this.party.set(null);
+    this.clearPendingCall();
   }
 
   endCall(): void {
@@ -133,5 +158,39 @@ export class CallStateService {
     this.livekit.disconnectRoom();
     this.status.set('idle');
     this.party.set(null);
+    this.clearPendingCall();
+  }
+
+  // ── sessionStorage helpers for restoring incoming call after page reload ──
+
+  private savePendingCall(party: CallParty): void {
+    try {
+      sessionStorage.setItem(PENDING_CALL_KEY, JSON.stringify({ party, ts: Date.now() }));
+    } catch { /* ignore */ }
+  }
+
+  private clearPendingCall(): void {
+    try {
+      sessionStorage.removeItem(PENDING_CALL_KEY);
+    } catch { /* ignore */ }
+  }
+
+  private restorePendingCall(): void {
+    // Don't restore if already in a call (e.g. duplicate service init)
+    if (this.status() !== 'idle') return;
+    try {
+      const raw = sessionStorage.getItem(PENDING_CALL_KEY);
+      if (!raw) return;
+      const { party, ts } = JSON.parse(raw) as { party: CallParty; ts: number };
+      if (Date.now() - ts > PENDING_CALL_TTL) {
+        sessionStorage.removeItem(PENDING_CALL_KEY);
+        return;
+      }
+      this.status.set('incoming');
+      this.party.set(party);
+      this.modalService.open('incomingCall');
+    } catch {
+      sessionStorage.removeItem(PENDING_CALL_KEY);
+    }
   }
 }
