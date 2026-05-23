@@ -1,4 +1,4 @@
-FROM node:22.3-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json angular.json tsconfig.json tsconfig.app.json tsconfig.spec.json ./
 RUN npm install --legacy-peer-deps
