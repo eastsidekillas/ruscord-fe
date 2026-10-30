@@ -1,0 +1,5 @@
+# Build context of the Dockerfile: the image installs its own dependencies.
+node_modules
+dist
+.angular
+.git
