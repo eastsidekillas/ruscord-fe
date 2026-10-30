@@ -1,170 +1,206 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ApiService } from '@shared/api/api.service';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { FriendsHeader } from '@widgets/friends/ui/friends-header';
-import { InputComponent } from '@shared/ui/input';
+import { FriendsHeader, FriendsTab } from '@widgets/friends';
 import { NotificationService } from '@shared/model/notification.service';
-import { FriendPending } from '@widgets/friends/ui/friends-pending';
+import { ModalService } from '@shared/model/modal.service';
 import { AvatarUI } from '@shared/ui/avatar';
-import { StatusUi } from '@entities/user-status';
-import { FriendsStoreService } from '@entities/friend';
+import { StatusUi, StatusUIText } from '@entities/user-status';
+import { AppStateStore } from '@entities/app-state';
+import { ApiService, PublicUser, Relationship, apiError, errorText, nameOf } from '@shared/api';
 
+interface Row {
+  rel: Relationship;
+  user: PublicUser | null;
+  name: string;
+}
+
+/** Friends, requests and blocks: everything comes from the gateway state. */
 @Component({
   selector: 'RelationshipsPage',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, FriendsHeader, InputComponent, FriendPending, AvatarUI, StatusUi],
+  imports: [CommonModule, FormsModule, FriendsHeader, AvatarUI, StatusUi, StatusUIText],
   template: `
-    <FriendsHeader
-      [pendingCount]="store.pendingCount()"
-      (filterChanged)="onFilterChanged($event)"
-    />
+    <FriendsHeader [active]="tab()" [pendingCount]="store.incoming().length" (tabChange)="setTab($event)" />
 
-    <!-- ── ВСЕ ДРУЗЬЯ ── -->
-    <div *ngIf="filter === 'all'">
-      <div class="flex flex-col space-y-2 px-6 pt-6">
-        <h2 class="text-xl font-semibold text-typo-secondary">Добавить в друзья</h2>
-        <span class="text-sm text-typo-secondary">Вы можете добавить друга по имени пользователя</span>
-      </div>
-
-      <div class="h-24 flex items-center px-6 relative">
-        <app-input class="w-full"
-                   [placeholder]="'Найти друзей'"
-                   [(ngModel)]="username"
-                   (keyup.enter)="searchFriends()"
-                   (input)="onUsernameChange()">
-        </app-input>
-        <div class="absolute right-10">
-          <svg class="w-5 h-5 text-typo-secondary" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-            <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="m21 21-3.5-3.5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"/>
-          </svg>
-        </div>
-      </div>
-
-      <div class="overflow-y-auto space-y-3 px-6 mb-4">
-        <div class="flex items-center space-x-3 py-3 px-3 justify-between rounded-md bg-main-surface-secondary"
-             *ngFor="let data of foundUsers">
-          <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-full overflow-hidden">
-              <AvatarUI [src]="data.avatar" [name]="data.name" />
-            </div>
-            <span class="text-sm text-gray-300">{{ data.name }}</span>
-          </div>
-
-          <button *ngIf="!addedUsers.has(data.user.id)"
-                  class="text-sm text-white px-3 py-2 rounded-2xl bg-green-500 transition duration-300"
-                  (click)="sendFriendRequest(data.user.id)">
-            Добавить
-          </button>
-          <span *ngIf="addedUsers.has(data.user.id)" class="text-typo-secondary text-sm">Уже добавлен</span>
-        </div>
-
-        <p *ngIf="foundUsers.length === 0 && username" class="text-center text-typo-secondary mt-4">
-          Пользователи не найдены
-        </p>
-      </div>
-    </div>
-
-    <!-- ── В СЕТИ ── -->
-    <div *ngIf="filter === 'online'" class="flex flex-col px-6 pt-6 gap-2">
-      <div class="flex flex-col space-y-2 mb-4">
-        <h2 class="text-xl font-semibold text-typo-secondary">В сети — {{ onlineFriends().length }}</h2>
-      </div>
-
-      <div *ngIf="onlineFriends().length === 0"
-           class="text-center text-typo-secondary text-sm mt-8">
-        Никого нет в сети
-      </div>
-
-      <div class="flex items-center space-x-3 py-3 px-3 justify-between rounded-md bg-main-surface-secondary hover:bg-main-surface-primary transition cursor-pointer"
-           *ngFor="let friend of onlineFriends()"
-           (click)="openChat(friend.id)">
-        <div class="flex items-center space-x-3">
-          <div class="relative w-10 h-10">
-            <div class="w-full h-full rounded-full overflow-hidden">
-              <AvatarUI [src]="friend.avatar" [name]="friend.name" />
-            </div>
-            <StatusUI [userId]="friend.user.id"></StatusUI>
-          </div>
-          <div class="flex flex-col">
-            <span class="text-sm text-gray-200 font-medium">{{ friend.name }}</span>
-            <span class="text-xs text-green-500">В сети</span>
-          </div>
-        </div>
-        <button class="text-xs text-gray-400 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition">
-          Написать
+    <!-- Add a friend by exact username, as in Discord -->
+    <div *ngIf="tab() === 'add'" class="px-6 pt-6">
+      <h2 class="text-xl font-semibold text-typo-secondary">Добавить в друзья</h2>
+      <p class="text-sm text-typo-secondary mt-1">Введите имя пользователя целиком, например <span class="text-gray-300">ivan.petrov</span>.</p>
+      <form class="mt-4 flex gap-3" (ngSubmit)="addFriend()">
+        <input name="username" [(ngModel)]="username" (ngModelChange)="addResult.set(null)" maxlength="32" autocomplete="off"
+               class="flex-1 p-3 bg-main-surface-secondary text-sm text-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+               placeholder="Имя пользователя" />
+        <button type="submit" [disabled]="!username.trim() || adding()"
+                class="text-sm text-white px-4 rounded-md bg-green-500 disabled:bg-gray-600 transition">
+          Отправить запрос
         </button>
-      </div>
+      </form>
+      <p *ngIf="addResult() as r" class="mt-3 text-sm" [class.text-green-400]="r.ok" [class.text-red-400]="!r.ok">{{ r.text }}</p>
     </div>
 
-    <!-- ── ОЖИДАНИЕ ── -->
-    <div *ngIf="filter === 'waiting'">
-      <FriendPending />
+    <div *ngIf="tab() !== 'add'" class="px-6 pt-6 flex flex-col gap-2">
+      <input *ngIf="tab() === 'online' || tab() === 'all'" [(ngModel)]="query" (ngModelChange)="q.set($event)"
+             class="w-full p-3 mb-2 bg-main-surface-secondary text-sm text-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+             placeholder="Поиск среди друзей" />
+
+      <h3 class="text-xs uppercase tracking-wide text-typo-secondary mb-1">{{ heading() }}</h3>
+
+      <div *ngFor="let row of rows(); trackBy: byId"
+           class="flex items-center justify-between py-3 px-3 rounded-md bg-main-surface-secondary hover:bg-main-surface-primary transition">
+        <button class="flex items-center space-x-3 min-w-0 text-left" (click)="openProfile(row.rel.id)">
+          <div class="relative w-10 h-10 shrink-0">
+            <div class="w-full h-full rounded-full overflow-hidden">
+              <AvatarUI [src]="row.user?.avatar" [name]="row.name" />
+            </div>
+            <StatusUI *ngIf="row.rel.type === 1" [userId]="row.rel.id"></StatusUI>
+          </div>
+          <div class="flex flex-col min-w-0">
+            <span class="text-sm text-gray-200 font-medium truncate">{{ row.name }}</span>
+            <StatusUIText *ngIf="row.rel.type === 1" [userId]="row.rel.id" />
+            <span *ngIf="row.rel.type === 3" class="text-xs text-typo-secondary">Входящий запрос</span>
+            <span *ngIf="row.rel.type === 4" class="text-xs text-typo-secondary">Исходящий запрос</span>
+            <span *ngIf="row.rel.type === 2" class="text-xs text-typo-secondary">{{ row.user?.username }}</span>
+          </div>
+        </button>
+
+        <div class="flex gap-2 shrink-0">
+          <ng-container [ngSwitch]="row.rel.type">
+            <ng-container *ngSwitchCase="1">
+              <button class="text-xs text-gray-300 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10" (click)="openChat(row.rel.id)">Написать</button>
+              <button class="text-xs text-red-400 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 hover:bg-red-500" (click)="removeFriend(row)">Удалить</button>
+            </ng-container>
+            <ng-container *ngSwitchCase="3">
+              <button class="text-xs text-white px-3 py-1.5 rounded-lg bg-green-500" (click)="accept(row.rel.id)">Принять</button>
+              <button class="text-xs text-white px-3 py-1.5 rounded-lg bg-red-500" (click)="drop(row.rel.id, 'Не удалось отклонить запрос')">Отклонить</button>
+            </ng-container>
+            <button *ngSwitchCase="4" class="text-xs text-gray-300 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10" (click)="drop(row.rel.id, 'Не удалось отменить запрос')">Отменить</button>
+            <button *ngSwitchCase="2" class="text-xs text-gray-300 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10" (click)="drop(row.rel.id, 'Не удалось разблокировать')">Разблокировать</button>
+          </ng-container>
+        </div>
+      </div>
+
+      <p *ngIf="store.loaded() && !rows().length" class="text-center text-typo-secondary text-sm mt-8">{{ empty() }}</p>
     </div>
-  `
+  `,
 })
 export class RelationshipsPage {
-  protected readonly store = inject(FriendsStoreService);
-  private readonly apiService = inject(ApiService);
-  private readonly notification = inject(NotificationService);
+  protected readonly store = inject(AppStateStore);
+  private readonly api = inject(ApiService);
+  private readonly notify = inject(NotificationService);
+  private readonly modal = inject(ModalService);
   private readonly router = inject(Router);
-  private readonly cdr = inject(ChangeDetectorRef);
 
-  protected readonly onlineFriends = computed(() =>
-    this.store.friends().filter((f: any) => f.status === 'online')
-  );
+  protected readonly tab = signal<FriendsTab>('online');
+  protected readonly q = signal('');
+  protected query = '';
+  protected username = '';
+  protected readonly adding = signal(false);
+  protected readonly addResult = signal<{ ok: boolean; text: string } | null>(null);
 
-  username = '';
-  foundUsers: any[] = [];
-  readonly addedUsers = new Set<string>();
-  filter: 'all' | 'waiting' | 'online' = 'all';
+  private toRow = (rel: Relationship): Row => {
+    const user = this.store.user(rel.user ?? null);
+    return { rel, user, name: nameOf(user) };
+  };
 
-  private typingTimeout: any;
+  protected readonly rows = computed<Row[]>(() => {
+    const sort = (a: Row, b: Row) => a.name.localeCompare(b.name, 'ru');
+    switch (this.tab()) {
+      case 'online':
+      case 'all': {
+        const q = this.q().trim().toLowerCase();
+        return this.store.friends()
+          .map(this.toRow)
+          .filter(r => this.tab() === 'all' || this.store.status(r.rel.id) !== 'offline')
+          .filter(r => !q || r.name.toLowerCase().includes(q) || (r.user?.username ?? '').includes(q))
+          .sort(sort);
+      }
+      case 'pending':
+        return [...this.store.incoming().map(this.toRow).sort(sort), ...this.store.outgoing().map(this.toRow).sort(sort)];
+      case 'blocked':
+        return this.store.blocked().map(this.toRow).sort(sort);
+      default:
+        return [];
+    }
+  });
 
-  constructor() {
-    effect(() => {
-      this.store.friends();
-      this.cdr.markForCheck();
-    });
+  protected readonly heading = computed(() => {
+    const n = this.rows().length;
+    switch (this.tab()) {
+      case 'online': return `В сети — ${n}`;
+      case 'all': return `Все друзья — ${n}`;
+      case 'pending': return `Ожидание — ${n}`;
+      default: return `Заблокированные — ${n}`;
+    }
+  });
+
+  protected readonly empty = computed(() => {
+    if (this.q().trim() && (this.tab() === 'online' || this.tab() === 'all')) return 'Никого не нашлось среди ваших друзей';
+    switch (this.tab()) {
+      case 'online': return 'Никого нет в сети';
+      case 'all': return 'У вас пока нет друзей. Добавьте кого-нибудь по имени пользователя.';
+      case 'pending': return 'Нет ожидающих запросов';
+      default: return 'Вы никого не заблокировали';
+    }
+  });
+
+  protected byId = (_: number, r: Row) => r.rel.id;
+
+  protected setTab(t: FriendsTab): void {
+    this.tab.set(t);
+    this.addResult.set(null);
   }
 
-  searchFriends() {
-    this.apiService.searchUsers(this.username).subscribe({
-      next: (users: any) => { this.foundUsers = users; },
-      error: (err) => console.error('Ошибка при поиске пользователей:', err),
-    });
-  }
-
-  sendFriendRequest(userId: string) {
-    this.apiService.postFriendRequest(userId).subscribe({
+  protected addFriend(): void {
+    const name = this.username.trim();
+    if (!name || this.adding()) return;
+    this.adding.set(true);
+    this.api.requestFriend(name).subscribe({
       next: () => {
-        this.notification.show('Запрос на дружбу отправлен!', 'success');
-        this.addedUsers.add(userId);
-        this.store.loadFriends();
+        this.adding.set(false);
+        this.addResult.set({ ok: true, text: `Запрос в друзья отправлен: ${name}` });
+        this.username = '';
       },
-      error: () => this.notification.show('Упс, какая-то ошибка сервера.', 'error'),
+      error: err => {
+        this.adding.set(false);
+        // The server answers the same for "no such user" and "they blocked you" (ADR-0014).
+        const text = apiError(err)?.code === 'request_failed'
+          ? 'Не получилось. Проверьте, что имя пользователя написано без ошибок.'
+          : errorText(err, 'Не удалось отправить запрос');
+        this.addResult.set({ ok: false, text });
+      },
     });
   }
 
-  openChat(friendId: string) {
-    this.apiService.postCreateChannel(friendId).subscribe({
-      next: (channel: any) => {
-        if (channel.id) {
-          this.router.navigate(['/channels/me', channel.id]);
-        }
-      },
-      error: (err) => console.error('Ошибка при открытии канала:', err),
+  protected accept(userId: string): void {
+    this.api.acceptOrRequest(userId).subscribe({
+      error: err => this.notify.show(errorText(err, 'Не удалось принять запрос'), 'error'),
     });
   }
 
-  onUsernameChange() {
-    clearTimeout(this.typingTimeout);
-    this.typingTimeout = setTimeout(() => this.searchFriends(), 500);
+  protected drop(userId: string, failText: string): void {
+    this.api.removeRelationship(userId).subscribe({
+      error: err => this.notify.show(errorText(err, failText), 'error'),
+    });
   }
 
-  onFilterChanged(newFilter: 'all' | 'waiting' | 'online') {
-    this.filter = newFilter;
+  protected removeFriend(row: Row): void {
+    if (confirm(`Удалить ${row.name} из друзей?`)) this.drop(row.rel.id, 'Не удалось удалить из друзей');
+  }
+
+  protected openChat(userId: string): void {
+    this.api.openDM(userId).subscribe({
+      next: dm => {
+        this.store.noteDM(dm);
+        this.router.navigate(['/channels/me', dm.id]);
+      },
+      error: err => this.notify.show(errorText(err, 'Не удалось открыть переписку'), 'error'),
+    });
+  }
+
+  protected openProfile(userId: string): void {
+    this.modal.open('userProfile', { userId });
   }
 }

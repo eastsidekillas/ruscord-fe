@@ -1,7 +1,7 @@
+// ruscord-core is reached on the same origin: `ng serve` proxies /api,
+// /gateway and /cdn to it (proxy.conf.json), nginx does the same in production.
 export const environment = {
   production: false,
-  BASE_URL: 'http://localhost:4200',
-  API_URL: 'http://localhost:8000/api/v1',
-  API_WS_URL: 'ws://localhost:8000/ws/',
-  API_WS_LIVEKIT_URL: 'wss://ruscord-gbrz656n.livekit.cloud'
+  API_URL: '/api/v1',
+  GATEWAY_PATH: '/gateway?v=1',
 };

@@ -1,58 +1,62 @@
-import { ChangeDetectorRef, Component, effect, inject } from '@angular/core';
-import { Router } from '@angular/router';
-import { NgForOf } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { RouterLink, RouterLinkActive } from '@angular/router';
+import { NgForOf, NgIf } from '@angular/common';
 import { StatusUi } from '@entities/user-status';
 import { AvatarUI } from '@shared/ui/avatar';
-import { FriendsStoreService } from '@entities/friend';
-import { ApiService } from '@shared/api/api.service';
+import { AppStateStore } from '@entities/app-state';
+import { DMChannel, nameOf } from '@shared/api';
 
+interface Row {
+  id: string;
+  name: string;
+  avatar: string | null;
+  /** The other person of a 1:1 DM, for the status dot. */
+  userId: string | null;
+  members: number;
+}
+
+/** The user's DMs and groups, newest first. */
 @Component({
   selector: 'SidebarItem',
   standalone: true,
-  imports: [NgForOf, StatusUi, AvatarUI],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NgForOf, NgIf, RouterLink, RouterLinkActive, StatusUi, AvatarUI],
   template: `
     <div class="flex flex-col space-y-2">
-      <button
-        class="flex items-center space-x-3 py-3 px-3 rounded-md hover:bg-main-surface-secondary"
-        *ngFor="let friend of store.friends()"
-        (click)="openChat(friend.id)">
-
-        <div class="relative w-10 h-10">
+      <a *ngFor="let row of rows(); trackBy: byId"
+         [routerLink]="['/channels/me', row.id]" routerLinkActive="bg-main-surface-secondary"
+         class="flex items-center space-x-3 py-3 px-3 rounded-md hover:bg-main-surface-secondary">
+        <div class="relative w-10 h-10 shrink-0">
           <div class="w-full h-full rounded-full overflow-hidden">
-            <AvatarUI [src]="friend.avatar" [name]="friend.name" />
+            <AvatarUI [src]="row.avatar" [name]="row.name" />
           </div>
-          <StatusUI [userId]="friend.user.id"></StatusUI>
+          <StatusUI *ngIf="row.userId" [userId]="row.userId"></StatusUI>
         </div>
-
-        <span class="text-gray-300 text-sm">{{ friend.name }}</span>
-      </button>
+        <div class="flex flex-col min-w-0">
+          <span class="text-gray-300 text-sm truncate">{{ row.name }}</span>
+          <span *ngIf="!row.userId" class="text-xs text-typo-secondary">{{ row.members }} участников</span>
+        </div>
+      </a>
+      <p *ngIf="store.loaded() && !rows().length" class="text-sm text-typo-secondary">
+        Здесь появятся ваши переписки. Начните её из списка друзей.
+      </p>
     </div>
   `,
 })
 export class SidebarItem {
-  protected readonly store = inject(FriendsStoreService);
-  private readonly router = inject(Router);
-  private readonly api = inject(ApiService);
-  private readonly cdr = inject(ChangeDetectorRef);
+  protected readonly store = inject(AppStateStore);
 
-  constructor() {
-    // Явно форсируем перепроверку при каждом изменении сигнала.
-    // Нужно потому что HTTP-колбэки могут обновить сигнал вне текущего
-    // цикла zone.js, и OnPush-компонент не получает нотификацию.
-    effect(() => {
-      this.store.friends();
-      this.cdr.markForCheck();
-    });
-  }
+  protected readonly rows = computed<Row[]>(() => this.store.dms().map(dm => this.row(dm)));
 
-  openChat(friendId: string): void {
-    this.api.postCreateChannel(friendId).subscribe({
-      next: (channel) => {
-        if (channel.id) {
-          this.router.navigate([`channels/me/${channel.id}`]);
-        }
-      },
-      error: (err) => console.error('Ошибка при открытии канала:', err),
-    });
+  protected byId = (_: number, r: Row) => r.id;
+
+  private row(dm: DMChannel): Row {
+    if (dm.type === 1) {
+      const other = this.store.dmPartner(dm);
+      return { id: dm.id, name: nameOf(other), avatar: other?.avatar ?? null, userId: other?.id ?? null, members: 2 };
+    }
+    const me = this.store.me()?.id;
+    const others = dm.recipients.filter(r => r.id !== me).map(r => nameOf(this.store.user(r)));
+    return { id: dm.id, name: dm.name || others.join(', ') || 'Группа', avatar: null, userId: null, members: dm.recipients.length };
   }
 }

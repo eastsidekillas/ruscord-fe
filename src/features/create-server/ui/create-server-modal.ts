@@ -1,9 +1,11 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ModalService } from '@shared/model/modal.service';
-import { ApiService } from '@shared/api/api.service';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { ModalService } from '@shared/model/modal.service';
+import { NotificationService } from '@shared/model/notification.service';
+import { ApiService, errorText } from '@shared/api';
+import { AppStateStore } from '@entities/app-state';
 
 @Component({
   selector: 'CreateServerModal',
@@ -34,7 +36,7 @@ import { FormsModule } from '@angular/forms';
               for="avatar"
               class="relative w-24 h-24 rounded-full overflow-hidden bg-main-surface-secondary border border-gray-700 cursor-pointer group"
             >
-              <img *ngIf="avatarPreviewUrl" [src]="avatarPreviewUrl" alt="Preview" class="w-full h-full object-cover" />
+              <img *ngIf="avatarPreviewUrl()" [src]="avatarPreviewUrl()" alt="Preview" class="w-full h-full object-cover" />
 
               <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
                 <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -42,7 +44,7 @@ import { FormsModule } from '@angular/forms';
                 </svg>
               </div>
 
-              <input type="file" id="avatar" (change)="onFileSelected($event)" accept="image/*" class="hidden" />
+              <input type="file" id="avatar" (change)="onFileSelected($event)" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" />
             </label>
           </div>
 
@@ -62,11 +64,11 @@ import { FormsModule } from '@angular/forms';
           </div>
 
           <div class="flex justify-center gap-2 mt-6">
-            <button type="submit" class="px-4 py-2 bg-green-500 text-sm rounded-xl text-white hover:bg-green-600 transition">
+            <button type="submit" [disabled]="creating()" class="disabled:opacity-50 px-4 py-2 bg-green-500 text-sm rounded-xl text-white hover:bg-green-600 transition">
               Создать сервер
             </button>
           </div>
-          <div *ngIf="errorMessage" class="text-red-500 mt-2">{{ errorMessage }}</div>
+          <div *ngIf="errorMessage()" class="text-red-500 mt-2">{{ errorMessage() }}</div>
         </form>
       </div>
     </div>
@@ -74,52 +76,67 @@ import { FormsModule } from '@angular/forms';
 })
 export class CreateServerModal {
   serverName = 'Мой сервер';
-  errorMessage = '';
-  selectedFile: File | null = null;
-  avatarPreviewUrl: string | null = null;
+  readonly errorMessage = signal('');
+  readonly avatarPreviewUrl = signal<string | null>(null);
+  readonly creating = signal(false);
+  private selectedFile: File | null = null;
 
-  constructor(
-    public modalService: ModalService,
-    private apiService: ApiService,
-    private router: Router
-  ) {}
+  private readonly api = inject(ApiService);
+  private readonly store = inject(AppStateStore);
+  private readonly router = inject(Router);
+  private readonly notify = inject(NotificationService);
+  readonly modalService = inject(ModalService);
 
+  /** Creates the guild, then uploads the icon; a failed icon does not undo the guild. */
   onCreateServer() {
-    if (!this.serverName.trim()) {
-      this.errorMessage = 'Пожалуйста, введите название сервера.';
+    const name = this.serverName.trim();
+    if (name.length < 2 || name.length > 100) {
+      this.errorMessage.set('Название — от 2 до 100 символов.');
       return;
     }
-
-    const formData = new FormData();
-    formData.append('name', this.serverName);
-    if (this.selectedFile) {
-      formData.append('avatar', this.selectedFile);
-    }
-
-    this.apiService.postCreateServer(formData).subscribe({
-      next: (response) => {
-        this.modalService.close();
-        this.router.navigate(['/channels', response.id, response.default_channel_id]);
+    if (this.creating()) return;
+    this.creating.set(true);
+    this.api.createGuild(name).subscribe({
+      next: guild => {
+        this.store.noteGuild(guild);
+        if (this.selectedFile) {
+          this.api.setGuildIcon(guild.id, this.selectedFile).subscribe({
+            error: err => this.notify.show(errorText(err, 'Сервер создан, но иконку загрузить не удалось'), 'error'),
+          });
+        }
+        this.closeModal();
+        this.router.navigate(['/channels', guild.id]);
       },
-      error: () => {
-        this.errorMessage = 'Не удалось создать сервер. Попробуйте еще раз.';
+      error: err => {
+        this.creating.set(false);
+        this.errorMessage.set(errorText(err, 'Не удалось создать сервер. Попробуйте еще раз.'));
       },
     });
   }
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (input.files?.length) {
-      this.selectedFile = input.files[0];
-      this.avatarPreviewUrl = URL.createObjectURL(this.selectedFile);
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > 8 << 20) {
+      this.errorMessage.set('Файл больше 8 МиБ.');
+      return;
     }
+    this.revokePreview();
+    this.selectedFile = file;
+    this.avatarPreviewUrl.set(URL.createObjectURL(file));
+    this.errorMessage.set('');
   }
 
   closeModal() {
-    if (this.avatarPreviewUrl) {
-      URL.revokeObjectURL(this.avatarPreviewUrl);
-      this.avatarPreviewUrl = null;
-    }
+    this.revokePreview();
     this.modalService.close();
+  }
+
+  private revokePreview(): void {
+    const url = this.avatarPreviewUrl();
+    if (url) URL.revokeObjectURL(url);
+    this.avatarPreviewUrl.set(null);
   }
 }

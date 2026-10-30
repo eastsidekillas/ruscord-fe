@@ -1,7 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal, ViewChild, ElementRef } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, ViewChild, ElementRef } from '@angular/core';
+import { Observable, concat, last } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApiService } from '@shared/api/api.service';
+import { ApiService, User, errorText } from '@shared/api';
+
+/** Upload limit of ruscord-core. */
+const MAX_UPLOAD = 8 << 20;
 import { AuthService } from '@entities/session/api/auth.service';
 import { NotificationService } from '@shared/model/notification.service';
 import { AvatarUI } from '@shared/ui/avatar';
@@ -67,7 +71,8 @@ import {LucideAngularModule, Upload} from 'lucide-angular';
         </div>
 
         <!-- Скрытый инпут для выбора файлов (теперь живет тут) -->
-        <input #avatarInput type="file" accept="image/*" class="hidden" (change)="onAvatarChange($event)" />
+        <input #avatarInput type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" (change)="onAvatarChange($event)" />
+        <p class="text-xs text-gray-500 -mt-4 mb-6">PNG, JPEG, WebP или GIF до 8 МиБ. Картинка обрежется до квадрата.</p>
 
         <!-- Account info -->
         <section class="mb-6">
@@ -98,24 +103,8 @@ import {LucideAngularModule, Upload} from 'lucide-angular';
                 type="text"
                 [value]="name()"
                 (input)="name.set(getInputValue($event))"
-                maxlength="64"
+                maxlength="32"
                 placeholder="Ваше имя..."
-                class="w-full bg-main-surface-secondary text-white text-sm rounded-md px-3 py-2.5
-                   border border-transparent focus:outline-none focus:border-green-500 transition-colors"
-              />
-            </div>
-
-            <!-- Global name -->
-            <div class="bg-sidebar-surface-primary rounded-lg px-4 py-3">
-              <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                Глобальное имя
-              </label>
-              <input
-                type="text"
-                [value]="globalName()"
-                (input)="globalName.set(getInputValue($event))"
-                maxlength="64"
-                placeholder="Псевдоним..."
                 class="w-full bg-main-surface-secondary text-white text-sm rounded-md px-3 py-2.5
                    border border-transparent focus:outline-none focus:border-green-500 transition-colors"
               />
@@ -169,16 +158,15 @@ import {LucideAngularModule, Upload} from 'lucide-angular';
     </div>
   `,
 })
-export class AccountSettingsSectionComponent implements OnInit {
+export class AccountSettingsSectionComponent {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly notifications = inject(NotificationService);
 
-  readonly isLoading = signal(true);
+  readonly isLoading = signal(false);
   readonly isSaving = signal(false);
 
   readonly name = signal('');
-  readonly globalName = signal('');
   readonly bio = signal('');
   readonly username = signal('');
   readonly email = signal('');
@@ -186,63 +174,31 @@ export class AccountSettingsSectionComponent implements OnInit {
   readonly newAvatarFile = signal<File | null>(null);
   readonly avatarRemoved = signal(false);
 
-  private originalName = '';
-  private originalGlobalName = '';
-  private originalBio = '';
-  private originalAvatar: string | null = null;
+  private original: User | null = null;
 
   readonly hasChanges = computed(() =>
-    this.name() !== this.originalName ||
-    this.bio() !== this.originalBio ||
-    this.globalName() !== this.originalGlobalName ||
+    this.name() !== (this.originalUser()?.display_name ?? '') ||
+    this.bio() !== (this.originalUser()?.bio ?? '') ||
     this.newAvatarFile() !== null ||
     this.avatarRemoved()
   );
+  private readonly originalUser = signal<User | null>(null);
 
   @ViewChild('avatarInput') avatarInputRef!: ElementRef<HTMLInputElement>;
 
-  ngOnInit() {
-    this.loadProfile();
+  constructor() {
+    const u = this.auth.user();
+    if (u) this.apply(u);
   }
 
-  private loadProfile() {
-    this.isLoading.set(true);
-    this.api.getMyProfile().subscribe({
-      next: (profile: any) => {
-        this.applyProfile(profile);
-        this.isLoading.set(false);
-      },
-      error: () => {
-        // Fallback to auth cache
-        const user = this.auth.currentUserValue;
-        if (user) {
-          this.username.set(user.username || '');
-          this.email.set(user.email || '');
-          this.name.set(user.name || '');
-          this.avatarPreview.set(user.avatar || null);
-          this.originalName = user.name || '';
-          this.originalAvatar = user.avatar || null;
-        }
-        this.isLoading.set(false);
-      },
-    });
-  }
-
-  private applyProfile(profile: any) {
-    const userName = profile.user?.username || '';
-    const emailVal = profile.user?.email || '';
-    this.username.set(userName);
-    this.email.set(emailVal);
-    this.name.set(profile.name || '');
-    this.globalName.set(profile.global_name || '');
-    this.bio.set(profile.bio || '');
-    this.avatarPreview.set(profile.avatar || null);
-
-    this.originalName = profile.name || '';
-    this.originalGlobalName = profile.global_name || '';
-    this.originalBio = profile.bio || '';
-    this.originalAvatar = profile.avatar || null;
-
+  private apply(u: User) {
+    this.original = u;
+    this.originalUser.set(u);
+    this.username.set(u.username);
+    this.email.set(u.email);
+    this.name.set(u.display_name);
+    this.bio.set(u.bio ?? '');
+    this.avatarPreview.set(u.avatar);
     this.newAvatarFile.set(null);
     this.avatarRemoved.set(false);
   }
@@ -254,7 +210,12 @@ export class AccountSettingsSectionComponent implements OnInit {
   onAvatarChange(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
+    input.value = ''; // the same file can be picked again
     if (!file) return;
+    if (file.size > MAX_UPLOAD) {
+      this.notifications.show('Файл больше 8 МиБ', 'error');
+      return;
+    }
     this.newAvatarFile.set(file);
     this.avatarRemoved.set(false);
     const reader = new FileReader();
@@ -265,45 +226,40 @@ export class AccountSettingsSectionComponent implements OnInit {
   removeAvatar() {
     this.avatarPreview.set(null);
     this.newAvatarFile.set(null);
-    this.avatarRemoved.set(true);
+    this.avatarRemoved.set(!!this.original?.avatar);
   }
 
   discardChanges() {
-    this.name.set(this.originalName);
-    this.globalName.set(this.originalGlobalName);
-    this.bio.set(this.originalBio);
-    this.avatarPreview.set(this.originalAvatar);
-    this.newAvatarFile.set(null);
-    this.avatarRemoved.set(false);
+    if (this.original) this.apply(this.original);
   }
 
+  /** Profile fields first, then the picture; each step returns the whole user. */
   saveChanges() {
+    const o = this.original;
+    if (!o) return;
+    const steps: Observable<User>[] = [];
+    const patch: { display_name?: string; bio?: string } = {};
+    if (this.name().trim() !== o.display_name) patch.display_name = this.name().trim();
+    if (this.bio().trim() !== (o.bio ?? '')) patch.bio = this.bio().trim();
+    if (Object.keys(patch).length) steps.push(this.api.updateMe(patch));
+    const file = this.newAvatarFile();
+    if (file) steps.push(this.api.setAvatar(file));
+    else if (this.avatarRemoved()) steps.push(this.api.deleteAvatar());
+    if (!steps.length) {
+      this.discardChanges();
+      return;
+    }
     this.isSaving.set(true);
-    const formData = new FormData();
-    formData.append('name', this.name());
-    formData.append('bio', this.bio());
-    formData.append('global_name', this.globalName());
-    if (this.newAvatarFile()) formData.append('avatar', this.newAvatarFile()!);
-    if (this.avatarRemoved()) formData.append('remove_avatar', 'true');
-
-    this.api.updateMyProfile(formData).subscribe({
-      next: (profile: any) => {
-        this.applyProfile(profile);
+    concat(...steps).pipe(last()).subscribe({
+      next: u => {
+        this.auth.setUser(u);
+        this.apply(u);
         this.isSaving.set(false);
         this.notifications.show('Профиль обновлён', 'success');
-        // Sync auth cache
-        const current = this.auth.currentUserValue;
-        if (current) {
-          localStorage.setItem('currentUser', JSON.stringify({
-            ...current,
-            name: profile.name,
-            avatar: profile.avatar,
-          }));
-        }
       },
-      error: () => {
+      error: err => {
         this.isSaving.set(false);
-        this.notifications.show('Ошибка при сохранении', 'error');
+        this.notifications.show(errorText(err, 'Ошибка при сохранении'), 'error');
       },
     });
   }

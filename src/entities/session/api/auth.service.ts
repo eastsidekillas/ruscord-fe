@@ -1,106 +1,77 @@
-import { Injectable } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Router } from "@angular/router";
-import {BehaviorSubject, catchError, Observable, of, tap, throwError} from 'rxjs';
+import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
 import { environment } from '../../../environment/environment';
+import { User } from '@shared/api/models';
 
-interface AuthResponse {
-  access_token: string;
-  refresh_token: string;
-}
-
-
-
-@Injectable({
-  providedIn: 'root',
-})
+/**
+ * The signed-in user. Tokens live in HttpOnly cookies (ruscord-core
+ * ADR-0009); the client only knows whether a session works by asking.
+ */
+@Injectable({ providedIn: 'root' })
 export class AuthService {
-  private currentUserSubject: BehaviorSubject<any> = new BehaviorSubject<any>(null);
-  public currentUser: Observable<any> = this.currentUserSubject.asObservable();
+  private readonly http = inject(HttpClient);
+  private readonly base = environment.API_URL;
 
+  private readonly current = signal<User | null>(null);
+  /** The signed-in user, kept fresh by the gateway (READY, USER_UPDATE). */
+  readonly user = this.current.asReadonly();
+  readonly signedIn = computed(() => this.current() !== null);
 
-  constructor(private http: HttpClient, private router: Router) {
-    const storedUser = localStorage.getItem('currentUser');
-    this.currentUserSubject = new BehaviorSubject<any>(storedUser ? JSON.parse(storedUser) : null);
-    this.currentUser = this.currentUserSubject.asObservable();
+  private loading$: Observable<User | null> | null = null;
+  private loaded = false;
 
-    if (!this.currentUserSubject.value) {
-      this.updateUserData(); // Загружаем пользователя с сервера при старте, если его нет в localStorage
-    }
-  }
-
-  refreshToken(): Observable<void> {
-    return this.http.post<void>(`${environment.API_URL}/auth/refresh/`, {}, { withCredentials: true });
-  }
-
-  login(email: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${environment.API_URL}/auth/login/`, { email, password }, { withCredentials: true })
-      .pipe(
-        tap(() => this.updateUserData()), // Обновляем данные пользователя после логина
-        catchError(this.handleError)
+  /** Loads the user once; later calls return what is known. */
+  ensureLoaded(): Observable<User | null> {
+    if (this.loaded) return of(this.current());
+    if (!this.loading$) {
+      this.loading$ = this.http.get<User>(`${this.base}/users/@me`).pipe(
+        catchError(() => of(null)),
+        tap(u => {
+          this.current.set(u);
+          this.loaded = true;
+        }),
+        finalize(() => (this.loading$ = null)),
+        shareReplay(1),
       );
+    }
+    return this.loading$;
   }
 
-  register(username: string, email: string, password: string, name: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${environment.API_URL}/auth/register/`, { username, email, password, name }, { withCredentials: true }).pipe(
-      catchError(error => {
-        console.error('Ошибка при регистрации:', error);
-        return throwError(() => new Error(error.error?.message || 'Ошибка регистрации'));
-      })
+  login(email: string, password: string): Observable<User> {
+    return this.http.post<User>(`${this.base}/auth/login`, { email, password }).pipe(tap(u => this.signIn(u)));
+  }
+
+  /** Registration signs in at once (the server sets the cookies). */
+  register(body: { email: string; username: string; display_name: string; password: string }): Observable<User> {
+    return this.http.post<User>(`${this.base}/auth/register`, body).pipe(tap(u => this.signIn(u)));
+  }
+
+  /** Rotates the refresh token; fails with 401 when the session is over. */
+  refresh(): Observable<void> {
+    return this.http.post<User>(`${this.base}/auth/refresh`, null).pipe(map(() => undefined));
+  }
+
+  logout(): Observable<void> {
+    return this.http.post<void>(`${this.base}/auth/logout`, null).pipe(
+      catchError(() => of(undefined)),
+      tap(() => this.forget()),
     );
   }
 
-  private handleError(error: any): Observable<any> {
-    throw error;
+  /** Replaces the known user (USER_UPDATE, READY, settings). */
+  setUser(u: User): void {
+    if (this.current()) this.current.set(u);
   }
 
-
-  // Метод для обновления данных пользователя с сервера
-  updateUserData(): void {
-    this.checkAuth().subscribe();
+  /** The session ended (refresh failed, sign-in session revoked). */
+  forget(): void {
+    this.current.set(null);
+    this.loaded = true;
   }
 
-  // Метод для проверки авторизации на сервере
-  checkAuth(): Observable<any> {
-    return this.http.get<any>(`${environment.API_URL}/auth/check/`, { withCredentials: true }).pipe(
-      tap(user => {
-        this.currentUserSubject.next(user);
-        localStorage.setItem('currentUser', JSON.stringify(user));
-      }),
-      catchError(() => {
-        this.currentUserSubject.next(null);
-        localStorage.removeItem('currentUser');
-        return of(null);
-      })
-    );
-  }
-
-
-
-  logout(): void {
-    this.http.post(`${environment.API_URL}/auth/logout/`, {}, { withCredentials: true }).pipe(
-      catchError(() => of(null))
-    ).subscribe(() => {
-      this.currentUserSubject.next(null);
-      localStorage.removeItem('currentUser');
-      this.router.navigate(['/login']);
-    });
-  }
-
-
-  get currentUserValue(): any {
-    return this.currentUserSubject.value;
-  }
-
-  get userId(): string {
-    return this.currentUserValue?.user_id || '';
-  }
-
-  get userAvatar(): string {
-    return this.currentUserValue?.avatar || '';
-  }
-
-  get userName(): string {
-    return this.currentUserValue?.name || 'Guest';
+  private signIn(u: User): void {
+    this.current.set(u);
+    this.loaded = true;
   }
 }

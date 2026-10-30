@@ -5,9 +5,11 @@ import {
   inject,
   signal,
   effect,
+  DestroyRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { StatusSocketService } from '@entities/user-status/api/status-socket';
+import { AuthService } from '@entities/session/api/auth.service';
+import { GatewayService } from '@shared/api';
 
 @Component({
   selector: 'ConnectionOverlay',
@@ -51,46 +53,39 @@ import { StatusSocketService } from '@entities/user-status/api/status-socket';
         <img src="logo.png" alt="Ruscord" width="80" height="80" style="border-radius:20px">
         <div style="text-align:center;display:flex;flex-direction:column;gap:6px">
           <span style="color:#fff;font-family:Inter,sans-serif;font-size:18px;font-weight:700">
-            Нет соединения
+            {{ stopped() ? 'Соединение закрыто' : 'Нет соединения' }}
           </span>
           <span style="color:#b4b4b4;font-family:Inter,sans-serif;font-size:13px">
-            Переподключение к серверу...
+            {{ stopped() ? 'Открыто слишком много вкладок или версия устарела. Обновите страницу.' : 'Переподключение к серверу...' }}
           </span>
         </div>
-        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="dots" *ngIf="!stopped()"><span></span><span></span><span></span></div>
       </div>
     </div>
   `,
 })
 export class ConnectionOverlay {
-  private readonly statusSocket = inject(StatusSocketService);
+  private readonly gateway = inject(GatewayService);
+  private readonly auth = inject(AuthService);
 
-  // Показываем только если пользователь залогинен и сокет отвалился.
-  // Задержка 2 сек перед показом — чтобы не мелькать при кратких обрывах.
+  protected readonly stopped = computed(() => this.gateway.status() === 'stopped' && this.auth.signedIn());
+  /** Shown 2 s after the connection is lost, so short drops do not flash. */
   protected readonly visible = signal(false);
-
   private showTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
     effect(() => {
-      const isLoggedIn = !!localStorage.getItem('currentUser');
-      const connected = this.statusSocket.connected();
-
-      if (!isLoggedIn) {
+      const signedIn = this.auth.signedIn();
+      const status = this.gateway.status();
+      clearTimeout(this.showTimer);
+      if (!signedIn || status === 'ready' || status === 'offline') {
         this.visible.set(false);
-        clearTimeout(this.showTimer);
-        return;
-      }
-
-      if (!connected) {
-        // Показываем с задержкой, чтобы не мелькать при быстром реконнекте
-        this.showTimer = setTimeout(() => {
-          if (!this.statusSocket.connected()) this.visible.set(true);
-        }, 2000);
+      } else if (status === 'stopped') {
+        this.visible.set(true);
       } else {
-        clearTimeout(this.showTimer);
-        this.visible.set(false);
+        this.showTimer = setTimeout(() => this.visible.set(true), 2000);
       }
     });
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.showTimer));
   }
 }

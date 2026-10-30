@@ -1,120 +1,158 @@
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environment/environment';
+import {
+  ChosenStatus,
+  DMChannel,
+  FullGuild,
+  Guild,
+  GuildChannel,
+  Invite,
+  InvitePreview,
+  Member,
+  Message,
+  Profile,
+  Relationship,
+  User,
+} from './models';
 
-@Injectable({
-  providedIn: 'root',
-})
+/** REST client of ruscord-core; paths follow docs/api.md. */
+@Injectable({ providedIn: 'root' })
 export class ApiService {
+  private readonly http = inject(HttpClient);
   private readonly base = environment.API_URL;
-
-  constructor(private http: HttpClient) {}
 
   private url(path: string): string {
     return `${this.base}/${path}`;
   }
 
-  // Пользователи
-  searchUsers(name: string): Observable<any> {
-    return this.http.get(this.url(`users/search/?name=${encodeURIComponent(name)}`));
+  // Account
+  me(): Observable<User> {
+    return this.http.get<User>(this.url('users/@me'));
   }
 
-  getUserProfile(id: string): Observable<any> {
-    return this.http.get(this.url(`users/${id}/profile/`));
+  updateMe(patch: { display_name?: string; bio?: string; status?: ChosenStatus }): Observable<User> {
+    return this.http.patch<User>(this.url('users/@me'), patch);
   }
 
-  getMyProfile(): Observable<any> {
-    return this.http.get(this.url('users/me/profile/'));
+  /** Uploads a picture as is: the server checks and re-encodes it. */
+  setAvatar(file: Blob): Observable<User> {
+    return this.http.put<User>(this.url('users/@me/avatar'), file);
   }
 
-  updateMyProfile(formData: FormData): Observable<any> {
-    return this.http.patch(this.url('users/me/profile/'), formData);
+  deleteAvatar(): Observable<User> {
+    return this.http.delete<User>(this.url('users/@me/avatar'));
   }
 
-  // Друзья
-  getMyFriends(): Observable<any> {
-    return this.http.get(this.url('users/me/relationships/'));
+  profile(userId: string): Observable<Profile> {
+    return this.http.get<Profile>(this.url(`users/${encodeURIComponent(userId)}/profile`));
   }
 
-  postFriendRequest(userId: string): Observable<any> {
-    return this.http.post(this.url('users/me/friends/send/'), { to_user_id: userId });
+  gatewayTicket(): Observable<{ ticket: string; expires_in: number }> {
+    return this.http.post<{ ticket: string; expires_in: number }>(this.url('gateway/ticket'), null);
   }
 
-  getFriendRequests(): Observable<any> {
-    return this.http.get(this.url('users/me/friends/requests/'));
+  // Relationships
+  relationships(): Observable<Relationship[]> {
+    return this.http.get<Relationship[]>(this.url('users/@me/relationships'));
   }
 
-  postToFriendRequestAccept(requestId: string): Observable<any> {
-    return this.http.post(this.url(`users/me/friends/${requestId}/respond/`), { action: 'accept' });
+  /** Friend request by exact username. */
+  requestFriend(username: string): Observable<void> {
+    return this.http.post<void>(this.url('users/@me/relationships'), { username });
   }
 
-  postToFriendRequestReject(requestId: string): Observable<any> {
-    return this.http.post(this.url(`users/me/friends/${requestId}/respond/`), { action: 'reject' });
+  /** Sends a request to the user, or accepts theirs. */
+  acceptOrRequest(userId: string): Observable<void> {
+    return this.http.put<void>(this.url(`users/@me/relationships/${userId}`), {});
   }
 
-  // Каналы
-  getChannel(channelId: string): Observable<any> {
-    return this.http.get(this.url(`channels/${channelId}/`));
+  block(userId: string): Observable<void> {
+    return this.http.put<void>(this.url(`users/@me/relationships/${userId}`), { type: 2 });
   }
 
-  postCreateChannel(to_user: string): Observable<any> {
-    return this.http.post(this.url('channels/dm/'), { target_user_id: to_user });
+  /** Unfriends, cancels or declines a request, or unblocks. */
+  removeRelationship(userId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`users/@me/relationships/${userId}`));
   }
 
-  getMessagesChannel(channelId: string): Observable<any> {
-    return this.http.get(this.url(`channels/${channelId}/messages/`));
+  // Direct messages
+  openDM(recipientId: string): Observable<DMChannel> {
+    return this.http.post<DMChannel>(this.url('users/@me/channels'), { recipient_id: recipientId });
   }
 
-  getLiveKitToken(channelId: string): Observable<any> {
-    return this.http.get(this.url(`channels/${channelId}/livekit-token/`));
+  // Guilds
+  createGuild(name: string): Observable<FullGuild> {
+    return this.http.post<FullGuild>(this.url('guilds'), { name });
   }
 
-  // Серверы
-  postCreateServer(formData: FormData): Observable<any> {
-    return this.http.post(this.url('servers/'), formData);
+  updateGuild(guildId: string, patch: { name?: string }): Observable<Guild> {
+    return this.http.patch<Guild>(this.url(`guilds/${guildId}`), patch);
   }
 
-  getMyServers(): Observable<any> {
-    return this.http.get(this.url('servers/'));
+  setGuildIcon(guildId: string, file: Blob): Observable<Guild> {
+    return this.http.put<Guild>(this.url(`guilds/${guildId}/icon`), file);
   }
 
-  getServerDetails(serverId: string): Observable<any> {
-    return this.http.get(this.url(`servers/${serverId}/`));
+  deleteGuildIcon(guildId: string): Observable<Guild> {
+    return this.http.delete<Guild>(this.url(`guilds/${guildId}/icon`));
   }
 
-  getServerMembers(serverId: string): Observable<any> {
-    return this.http.get(this.url(`servers/${serverId}/members/`));
+  leaveGuild(guildId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`guilds/${guildId}/members/@me`));
   }
 
-  getServerChannels(serverId: string): Observable<any> {
-    return this.http.get(this.url(`servers/${serverId}/channels/`));
+  deleteGuild(guildId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`guilds/${guildId}`));
   }
 
-  // Инвайты
-  postInviteLinkServer(serverId: string, maxUses: number | null, expiresIn: number | null): Observable<any> {
-    return this.http.post(this.url(`servers/invite/${serverId}/`), {
-      max_uses: maxUses,
-      expires_in: expiresIn,
-    });
+  /** One page of members ordered by user id (up to 1000). */
+  members(guildId: string, after?: string): Observable<Member[]> {
+    let params = new HttpParams().set('limit', 1000);
+    if (after) params = params.set('after', after);
+    return this.http.get<Member[]>(this.url(`guilds/${guildId}/members`), { params });
   }
 
-  postServerByInvite(token: string): Observable<any> {
-    return this.http.post(this.url(`invite/${token}/join`), {});
+  createChannel(guildId: string, body: { type: 0 | 2 | 4; name: string; parent_id?: string }): Observable<GuildChannel> {
+    return this.http.post<GuildChannel>(this.url(`guilds/${guildId}/channels`), body);
   }
 
-  getInviteServerDetails(token: string): Observable<any> {
-    return this.http.get(this.url(`invite/${token}/`));
+  // Invites
+  /** maxAge in seconds (0: never expires, at most a week); maxUses 0: unlimited. */
+  createInvite(channelId: string, maxAge: number, maxUses: number): Observable<Invite> {
+    return this.http.post<Invite>(this.url(`channels/${channelId}/invites`), { max_age: maxAge, max_uses: maxUses });
   }
 
-  // Пересылка
-  getForwardTargets(): Observable<any> {
-    return this.http.get(this.url('messages/forward-targets/'));
+  invite(code: string): Observable<InvitePreview> {
+    return this.http.get<InvitePreview>(this.url(`invites/${encodeURIComponent(code)}`));
   }
 
-  forwardMessage(messageId: string, targetChannelId: string): Observable<any> {
-    return this.http.post(this.url(`messages/${messageId}/forward/`), {
-      target_channel_id: targetChannelId,
-    });
+  acceptInvite(code: string): Observable<FullGuild> {
+    return this.http.post<FullGuild>(this.url(`invites/${encodeURIComponent(code)}`), null);
+  }
+
+  // Messages
+  /** Newest first; before/after are message ids. */
+  messages(channelId: string, opts: { before?: string; limit?: number } = {}): Observable<Message[]> {
+    let params = new HttpParams().set('limit', opts.limit ?? 50);
+    if (opts.before) params = params.set('before', opts.before);
+    return this.http.get<Message[]>(this.url(`channels/${channelId}/messages`), { params });
+  }
+
+  sendMessage(channelId: string, body: { content: string; nonce: string; reply_to?: string }): Observable<Message> {
+    return this.http.post<Message>(this.url(`channels/${channelId}/messages`), body);
+  }
+
+  editMessage(channelId: string, messageId: string, content: string): Observable<Message> {
+    return this.http.patch<Message>(this.url(`channels/${channelId}/messages/${messageId}`), { content });
+  }
+
+  deleteMessage(channelId: string, messageId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`channels/${channelId}/messages/${messageId}`));
+  }
+
+  typing(channelId: string): Observable<void> {
+    return this.http.post<void>(this.url(`channels/${channelId}/typing`), null);
   }
 }

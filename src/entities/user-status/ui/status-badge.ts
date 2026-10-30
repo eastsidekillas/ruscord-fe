@@ -1,5 +1,5 @@
 import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
-import { UserStatusStoreService } from '../model/user-status-store';
+import { AppStateStore } from '@entities/app-state/model/app-state.store';
 
 @Component({
   selector: 'StatusUI',
@@ -17,7 +17,7 @@ import { UserStatusStoreService } from '../model/user-status-store';
 })
 export class StatusUi {
   readonly userId = input.required<string>();
-  protected readonly status = computed(() => this.statusStore.statuses()[this.userId()] ?? 'offline');
+  protected readonly status = computed(() => this.store.status(this.userId()));
 
-  constructor(private statusStore: UserStatusStoreService) {}
+  constructor(private store: AppStateStore) {}
 }

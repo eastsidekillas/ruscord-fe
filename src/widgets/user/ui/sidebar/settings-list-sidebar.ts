@@ -1,3 +1,4 @@
+import { Router } from '@angular/router';
 import { ChangeDetectionStrategy, Component, EventEmitter, inject, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '@entities/session/api/auth.service';
@@ -107,8 +108,10 @@ export class SettingsSidebar {
     this.itemSelected.emit(key);
   }
 
+  private readonly router = inject(Router);
+
   logout() {
     this.modalService.close();
-    this.authService.logout();
+    this.authService.logout().subscribe(() => this.router.navigate(['/login']));
   }
 }
