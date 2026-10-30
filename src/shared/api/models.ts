@@ -12,6 +12,8 @@ export interface PublicUser {
   display_name: string;
   /** Path `/cdn/...` or null. */
   avatar: string | null;
+  /** A deleted account: shown as "Удалённый пользователь". */
+  deleted?: boolean;
 }
 
 export interface User extends PublicUser {
@@ -145,6 +147,14 @@ export interface InvitePreview {
   inviter?: PublicUser;
   member_count: number;
   expires_at: string | null;
+}
+
+export interface Ban {
+  user_id: Snowflake;
+  user: PublicUser;
+  reason: string;
+  moderator_id: Snowflake | null;
+  created_at: string;
 }
 
 export interface PresenceUpdate {

@@ -9,6 +9,7 @@ import { NotificationService } from '@shared/model/notification.service';
 import { DropdownMenuItem } from '@shared/ui/dropdown-menu';
 import { ApiService, Perm, errorText, hasPerm } from '@shared/api';
 import { AppStateStore } from '@entities/app-state';
+import { settingsTabs } from '@features/server-settings/ui/server-settings-modal';
 
 @Component({
   selector: 'Sidebar',
@@ -71,7 +72,8 @@ export class Sidebar {
     if (Object.values(g.channel_permissions).some(p => hasPerm(p, Perm.CreateInvite))) {
       items.push({ label: 'Пригласить участников', action: 'invite' });
     }
-    if (hasPerm(g.permissions, Perm.ManageGuild)) items.push({ label: 'Настройки сервера', action: 'editServer' });
+    if (hasPerm(g.permissions, Perm.ManageChannels)) items.push({ label: 'Создать канал', action: 'createChannel' });
+    if (settingsTabs(g).length) items.push({ label: 'Настройки сервера', action: 'editServer' });
     if (g.owner_id === me) {
       items.push({ label: 'Удалить сервер', action: 'deleteServer' });
     } else {
@@ -86,6 +88,9 @@ export class Sidebar {
     switch (action) {
       case 'invite':
         this.modal.open('invite', { serverId: g.id, channelId: this.currentChannelId() });
+        break;
+      case 'createChannel':
+        this.modal.open('channel', { serverId: g.id });
         break;
       case 'editServer':
         this.modal.open('editServer', { serverId: g.id });

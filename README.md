@@ -26,7 +26,15 @@ Angular-клиент для [ruscord-core](https://github.com/eastsidekillas/rus
 npm install
 npm start          # http://localhost:4200, /api, /gateway и /cdn проксируются на ядро
 npm run test:ci    # юнит-тесты в headless Chrome
+npm run e2e        # сквозной прогон в Chromium против запущенного ядра (см. e2e/smoke.mjs)
 ```
+
+CI (`.github/workflows/ci.yml`) на каждом PR собирает продакшен-сборку и
+гоняет юнит-тесты. Сквозной прогон требует запущенного ядра и пока
+запускается вручную: `npx playwright install chromium` один раз, затем
+`E2E_FIXTURES=../ruscord-core/internal/platform/imaging/testdata npm run e2e`.
+Шрифт Inter лежит в сборке (`@fontsource-variable/inter`): клиент не ходит на
+внешние серверы (152-ФЗ, см. `docs/legal/russia.md` ядра).
 
 Открывайте `http://localhost:4200`, а не `127.0.0.1:4200`: ядро проверяет
 Origin по списку `RUSCORD_ALLOWED_ORIGINS` (по умолчанию `http://localhost:4200`).
@@ -37,6 +45,14 @@ Origin по списку `RUSCORD_ALLOWED_ORIGINS` (по умолчанию `htt
 проксирует `/api/`, `/gateway` и `/cdn/` на сервис `core:8080` на том же домене:
 cookie и проверка Origin требуют одного источника. В ядре
 `RUSCORD_ALLOWED_ORIGINS` должен содержать адрес сайта.
+
+## Управление сервером
+
+Меню сервера (шестерёнка у названия) показывает то, на что у вас есть права:
+создать канал (`MANAGE_CHANNELS`), настройки — обзор (`MANAGE_GUILD`), роли
+(`MANAGE_ROLES`), участники (кик, бан, выдача ролей), баны (`BAN_MEMBERS`).
+Каналы и категории правятся шестерёнкой при наведении. Права проверяет ядро;
+клиент только прячет недоступное.
 
 ## Что пока выключено
 
