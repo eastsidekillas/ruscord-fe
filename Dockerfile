@@ -1,7 +1,7 @@
 FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json angular.json tsconfig.json tsconfig.app.json tsconfig.spec.json ./
-RUN npm install --legacy-peer-deps
+RUN npm ci
 COPY . .
 RUN npm run build --configuration=production
 

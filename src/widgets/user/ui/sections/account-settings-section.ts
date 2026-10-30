@@ -2,14 +2,16 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal, ViewChild
 import { Observable, concat, last } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ApiService, User, errorText } from '@shared/api';
+import { AuthService } from '@entities/session/api/auth.service';
+import { NotificationService } from '@shared/model/notification.service';
+import { ModalService } from '@shared/model/modal.service';
+import { AvatarUI } from '@shared/ui/avatar';
+import { LucideAngularModule, Upload } from 'lucide-angular';
 
 /** Upload limit of ruscord-core. */
 const MAX_UPLOAD = 8 << 20;
-import { AuthService } from '@entities/session/api/auth.service';
-import { NotificationService } from '@shared/model/notification.service';
-import { AvatarUI } from '@shared/ui/avatar';
-import {LucideAngularModule, Upload} from 'lucide-angular';
 
 @Component({
   selector: 'AccountSettingsSection',
@@ -130,6 +132,29 @@ import {LucideAngularModule, Upload} from 'lucide-angular';
           </div>
         </section>
 
+        <!-- Account deletion (ruscord-core ADR-0021) -->
+        <section class="mb-24">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Удаление учётной записи</h3>
+          <div class="bg-sidebar-surface-primary rounded-lg px-4 py-3 text-sm">
+            <p class="text-gray-400 mb-3">
+              Учётная запись перестанет работать сразу на всех устройствах. Вы выйдете из серверов, групп и друзей;
+              ваши сообщения останутся от «Удалённого пользователя». Владельцу серверов нужно сначала удалить их.
+            </p>
+            <button *ngIf="!deleting()" type="button" (click)="deleting.set(true)"
+                    class="px-3 py-1.5 rounded-md bg-red-500/20 text-red-300 hover:bg-red-500/40">Удалить учётную запись</button>
+            <form *ngIf="deleting()" class="flex flex-wrap items-center gap-2" (submit)="$event.preventDefault(); deleteAccount()">
+              <input type="password" autocomplete="current-password" placeholder="Пароль"
+                     [value]="deletePassword()" (input)="deletePassword.set(getInputValue($event))"
+                     class="flex-1 min-w-48 bg-main-surface-secondary text-white rounded-md px-3 py-2 border border-transparent focus:outline-none focus:border-red-500" />
+              <button type="submit" [disabled]="!deletePassword() || isSaving()"
+                      class="px-3 py-2 rounded-md bg-red-600 hover:bg-red-500 text-white disabled:opacity-50">Удалить навсегда</button>
+              <button type="button" (click)="deleting.set(false); deletePassword.set(''); deleteError.set(null)"
+                      class="px-3 py-2 text-gray-400 hover:text-white">Отмена</button>
+              <p *ngIf="deleteError()" class="w-full text-red-400">{{ deleteError() }}</p>
+            </form>
+          </div>
+        </section>
+
       </ng-container>
     </div>
 
@@ -162,6 +187,8 @@ export class AccountSettingsSectionComponent {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly notifications = inject(NotificationService);
+  private readonly modal = inject(ModalService);
+  private readonly router = inject(Router);
 
   readonly isLoading = signal(false);
   readonly isSaving = signal(false);
@@ -173,6 +200,9 @@ export class AccountSettingsSectionComponent {
   readonly avatarPreview = signal<string | null>(null);
   readonly newAvatarFile = signal<File | null>(null);
   readonly avatarRemoved = signal(false);
+  readonly deleting = signal(false);
+  readonly deletePassword = signal('');
+  readonly deleteError = signal<string | null>(null);
 
   private original: User | null = null;
 
@@ -260,6 +290,24 @@ export class AccountSettingsSectionComponent {
       error: err => {
         this.isSaving.set(false);
         this.notifications.show(errorText(err, 'Ошибка при сохранении'), 'error');
+      },
+    });
+  }
+
+  /** After deletion every session is gone: forget the user and go to sign-in. */
+  deleteAccount() {
+    this.isSaving.set(true);
+    this.deleteError.set(null);
+    this.api.deleteMe(this.deletePassword()).subscribe({
+      next: () => {
+        this.isSaving.set(false);
+        this.modal.close();
+        this.auth.forget();
+        this.router.navigate(['/login']);
+      },
+      error: err => {
+        this.isSaving.set(false);
+        this.deleteError.set(errorText(err, 'Не удалось удалить учётную запись'));
       },
     });
   }

@@ -14,6 +14,8 @@ import {
   Message,
   Profile,
   Relationship,
+  Role,
+  Ban,
   User,
 } from './models';
 
@@ -43,6 +45,11 @@ export class ApiService {
 
   deleteAvatar(): Observable<User> {
     return this.http.delete<User>(this.url('users/@me/avatar'));
+  }
+
+  /** Deletes the account; the password is asked again (ruscord-core ADR-0021). */
+  deleteMe(password: string): Observable<void> {
+    return this.http.delete<void>(this.url('users/@me'), { body: { password } });
   }
 
   profile(userId: string): Observable<Profile> {
@@ -114,8 +121,52 @@ export class ApiService {
     return this.http.get<Member[]>(this.url(`guilds/${guildId}/members`), { params });
   }
 
-  createChannel(guildId: string, body: { type: 0 | 2 | 4; name: string; parent_id?: string }): Observable<GuildChannel> {
+  createChannel(guildId: string, body: { type: 0 | 2 | 4; name: string; topic?: string; parent_id?: string }): Observable<GuildChannel> {
     return this.http.post<GuildChannel>(this.url(`guilds/${guildId}/channels`), body);
+  }
+
+  /** parent_id: null takes the channel out of its category. */
+  updateChannel(channelId: string, patch: { name?: string; topic?: string; parent_id?: string | null }): Observable<GuildChannel> {
+    return this.http.patch<GuildChannel>(this.url(`channels/${channelId}`), patch);
+  }
+
+  deleteChannel(channelId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`channels/${channelId}`));
+  }
+
+  // Roles
+  createRole(guildId: string, body: { name: string; permissions?: string; color?: number }): Observable<Role> {
+    return this.http.post<Role>(this.url(`guilds/${guildId}/roles`), body);
+  }
+
+  updateRole(guildId: string, roleId: string, patch: { name?: string; permissions?: string; color?: number }): Observable<Role> {
+    return this.http.patch<Role>(this.url(`guilds/${guildId}/roles/${roleId}`), patch);
+  }
+
+  deleteRole(guildId: string, roleId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`guilds/${guildId}/roles/${roleId}`));
+  }
+
+  setMemberRole(guildId: string, userId: string, roleId: string, on: boolean): Observable<void> {
+    const url = this.url(`guilds/${guildId}/members/${userId}/roles/${roleId}`);
+    return on ? this.http.put<void>(url, null) : this.http.delete<void>(url);
+  }
+
+  // Moderation
+  kick(guildId: string, userId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`guilds/${guildId}/members/${userId}`));
+  }
+
+  ban(guildId: string, userId: string, reason: string): Observable<void> {
+    return this.http.put<void>(this.url(`guilds/${guildId}/bans/${userId}`), { reason });
+  }
+
+  unban(guildId: string, userId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`guilds/${guildId}/bans/${userId}`));
+  }
+
+  bans(guildId: string): Observable<Ban[]> {
+    return this.http.get<Ban[]>(this.url(`guilds/${guildId}/bans`));
   }
 
   // Invites

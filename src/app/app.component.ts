@@ -8,13 +8,14 @@ import { ProfileViewModal } from '@features/view-profile/ui/profile-view-modal';
 import { ModalService } from '@shared/model/modal.service';
 import { InviteServerModal } from '@features/invite-server/ui/invite-server-modal';
 import { ServerSettingsModal } from '@features/server-settings/ui/server-settings-modal';
+import { ChannelModal } from '@features/channel-settings/ui/channel-modal';
 import { UserSettingsModal } from '@widgets/user/ui/UserSettingsModal';
 import { ConnectionOverlay } from '@shared/ui/connection-overlay';
 import { AppStateStore, IdleService, TypingStore } from '@entities/app-state';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, UserSettingsModal, ConnectionOverlay],
+  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -26,6 +27,7 @@ import { AppStateStore, IdleService, TypingStore } from '@entities/app-state';
     <ProfileViewModal *ngIf="modalService.modalType() === 'userProfile'"></ProfileViewModal>
     <InviteServerModal *ngIf="modalService.modalType() === 'invite'"></InviteServerModal>
     <ServerSettingsModal *ngIf="modalService.modalType() === 'editServer'"></ServerSettingsModal>
+    <ChannelModal *ngIf="modalService.modalType() === 'channel'"></ChannelModal>
     <UserSettingsModal *ngIf="modalService.modalType() === 'userSettings'"></UserSettingsModal>
     <Notification *ngIf="notificationService.state().visible"></Notification>
   `,
