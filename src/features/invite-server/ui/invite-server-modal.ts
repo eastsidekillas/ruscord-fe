@@ -1,14 +1,9 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  effect,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ModalService } from '@shared/model/modal.service';
-import { ApiService } from '@shared/api/api.service';
-import { environment } from '../../../environment/environment';
+import { ApiService, FullGuild, GuildChannel, Perm, errorText, hasPerm } from '@shared/api';
+import { AppStateStore, channelGroups } from '@entities/app-state';
 
 interface ExpiryOption { label: string; minutes: number | null; }
 interface UsesOption   { label: string; value: number | null; }
@@ -72,6 +67,7 @@ const USES_OPTIONS: UsesOption[] = [
           <div class="flex items-center gap-2">
             <div class="flex-1 bg-main-surface-primary rounded-xl px-4 py-2.5 flex items-center min-w-0">
               <span *ngIf="loading()" class="text-gray-500 text-sm animate-pulse">Генерация ссылки...</span>
+              <span *ngIf="!loading() && !inviteUrl() && error()" class="text-gray-500 text-sm">—</span>
               <span *ngIf="!loading() && inviteUrl()"
                     class="text-gray-200 text-sm truncate font-mono select-all">
                 {{ inviteUrl() }}
@@ -125,59 +121,71 @@ const USES_OPTIONS: UsesOption[] = [
 })
 export class InviteServerModal {
   protected readonly expiryOptions = EXPIRY_OPTIONS;
-  protected readonly usesOptions   = USES_OPTIONS;
+  protected readonly usesOptions = USES_OPTIONS;
 
-  protected selectedExpiry: ExpiryOption = EXPIRY_OPTIONS[5]; // 7 дней
-  protected selectedUses: UsesOption     = USES_OPTIONS[0];   // без ограничений
+  protected selectedExpiry: ExpiryOption = EXPIRY_OPTIONS[5]; // 7 days
+  protected selectedUses: UsesOption = USES_OPTIONS[0]; // unlimited
 
   protected readonly inviteUrl = signal<string | null>(null);
-  protected readonly loading   = signal(false);
-  protected readonly copied    = signal(false);
-  protected readonly error     = signal<string | null>(null);
+  protected readonly loading = signal(false);
+  protected readonly copied = signal(false);
+  protected readonly error = signal<string | null>(null);
 
-  private serverId: string | null = null;
+  readonly modalService = inject(ModalService);
+  private readonly api = inject(ApiService);
+  private readonly store = inject(AppStateStore);
   private copyTimer?: ReturnType<typeof setTimeout>;
+  /** Bumped per request, so an older answer cannot overwrite a newer link. */
+  private request = 0;
 
-  constructor(
-    public modalService: ModalService,
-    private apiService: ApiService,
-  ) {
-    effect(() => {
-      const id = this.modalService.modalData()?.['serverId'];
-      if (id && id !== this.serverId) {
-        this.serverId = id;
-        this.inviteUrl.set(null);
-        this.error.set(null);
-        this.copied.set(false);
-        this.selectedExpiry = EXPIRY_OPTIONS[5];
-        this.selectedUses   = USES_OPTIONS[0];
-        this.createInvite();
-      }
-    });
-  }
-
-  protected regenerate(): void {
-    this.inviteUrl.set(null);
-    this.error.set(null);
+  constructor() {
     this.createInvite();
   }
 
+  protected regenerate(): void {
+    this.createInvite();
+  }
+
+  /**
+   * Invites lead to a channel: the one open now if the user may invite
+   * there, otherwise the first channel of the guild where they may.
+   */
+  private target(): GuildChannel | null {
+    const data = this.modalService.modalData();
+    const g: FullGuild | null = this.store.guild(data['serverId']);
+    if (!g) return null;
+    const can = (c: GuildChannel) => c.type !== 4 && hasPerm(g.channel_permissions[c.id], Perm.CreateInvite);
+    const current = g.channels.find(c => c.id === data['channelId']);
+    if (current && can(current)) return current;
+    for (const group of channelGroups(g)) {
+      const ch = group.channels.find(can);
+      if (ch) return ch;
+    }
+    return null;
+  }
+
   private createInvite(): void {
-    if (!this.serverId) return;
+    const req = ++this.request;
+    this.inviteUrl.set(null);
+    this.copied.set(false);
+    const channel = this.target();
+    if (!channel) {
+      this.loading.set(false);
+      this.error.set('У вас нет права приглашать на этот сервер.');
+      return;
+    }
     this.loading.set(true);
     this.error.set(null);
-
-    this.apiService.postInviteLinkServer(
-      this.serverId,
-      this.selectedUses.value,
-      this.selectedExpiry.minutes,
-    ).subscribe({
-      next: (res) => {
-        this.inviteUrl.set(`${environment.BASE_URL}/invite/${res.invite_token}`);
+    const maxAge = this.selectedExpiry.minutes === null ? 0 : this.selectedExpiry.minutes * 60;
+    this.api.createInvite(channel.id, maxAge, this.selectedUses.value ?? 0).subscribe({
+      next: inv => {
+        if (req !== this.request) return;
+        this.inviteUrl.set(`${location.origin}/invite/${inv.code}`);
         this.loading.set(false);
       },
-      error: () => {
-        this.error.set('Не удалось создать ссылку. Попробуйте ещё раз.');
+      error: err => {
+        if (req !== this.request) return;
+        this.error.set(errorText(err, 'Не удалось создать ссылку. Попробуйте ещё раз.'));
         this.loading.set(false);
       },
     });
@@ -194,6 +202,7 @@ export class InviteServerModal {
   }
 
   protected closeModal(): void {
+    clearTimeout(this.copyTimer);
     this.modalService.close();
   }
 }

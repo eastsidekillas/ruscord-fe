@@ -1,26 +1,32 @@
-import { Component, Input } from '@angular/core';
-import { SidebarItem } from './sidebar-item';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component, Input, computed, inject, signal } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { SidebarItem } from './sidebar-item';
 import { SidebarHeader } from '@widgets/sidebar/ui/sidebar-header';
 import { ServerChannelsItems } from '@widgets/sidebar/ui/server-sidebar/server-channels-items';
 import { ModalService } from '@shared/model/modal.service';
+import { NotificationService } from '@shared/model/notification.service';
+import { DropdownMenuItem } from '@shared/ui/dropdown-menu';
+import { ApiService, Perm, errorText, hasPerm } from '@shared/api';
+import { AppStateStore } from '@entities/app-state';
 
 @Component({
   selector: 'Sidebar',
   standalone: true,
-  imports: [CommonModule, RouterLink, SidebarItem, SidebarHeader, ServerChannelsItems],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, RouterLink, RouterLinkActive, SidebarItem, SidebarHeader, ServerChannelsItems],
   template: `
     <div class="flex flex-col h-full">
       <SidebarHeader
-        [serverName]="serverName"
+        [serverName]="guild()?.name ?? null"
         [isServerRoute]="isServerRoute"
+        [items]="menu()"
         (menuAction)="handleMenuAction($event)"
       />
 
       <ng-container *ngIf="!isServerRoute">
         <div class="overflow-y-auto space-y-3 mb-4 px-4">
-          <a [routerLink]="['/channels/me']"
+          <a [routerLink]="['/channels/me']" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive="bg-green-500"
              class="flex items-center space-x-3 py-3 px-3 rounded-md bg-main-surface-secondary hover:bg-green-500">
             <svg class="w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
                  viewBox="0 0 24 24">
@@ -31,36 +37,80 @@ import { ModalService } from '@shared/model/modal.service';
             <span class="text-sm text-gray-300">Друзья</span>
           </a>
         </div>
-        <div class="flex-1 overflow-y-auto space-y-3 px-4">
+        <div class="flex-1 overflow-y-auto space-y-3 px-4 pb-28">
           <h3 class="text-lg font-medium text-typo-secondary mb-4">Личные сообщения</h3>
           <SidebarItem></SidebarItem>
         </div>
       </ng-container>
 
-      <ng-container *ngIf="isServerRoute">
-        <ServerChannelsItems [serverId]="serverId"></ServerChannelsItems>
+      <ng-container *ngIf="isServerRoute && guild() as g">
+        <ServerChannelsItems class="flex-1 min-h-0 pb-28" [guild]="g"></ServerChannelsItems>
       </ng-container>
     </div>
   `,
 })
 export class Sidebar {
-  @Input() serverId: string | null = null;
-  @Input() isServerRoute: boolean = false;
-  @Input() serverName: string | null = null;
+  @Input() set serverId(id: string | null) { this.id.set(id); }
+  @Input() isServerRoute = false;
 
-  constructor(private modalService: ModalService) {}
+  private readonly id = signal<string | null>(null);
+  private readonly store = inject(AppStateStore);
+  private readonly modal = inject(ModalService);
+  private readonly api = inject(ApiService);
+  private readonly notify = inject(NotificationService);
+  private readonly router = inject(Router);
+
+  protected readonly guild = computed(() => this.store.guild(this.id()));
+
+  /** Only what the user may do (rights come from the server, ADR-0017). */
+  protected readonly menu = computed<DropdownMenuItem[]>(() => {
+    const g = this.guild();
+    if (!g) return [];
+    const me = this.store.me()?.id;
+    const items: DropdownMenuItem[] = [];
+    if (Object.values(g.channel_permissions).some(p => hasPerm(p, Perm.CreateInvite))) {
+      items.push({ label: 'Пригласить участников', action: 'invite' });
+    }
+    if (hasPerm(g.permissions, Perm.ManageGuild)) items.push({ label: 'Настройки сервера', action: 'editServer' });
+    if (g.owner_id === me) {
+      items.push({ label: 'Удалить сервер', action: 'deleteServer' });
+    } else {
+      items.push({ label: 'Покинуть сервер', action: 'leaveServer' });
+    }
+    return items;
+  });
 
   handleMenuAction(action: string) {
+    const g = this.guild();
+    if (!g) return;
     switch (action) {
       case 'invite':
-        this.modalService.open('invite', { serverId: this.serverId });
+        this.modal.open('invite', { serverId: g.id, channelId: this.currentChannelId() });
         break;
       case 'editServer':
-        this.modalService.open('editServer', { serverId: this.serverId });
+        this.modal.open('editServer', { serverId: g.id });
         break;
       case 'leaveServer':
-        this.modalService.open('leaveServer', { serverId: this.serverId });
+        if (confirm(`Покинуть сервер «${g.name}»?`)) {
+          this.api.leaveGuild(g.id).subscribe({
+            next: () => this.router.navigate(['/channels/me']),
+            error: err => this.notify.show(errorText(err, 'Не удалось покинуть сервер'), 'error'),
+          });
+        }
+        break;
+      case 'deleteServer':
+        if (confirm(`Удалить сервер «${g.name}» со всеми каналами и сообщениями? Это нельзя отменить.`)) {
+          this.api.deleteGuild(g.id).subscribe({
+            next: () => this.router.navigate(['/channels/me']),
+            error: err => this.notify.show(errorText(err, 'Не удалось удалить сервер'), 'error'),
+          });
+        }
         break;
     }
+  }
+
+  private currentChannelId(): string | null {
+    const parts = this.router.url.split('?')[0].split('/');
+    return parts.length >= 4 ? parts[3] : null;
   }
 }

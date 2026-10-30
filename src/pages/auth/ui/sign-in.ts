@@ -1,8 +1,9 @@
 import { Component, OnInit } from '@angular/core';
-import {FormBuilder, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { AuthService } from '@entities/session/api/auth.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import {NgIf} from '@angular/common';
+import { errorText } from '@shared/api';
 
 @Component({
   selector: 'app-auth',
@@ -50,7 +51,7 @@ import {NgIf} from '@angular/common';
               />
               <div *ngIf="authForm.get('name')?.invalid && authForm.get('name')?.touched"
                    class="text-red-500 text-sm mt-2">
-                Отображаемое имя обязательно
+                Не больше 32 символов
               </div>
             </div>
 
@@ -65,7 +66,7 @@ import {NgIf} from '@angular/common';
               />
               <div *ngIf="authForm.get('username')?.invalid && authForm.get('username')?.touched"
                    class="text-red-500 text-sm mt-2">
-                Имя пользователя обязательно
+                От 2 до 32 символов: латиница, цифры, «_» и «.»
               </div>
             </div>
 
@@ -87,7 +88,7 @@ import {NgIf} from '@angular/common';
               </div>
               <div *ngIf="authForm.get('password')?.hasError('minlength') && authForm.get('password')?.touched"
                    class="text-red-500 text-sm mt-2">
-                Пароль должен быть не менее 6 символов
+                Пароль должен быть не менее 8 символов
               </div>
             </div>
 
@@ -95,6 +96,7 @@ import {NgIf} from '@angular/common';
 
             <button
               type="submit"
+              [disabled]="busy"
               class="text-white bg-green-500 disabled:bg-gray-600 hover:bg-gray-600 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center transition"
             >
               {{ isLoginMode ? 'Войти' : 'Зарегистрироваться' }}
@@ -138,69 +140,59 @@ export class SignIn implements OnInit {
     this.initForm();
   }
 
-  // Инициализация формы
+  busy = false;
+
+  // Rules match ruscord-core (docs/api.md); the server checks them anyway.
   initForm() {
     this.authForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
-      name: ['', this.isLoginMode ? [] : [Validators.required]],
-      username: ['', this.isLoginMode ? [] : [Validators.required]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
+      name: [''],
+      username: [''],
+      password: [''],
     });
+    this.applyMode();
   }
 
-  // Переключение между режимами
+  /** Switching keeps what was typed and only changes the rules. */
   onSwitchMode() {
     this.isLoginMode = !this.isLoginMode;
-    this.initForm();  // Переинициализировать форму после переключения
-    this.logFormState(); // Логируем состояние формы после переключения
+    this.applyMode();
   }
 
-  logFormState() {
-    ['username', 'email', 'password', 'name'].forEach(field => {
-      const control = this.authForm.get(field);
-    });
+  private applyMode() {
+    this.errorMessage = '';
+    const set = (name: string, v: ValidatorFn[]) => {
+      const c = this.authForm.get(name)!;
+      c.setValidators(v);
+      c.updateValueAndValidity();
+    };
+    set('name', this.isLoginMode ? [] : [Validators.maxLength(32)]);
+    set('username', this.isLoginMode ? [] : [Validators.required, Validators.pattern(/^(?!.*\.\.)[a-zA-Z0-9_.]{2,32}$/)]);
+    set('password', this.isLoginMode ? [Validators.required] : [Validators.required, Validators.minLength(8), Validators.maxLength(128)]);
   }
 
   onSubmit() {
-    this.logFormState(); // Логируем состояние формы
-
-    if (this.authForm.invalid) {
+    if (this.authForm.invalid || this.busy) {
+      this.authForm.markAllAsTouched();
       return;
     }
-
-    const email = this.authForm.value.email;
-    const password = this.authForm.value.password;
-
-    if (this.isLoginMode) {
-      // Логика для логина
-      this.authService.login(email, password).subscribe(
-        () => {
-          this.successMessage = 'Успешный вход!';
-          setTimeout(() => {
-            const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
-            this.router.navigateByUrl(returnUrl ?? '/channels/me/');
-          }, 1000);
-        },
-        () => {
-          this.errorMessage = 'Ошибка входа. Проверьте данные.';
-        }
-      );
-    } else {
-      // Логика для регистрации
-      const username = this.authForm.value.username;
-      const name = this.authForm.value.name;
-
-      this.authService.register(username, email, password, name).subscribe(
-        () => {
-          this.successMessage = 'Вы успешно зарегистрированы!';
-          setTimeout(() => {
-            this.router.navigate(['login']);
-          }, 1000);
-        },
-        () => {
-          this.errorMessage = 'Ошибка регистрации. Попробуйте снова.';
-        }
-      );
-    }
+    const { email, password, username, name } = this.authForm.value;
+    const request = this.isLoginMode
+      ? this.authService.login(email, password)
+      : this.authService.register({ email, password, username, display_name: (name || '').trim() || username });
+    this.busy = true;
+    this.errorMessage = '';
+    request.subscribe({
+      next: () => {
+        this.busy = false;
+        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+        // Only paths inside the app.
+        this.router.navigateByUrl(returnUrl?.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : '/channels/me');
+      },
+      error: err => {
+        this.busy = false;
+        this.errorMessage = errorText(err, this.isLoginMode ? 'Ошибка входа. Проверьте данные.' : 'Ошибка регистрации. Попробуйте снова.');
+      },
+    });
   }
 }

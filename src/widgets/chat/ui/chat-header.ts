@@ -1,77 +1,40 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  EventEmitter,
-  Input,
-  Output,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ModalService } from '@shared/model/modal.service';
-import { ActivatedRoute } from '@angular/router';
+import { AvatarUI } from '@shared/ui/avatar';
 
 @Component({
   selector: 'ChatHeader',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule],
+  imports: [CommonModule, AvatarUI],
   template: `
     <div class="h-16 flex items-center justify-between px-6 shadow-xl">
-      <div class="flex items-center space-x-3" [class.cursor-pointer]="type === 'conversation'" (click)="type === 'conversation' && openUserProfileModal()">
-        <ng-container *ngIf="type === 'conversation'; else serverHeader">
-          <ng-container *ngIf="imageUrl; else noAvatar">
-            <img [src]="imageUrl" alt="{{ name }}" class="w-10 h-10 rounded-full object-cover bg-gray-600" />
-          </ng-container>
-          <ng-template #noAvatar>
-            <div class="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm font-semibold">
-              {{ name.charAt(0).toUpperCase() }}
-            </div>
-          </ng-template>
-          <h3 class="text-lg font-semibold text-gray-300">{{ name }}</h3>
+      <div class="flex items-center space-x-3 min-w-0" [class.cursor-pointer]="!!userId" (click)="userId && profile.emit(userId)">
+        <ng-container *ngIf="type !== 'channel'; else channelHeader">
+          <div class="w-10 h-10 rounded-full overflow-hidden shrink-0">
+            <AvatarUI [src]="imageUrl" [name]="name" />
+          </div>
+          <h3 class="text-lg font-semibold text-gray-300 truncate">{{ name }}</h3>
         </ng-container>
-
-        <ng-template #serverHeader>
-          <h3 class="text-lg font-semibold text-gray-300 flex items-center">
-            <svg class="w-5 h-5 mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+        <ng-template #channelHeader>
+          <h3 class="text-lg font-semibold text-gray-300 flex items-center min-w-0">
+            <svg class="w-5 h-5 mr-2 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
               <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5 7h14M5 12h14M5 17h14"/>
             </svg>
-            {{ name }}
+            <span class="truncate">{{ name }}</span>
           </h3>
+          <span *ngIf="topic" class="text-sm text-typo-secondary truncate border-l border-gray-600 pl-3">{{ topic }}</span>
         </ng-template>
-      </div>
-
-      <div *ngIf="type === 'conversation'" class="flex space-x-4">
-        <button class="w-8 h-8 flex items-center justify-center text-white" (click)="initiateCall()">
-          <svg class="w-5 h-5 hover:text-green-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6.97825 3.99999c-.3729 0-.74128.08169-1.07926.23933-.32394.1511-.61243.36846-.84696.63787-1.81892 1.82189-2.35302 3.87423-1.89899 5.93671.43916 1.9949 1.77747 3.8929 3.45642 5.572 1.67897 1.6791 3.57614 3.0176 5.57034 3.4591 2.0612.4563 4.1141-.0726 5.9396-1.8853.2705-.2348.4888-.524.6405-.8489.1581-.3387.2401-.7081.2401-1.0819 0-.3739-.082-.7432-.2401-1.0819-.1516-.3247-.3696-.6137-.6398-.8483l-1.2098-1.2106c-.5043-.5041-1.1879-.7872-1.9007-.7872-.7128 0-1.3968.2835-1.9011.7876l-.6178.6181c-.1512.1513-.3563.2363-.5701.2363-.2138 0-.4189-.085-.5701-.2363l-1.85336-1.8545c-.15117-.1513-.23609-.3565-.23609-.5704 0-.214.08493-.4192.23613-.5705l.61812-.61851c.5037-.50461.7867-1.18868.7867-1.90191s-.2833-1.39767-.7871-1.90228L8.90499 4.8778c-.23462-.26969-.5233-.48727-.84749-.63848-.33798-.15764-.70636-.23933-1.07925-.23933Z"/>
-            <path fill-rule="evenodd" d="M14.9925 3.99996c0-.55228.4477-.99999 1-.99999l3.03.00002c.5523 0 1 .44772 1 1v2.98135c0 .55228-.4478 1-1 1-.5523 0-1-.44772-1-1v-.58113l-3.3184 3.29112c-.3921.38887-1.0253.38627-1.4142-.00583-.3889-.39213-.3863-1.02529.0059-1.4142l3.2983-3.27133h-.6016c-.5523 0-1-.44772-1-1.00001Z" clip-rule="evenodd"/>
-          </svg>
-        </button>
-
-        <button class="w-8 h-8 flex items-center justify-center text-white">
-          <svg class="w-5 h-5 hover:text-green-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
-            <path fill-rule="evenodd" d="M14 7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7Zm2 9.387 4.684 1.562A1 1 0 0 0 22 17V7a1 1 0 0 0-1.316-.949L16 7.613v8.774Z" clip-rule="evenodd"/>
-          </svg>
-        </button>
       </div>
     </div>
   `,
 })
 export class ChatHeader {
-  @Input() name!: string;
-  @Input() type!: 'channel' | 'conversation';
-  @Input() imageUrl?: string;
-  @Input() userId?: string | null;
-  @Output() callInitiated = new EventEmitter<string>();
-
-  constructor(private modalService: ModalService, private route: ActivatedRoute) {}
-
-  initiateCall() {
-    if (this.userId) {
-      this.callInitiated.emit(this.userId);
-    }
-  }
-
-  openUserProfileModal() {
-    this.modalService.open('userProfile', { userId: this.userId });
-  }
+  @Input() name = '';
+  @Input() type: 'channel' | 'dm' | 'group' = 'channel';
+  @Input() imageUrl: string | null = null;
+  @Input() topic: string | null = null;
+  /** The other person of a 1:1 DM: the header opens their profile. */
+  @Input() userId: string | null = null;
+  @Output() profile = new EventEmitter<string>();
 }

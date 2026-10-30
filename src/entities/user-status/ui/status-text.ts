@@ -1,5 +1,5 @@
 import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
-import { UserStatusStoreService } from '../model/user-status-store';
+import { AppStateStore } from '@entities/app-state/model/app-state.store';
 
 @Component({
   selector: 'StatusUIText',
@@ -19,16 +19,16 @@ import { UserStatusStoreService } from '../model/user-status-store';
 })
 export class StatusUIText {
   readonly userId = input.required<string>();
-  protected readonly status = computed(() => this.statusStore.statuses()[this.userId()] ?? 'offline');
+  protected readonly status = computed(() => this.store.status(this.userId()));
   protected readonly statusText = computed(() => {
     switch (this.status()) {
       case 'online':  return 'В сети';
       case 'idle':    return 'Не активен';
-      case 'dnd':     return 'Занят';
+      case 'dnd':     return 'Не беспокоить';
       case 'offline': return 'Не в сети';
       default:        return 'Неизвестно';
     }
   });
 
-  constructor(private statusStore: UserStatusStoreService) {}
+  constructor(private store: AppStateStore) {}
 }

@@ -2,19 +2,20 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
+  inject,
   signal,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService } from '@shared/api/api.service';
 import { CommonModule } from '@angular/common';
+import { ApiService, InvitePreview, apiError, nameOf } from '@shared/api';
+import { AuthService } from '@entities/session/api/auth.service';
+import { AppStateStore, firstTextChannel } from '@entities/app-state';
 
 interface InviteDetails {
   server_name: string;
   server_avatar: string | null;
   server_description: string | null;
-  invite_token: string;
   member_count: number;
-  online_count: number;
   creator_name: string | null;
   creator_avatar: string | null;
 }
@@ -58,6 +59,17 @@ interface InviteDetails {
         </button>
       </div>
 
+      <!-- Signed out: the preview needs an account -->
+      <div *ngIf="!loading() && !error() && !isLoggedIn()"
+           class="w-full max-w-sm bg-main-surface-secondary rounded-2xl p-8 flex flex-col items-center gap-3 animate-fade-in text-center">
+        <p class="text-white font-semibold text-lg">Вас пригласили на сервер</p>
+        <p class="text-gray-400 text-sm">Войдите, чтобы увидеть приглашение и принять его.</p>
+        <button (click)="goLogin()"
+                class="w-full py-3 rounded-xl bg-green-500 hover:opacity-90 text-white font-semibold text-sm transition">
+          Войти, чтобы принять
+        </button>
+      </div>
+
       <!-- Invite card -->
       <div *ngIf="!loading() && !error() && details()"
            class="w-full max-w-sm bg-main-surface-secondary rounded-2xl overflow-hidden shadow-2xl animate-fade-in">
@@ -93,10 +105,6 @@ interface InviteDetails {
 
           <!-- Stats row -->
           <div class="flex items-center gap-4 mt-3">
-            <div class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0"></span>
-              <span class="text-gray-300 text-sm">{{ details()!.online_count }} онлайн</span>
-            </div>
             <div class="flex items-center gap-1.5">
               <span class="w-2.5 h-2.5 rounded-full bg-gray-500 flex-shrink-0"></span>
               <span class="text-gray-300 text-sm">{{ details()!.member_count }} участников</span>
@@ -175,7 +183,9 @@ export class InvitePage implements OnInit {
   protected readonly joining = signal(false);
   protected readonly joined = signal(false);
   protected readonly joinError = signal<string | null>(null);
-  protected readonly isLoggedIn = signal(!!localStorage.getItem('currentUser'));
+  private readonly auth = inject(AuthService);
+  private readonly store = inject(AppStateStore);
+  protected readonly isLoggedIn = this.auth.signedIn;
 
   private token: string | null = null;
 
@@ -188,20 +198,27 @@ export class InvitePage implements OnInit {
   ngOnInit(): void {
     this.token = this.route.snapshot.paramMap.get('token');
     if (!this.token) {
-      this.error.set('Неверный токен приглашения.');
+      this.error.set('Неверная ссылка приглашения.');
       this.loading.set(false);
       return;
     }
-
-    this.apiService.getInviteServerDetails(this.token).subscribe({
-      next: (response: InviteDetails) => {
-        this.details.set(response);
+    this.auth.ensureLoaded().subscribe(user => {
+      if (!user) {
         this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Ссылка недействительна или истёк срок её действия.');
-        this.loading.set(false);
-      },
+        return;
+      }
+      this.apiService.invite(this.token!).subscribe({
+        next: p => {
+          this.details.set(toDetails(p));
+          this.loading.set(false);
+        },
+        error: err => {
+          this.error.set(apiError(err)?.code === 'rate_limited'
+            ? 'Слишком много попыток, попробуйте через минуту.'
+            : 'Ссылка недействительна или истёк срок её действия.');
+          this.loading.set(false);
+        },
+      });
     });
   }
 
@@ -218,17 +235,16 @@ export class InvitePage implements OnInit {
     if (!this.token || this.joining()) return;
     this.joining.set(true);
     this.joinError.set(null);
-
-    this.apiService.postServerByInvite(this.token).subscribe({
-      next: (res: any) => {
+    this.apiService.acceptInvite(this.token).subscribe({
+      next: guild => {
+        this.store.noteGuild(guild);
         this.joined.set(true);
         this.joining.set(false);
-        setTimeout(() => {
-          this.router.navigate([`/channels/${res.server_id}/${res.default_channel_id}`]);
-        }, 1400);
+        const ch = firstTextChannel(guild);
+        setTimeout(() => this.router.navigate(ch ? ['/channels', guild.id, ch.id] : ['/channels', guild.id]), 800);
       },
       error: () => {
-        this.joinError.set('Не удалось присоединиться. Возможно, вы уже участник.');
+        this.joinError.set('Не удалось присоединиться. Ссылка могла истечь.');
         this.joining.set(false);
       },
     });
@@ -243,4 +259,15 @@ export class InvitePage implements OnInit {
   protected goHome(): void {
     this.router.navigate(['/']);
   }
+}
+
+function toDetails(p: InvitePreview): InviteDetails {
+  return {
+    server_name: p.guild.name,
+    server_avatar: p.guild.icon ?? null,
+    server_description: `#${p.channel.name}`,
+    member_count: p.member_count,
+    creator_name: p.inviter ? nameOf(p.inviter) : null,
+    creator_avatar: p.inviter?.avatar ?? null,
+  };
 }

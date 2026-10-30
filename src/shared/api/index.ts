@@ -1,2 +1,4 @@
 export { ApiService } from './api.service';
-export { SocketService } from './socket.service';
+export { GatewayService } from './gateway/gateway.service';
+export * from './models';
+export * from './permissions';

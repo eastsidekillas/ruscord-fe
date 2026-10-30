@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { AuthGuard } from '@entities/session/guards/auth.guard';
 import { ChannelPage } from '@pages/channel/ui/channel-page';
 import { RelationshipsPage } from '@pages/relationships/ui/relationships-page';
-import { TextChannelResolver } from '@pages/server-layout/model/text-channel.resolver';
+import { GuildHome } from '@pages/server-layout/ui/guild-home';
 
 export const appRoutes: Routes = [
   { path: 'login', loadComponent: () => import('../pages/auth/ui/sign-in').then(m => m.SignIn) },
@@ -24,13 +24,12 @@ export const appRoutes: Routes = [
       {
         path: ':serverId',
         loadComponent: () => import('../pages/server-layout/ui/server-layout').then(m => m.ServerLayout),
-        resolve: {
-          fallbackTextChannel: TextChannelResolver
-        },
         children: [
+          { path: '', component: GuildHome },
           { path: ':channelId', component: ChannelPage },
         ],
       },
     ],
-  }
+  },
+  { path: '**', redirectTo: '' },
 ];
