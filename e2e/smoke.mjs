@@ -23,6 +23,8 @@ async function user(browser) {
   page.errors = [];
   page.frames_ = [];
   page.on('pageerror', e => page.errors.push(e.message));
+  // Anything the Content-Security-Policy blocks is a bug: the page needs it.
+  page.on('console', m => { if (/Content Security Policy/i.test(m.text())) page.errors.push(m.text()); });
   page.on('websocket', ws => ws.on('framereceived', f => {
     try { const x = JSON.parse(f.payload); if (x.t) page.frames_.push(x); } catch { /* not JSON */ }
   }));
@@ -126,8 +128,11 @@ await step('server with an icon, invite link, join by link', async () => {
 await step('create a channel from the menu; others see it live', async () => {
   await menu(ann, 'Создать канал');
   await ann.fill('input[name=name]', 'новости');
+  const from = ann.url();
   await ann.getByRole('button', { name: 'Создать', exact: true }).click();
-  await ann.waitForURL(/\/channels\/[0-9a-f-]{36}\/[0-9a-f-]{36}/);
+  // The new channel opens by itself (not just any channel URL: one was open already).
+  await ann.waitForURL(u => u.href !== from && /\/channels\/[0-9a-f-]{36}\/[0-9a-f-]{36}/.test(u.pathname));
+  await ann.locator('input[placeholder="Написать в #новости"]').waitFor({ timeout: 8000 });
   await sees(bob, 'новости');
   await say(ann, 'первая новость');
   await bob.getByText('новости').first().click();

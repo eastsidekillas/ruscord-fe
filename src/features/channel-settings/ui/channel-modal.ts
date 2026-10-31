@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ModalService } from '@shared/model/modal.service';
-import { ApiService, GuildChannelType, errorText } from '@shared/api';
+import { filter, take, timeout } from 'rxjs';
+import { ApiService, GatewayService, GuildChannelType, errorText } from '@shared/api';
 import { AppStateStore } from '@entities/app-state';
 
 const TYPES: { value: GuildChannelType; label: string }[] = [
@@ -78,6 +79,7 @@ export class ChannelModal {
   private readonly api = inject(ApiService);
   private readonly store = inject(AppStateStore);
   private readonly router = inject(Router);
+  private readonly gateway = inject(GatewayService);
 
   protected readonly types = TYPES;
   private readonly data = this.modal.modalData();
@@ -123,8 +125,27 @@ export class ChannelModal {
     this.run(req, created => {
       this.close();
       // A new text channel opens at once, like in Discord.
-      if (!ch && created.type === 0) this.router.navigate(['/channels', g.id, created.id]);
+      if (!ch && created.type === 0) this.openWhenKnown(g.id, created.id);
     });
+  }
+
+  /**
+   * Opens the new channel once the store has it. The REST answer can arrive
+   * before CHANNEL_CREATE, and the channel page sends you away from a
+   * channel the store does not know.
+   */
+  private openWhenKnown(guildId: string, channelId: string): void {
+    const open = () => this.router.navigate(['/channels', guildId, channelId]);
+    if (this.store.guild(guildId)?.channels.some(c => c.id === channelId)) {
+      open();
+      return;
+    }
+    // The store reduces each dispatch before later subscribers see it.
+    this.gateway.dispatches.pipe(
+      filter(ev => ev.t === 'CHANNEL_CREATE' && (ev.d as { id?: string } | null)?.id === channelId),
+      take(1),
+      timeout({ first: 10_000 }),
+    ).subscribe({ next: open, error: () => undefined });
   }
 
   protected remove(): void {
