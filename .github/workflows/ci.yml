@@ -15,6 +15,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # What ships to browsers must have no known vulnerabilities; build and
+      # test tooling is reported by `npm audit` but does not reach users.
+      - run: npm audit --omit=dev
       # The production build: AOT templates, budgets, and no requests outside
       # the repository (fonts are bundled).
       - run: npm run build
