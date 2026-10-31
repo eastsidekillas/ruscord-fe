@@ -204,6 +204,38 @@ export function errorText(err: unknown, fallback: string): string {
   return fields.length ? fields.join('. ') : e.message || fallback;
 }
 
+/** A signed-in device of the current user (ruscord-core ADR-0023). */
+export interface Session {
+  id: Snowflake;
+  /** The User-Agent at sign-in; deviceLabel() makes it readable. */
+  device: string;
+  /** Where the session was last used from (or signed in). */
+  ip: string | null;
+  created_at: string;
+  last_used_at: string;
+  current: boolean;
+}
+
+/** "Chrome, Windows" from a User-Agent; an unknown one is shown as is. */
+export function deviceLabel(ua: string): string {
+  if (!ua) return 'Неизвестное устройство';
+  const browser =
+    /Edg\//.test(ua) ? 'Edge' :
+    /OPR\/|Opera/.test(ua) ? 'Opera' :
+    /YaBrowser\//.test(ua) ? 'Яндекс Браузер' :
+    /Firefox\//.test(ua) ? 'Firefox' :
+    /Chrome\//.test(ua) ? 'Chrome' :
+    /Safari\//.test(ua) ? 'Safari' : null;
+  const os =
+    /Android/.test(ua) ? 'Android' :
+    /iPhone|iPad|iPod/.test(ua) ? 'iOS' :
+    /Windows/.test(ua) ? 'Windows' :
+    /Mac OS X|Macintosh/.test(ua) ? 'macOS' :
+    /Linux/.test(ua) ? 'Linux' : null;
+  if (!browser && !os) return ua.length > 60 ? ua.slice(0, 60) + '…' : ua;
+  return [browser, os].filter(Boolean).join(', ');
+}
+
 /** Display name of a user, falling back to the username. */
 export function nameOf(u: PublicUser | null | undefined): string {
   return u?.display_name || u?.username || 'Пользователь';

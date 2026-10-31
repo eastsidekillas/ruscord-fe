@@ -190,6 +190,30 @@ await step('profile: name, about me and avatar reach others live', async () => {
   await bob.locator('img[src*="/cdn/avatars/"]').first().waitFor({ timeout: 8000 });
 });
 
+await step('devices: a new sign-in is announced, signing it out works at once; password change', async () => {
+  const ann2 = await user(browser);
+  await ann2.goto(BASE + '/login');
+  await ann2.fill('#email', `${name('ann')}@example.com`);
+  await ann2.fill('#password', 'password-ann');
+  await ann2.locator('button[type=submit]').click();
+  await ann2.waitForURL(/\/channels\/me/, { timeout: 10000 });
+  await sees(ann, 'Вход с нового устройства');
+  await ann.locator('[title="Настройки"]').click();
+  await ann.getByRole('button', { name: 'Устройства' }).click();
+  await ann.locator('[data-session]').nth(1).waitFor({ timeout: 8000 });
+  await ann.locator('[data-session]', { hasNotText: 'это устройство' }).getByRole('button', { name: 'Завершить' }).click();
+  // Signed out at once: the socket closes and the session cannot be renewed.
+  await ann2.waitForURL(/\/login/, { timeout: 10000 });
+  await ann.getByRole('button', { name: 'Безопасность' }).click();
+  await ann.fill('input[name=current]', 'password-ann');
+  await ann.fill('input[name=next]', 'password-ann-2');
+  await ann.fill('input[name=repeat]', 'password-ann-2');
+  await ann.getByRole('button', { name: 'Сменить пароль' }).click();
+  await sees(ann, 'Пароль изменён');
+  await ann.keyboard.press('Escape');
+  await ann2.context().close();
+});
+
 await step('Cat deletes her account; it cannot sign in again', async () => {
   await cat.goto(BASE + '/channels/me');
   await cat.locator('[title="Настройки"]').click();

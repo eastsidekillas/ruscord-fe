@@ -3,12 +3,15 @@ import { Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '@entities/session/api/auth.service';
 import { GatewayService } from '@shared/api/gateway/gateway.service';
+import { NotificationService } from '@shared/model/notification.service';
 import {
   DMChannel,
   FullGuild,
   GuildChannel,
   PublicUser,
   RelType,
+  Session,
+  deviceLabel,
   Relationship,
   Snowflake,
   UserStatus,
@@ -46,6 +49,12 @@ export class AppStateStore {
       this.state.set(next);
       if (ev.t === 'READY') this.loaded.set(true);
       if ((ev.t === 'READY' || ev.t === 'USER_UPDATE') && next.me) this.auth.setUser(next.me);
+    });
+    // Someone signed in to this account elsewhere (ruscord-core ADR-0023).
+    const notify = inject(NotificationService);
+    this.gateway.dispatches.pipe(filter(ev => ev.t === 'SESSION_CREATE' && !!ev.d)).subscribe(ev => {
+      const s = ev.d as Session;
+      notify.show(`Вход с нового устройства: ${deviceLabel(s.device)}${s.ip ? ', ' + s.ip : ''}`, 'info', 8000);
     });
     this.gateway.sessionEnded.subscribe(() => {
       this.auth.forget();

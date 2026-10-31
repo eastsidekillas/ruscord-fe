@@ -3,11 +3,13 @@ import { CommonModule } from '@angular/common';
 import { ModalService } from '@shared/model/modal.service';
 import { SettingsSidebar } from '@widgets/user/ui/sidebar/settings-list-sidebar';
 import { AccountSettingsSectionComponent } from '@widgets/user/ui/sections/account-settings-section';
+import { DevicesSectionComponent } from '@widgets/user/ui/sections/devices-section';
+import { SecuritySectionComponent } from '@widgets/user/ui/sections/security-section';
 
 @Component({
   selector: 'UserSettingsModal',
   standalone: true,
-  imports: [CommonModule, SettingsSidebar, AccountSettingsSectionComponent],
+  imports: [CommonModule, SettingsSidebar, AccountSettingsSectionComponent, DevicesSectionComponent, SecuritySectionComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="fixed inset-0 z-50 flex">
@@ -29,6 +31,8 @@ import { AccountSettingsSectionComponent } from '@widgets/user/ui/sections/accou
 
             <ng-container [ngSwitch]="currentSection()">
               <AccountSettingsSection *ngSwitchCase="'account'" />
+              <SecuritySection *ngSwitchCase="'security'" />
+              <DevicesSection *ngSwitchCase="'devices'" />
               <div *ngSwitchDefault class="flex flex-col items-center justify-center py-24 text-center">
                 <div class="w-16 h-16 rounded-full bg-[#1e1e1e] flex items-center justify-center mb-4">
                   <svg class="w-7 h-7 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
