@@ -70,12 +70,8 @@
     </div>
   </div>
 
-  <script>
-    if (window.location.pathname === '/') {
-      var s = document.getElementById('app-splash');
-      if (s) s.style.display = 'none';
-    }
-  </script>
+  <!-- A file, not an inline script: the Content-Security-Policy allows only scripts from this origin. -->
+  <script src="splash.js"></script>
 
   <app-root></app-root>
 </body>
