@@ -16,6 +16,7 @@ import {
   Relationship,
   Role,
   Ban,
+  Session,
   User,
 } from './models';
 
@@ -50,6 +51,28 @@ export class ApiService {
   /** Deletes the account; the password is asked again (ruscord-core ADR-0021). */
   deleteMe(password: string): Observable<void> {
     return this.http.delete<void>(this.url('users/@me'), { body: { password } });
+  }
+
+  // Sessions (ruscord-core ADR-0023)
+  sessions(): Observable<Session[]> {
+    return this.http.get<Session[]>(this.url('users/@me/sessions'));
+  }
+
+  revokeSession(id: string): Observable<void> {
+    return this.http.delete<void>(this.url(`users/@me/sessions/${encodeURIComponent(id)}`));
+  }
+
+  /** Signs out every other device; asks for the password. */
+  revokeOtherSessions(password: string): Observable<{ revoked: number }> {
+    return this.http.post<{ revoked: number }>(this.url('users/@me/sessions/revoke-others'), { password });
+  }
+
+  /** Other devices are signed out; this one stays. */
+  changePassword(currentPassword: string, newPassword: string): Observable<void> {
+    return this.http.post<void>(this.url('users/@me/password'), {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
   }
 
   profile(userId: string): Observable<Profile> {
