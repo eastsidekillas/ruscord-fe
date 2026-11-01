@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AvatarUI } from '@shared/ui/avatar';
 import { StatusUi } from '@entities/user-status';
-import { Hash, LucideAngularModule } from 'lucide-angular';
+import { Hash, LucideAngularModule, Pencil } from 'lucide-angular';
 
 @Component({
   selector: 'ChatHeader',
@@ -16,11 +16,26 @@ import { Hash, LucideAngularModule } from 'lucide-angular';
         <ng-container *ngIf="type !== 'channel'; else channelHeader">
           <span class="relative w-7 h-7 shrink-0">
             <span class="block w-full h-full rounded-lg overflow-hidden">
-              <AvatarUI [src]="imageUrl" [name]="name" [tone]="type === 'group' ? 'bg-ok-surface-2 text-ok-text' : 'bg-ok-avatar text-ok-text'" />
+              <AvatarUI [src]="imageUrl" [name]="type === 'group' ? '' + members : name" [letters]="type === 'group' ? 2 : 1"
+                        [tone]="type === 'group' ? 'bg-ok-surface-2 text-ok-text text-[12px]' : 'bg-ok-avatar text-ok-text'" />
             </span>
             <StatusUI *ngIf="userId" [userId]="userId" ring="ring-ok-surface-1" />
           </span>
-          <h1 class="text-[15px] font-semibold text-ok-text truncate">{{ name }}</h1>
+          <h1 *ngIf="!renaming()" class="text-[15px] font-semibold text-ok-text truncate">{{ name }}</h1>
+          <ng-container *ngIf="type === 'group'">
+            <ng-container *ngIf="renaming(); else pencil">
+              <label for="group-name" class="sr-only-ok">Название группы</label>
+              <input #nameField id="group-name" type="text" [value]="title ?? ''" maxlength="100" placeholder="Без названия — имена участников"
+                     class="h-9 w-72 max-w-full box-border rounded-lg border border-ok-accent bg-ok-sidebar text-ok-text px-3 text-[15px] !outline-none placeholder:text-ok-muted"
+                     (keydown.enter)="saveName(nameField.value)" (keydown.escape)="renaming.set(false)" (blur)="renaming.set(false)" />
+            </ng-container>
+            <ng-template #pencil>
+              <button type="button" class="w-8 h-8 rounded-lg text-ok-muted hover:text-ok-text hover:bg-ok-surface-2 inline-flex items-center justify-center shrink-0"
+                      title="Переименовать группу" aria-label="Переименовать группу" (click)="startRename()">
+                <lucide-angular class="w-3.5 h-3.5" [img]="Pencil"></lucide-angular>
+              </button>
+            </ng-template>
+          </ng-container>
         </ng-container>
         <ng-template #channelHeader>
           <lucide-angular class="w-[18px] h-[18px] text-ok-muted shrink-0" [img]="Hash"></lucide-angular>
@@ -28,6 +43,11 @@ import { Hash, LucideAngularModule } from 'lucide-angular';
           <span *ngIf="topic" class="text-[13px] text-ok-muted truncate border-l border-ok-border pl-3 ml-1">{{ topic }}</span>
         </ng-template>
       </div>
+      <ng-container *ngIf="type === 'group'">
+        <span class="flex-1"></span>
+        <button type="button" class="h-9 px-3.5 rounded-lg bg-ok-surface-2 text-ok-text text-[13px] font-semibold hover:bg-ok-border shrink-0"
+                (click)="addMembers.emit()">Добавить друзей</button>
+      </ng-container>
     </header>
   `,
 })
@@ -39,5 +59,25 @@ export class ChatHeader {
   /** The other person of a 1:1 DM: the header opens their profile. */
   @Input() userId: string | null = null;
   @Output() profile = new EventEmitter<string>();
+  /** A group: its own name (null when it shows the members' names) and size. */
+  @Input() title: string | null = null;
+  @Input() members = 0;
+  /** A group's new name; empty resets it to the members' names. */
+  @Output() rename = new EventEmitter<string>();
+  @Output() addMembers = new EventEmitter<void>();
+  @ViewChild('nameField') private nameField?: ElementRef<HTMLInputElement>;
+
+  protected readonly renaming = signal(false);
   protected readonly Hash = Hash;
+  protected readonly Pencil = Pencil;
+
+  protected startRename(): void {
+    this.renaming.set(true);
+    setTimeout(() => this.nameField?.nativeElement.select());
+  }
+
+  protected saveName(value: string): void {
+    this.renaming.set(false);
+    if (value.trim() !== (this.title ?? '')) this.rename.emit(value.trim());
+  }
 }

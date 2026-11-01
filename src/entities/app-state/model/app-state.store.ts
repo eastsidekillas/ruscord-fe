@@ -15,6 +15,7 @@ import {
   Relationship,
   Snowflake,
   UserStatus,
+  nameOf,
 } from '@shared/api/models';
 import { AppState, emptyState, reduce, resolveUser } from './reduce';
 
@@ -141,6 +142,12 @@ export class AppStateStore {
     const me = this.state().me?.id;
     const other = dm.recipients.find(r => r.id !== me) ?? null;
     return this.user(other);
+  }
+
+  /** A group's name, or the names of the others in it when it has none. */
+  groupTitle(dm: DMChannel): string {
+    const me = this.state().me?.id;
+    return dm.name || dm.recipients.filter(r => r.id !== me).map(r => nameOf(this.user(r))).join(', ') || 'Группа';
   }
 
   private byType(t: number): Relationship[] {
