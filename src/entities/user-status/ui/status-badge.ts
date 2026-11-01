@@ -8,8 +8,8 @@ import { AppStateStore } from '@entities/app-state/model/app-state.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <span
-      class="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 transition-colors duration-300"
-      [class]="ring()"
+      class="absolute -right-0.5 -bottom-0.5 rounded-full ring-2 transition-colors duration-300"
+      [class]="ring() + (large() ? ' w-3 h-3' : ' w-2.5 h-2.5')"
       [class.bg-ok-success]="status() === 'online'"
       [class.bg-ok-warning]="status() === 'idle'"
       [class.bg-ok-danger]="status() === 'dnd'"
@@ -21,6 +21,8 @@ export class StatusUi {
   readonly userId = input.required<string>();
   /** The background the dot sits on, as a ring class. */
   readonly ring = input('ring-ok-sidebar');
+  /** 12px instead of 10px, for 40px avatars. */
+  readonly large = input(false);
   protected readonly status = computed(() => this.store.status(this.userId()));
 
   constructor(private store: AppStateStore) {}
