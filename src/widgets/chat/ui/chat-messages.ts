@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ChatItem, ChatMessage } from './chat-item';
+import { PendingItem, PendingMessage } from './pending-item';
 import { dayLabel, sameDay } from '@shared/lib/dates';
 
 /** Scrolled to the bottom within this many pixels counts as "at the bottom". */
@@ -19,7 +20,7 @@ const STICK_PX = 80;
   selector: 'ChatMessages',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, ChatItem],
+  imports: [CommonModule, ChatItem, PendingItem],
   template: `
     <div #box class="h-full overflow-y-auto px-4 py-6 flex flex-col gap-1" (scroll)="onScroll()">
       <div class="mt-auto"></div>
@@ -30,12 +31,15 @@ const STICK_PX = 80;
       <div *ngIf="dayAt(i) as day" role="separator" class="flex items-center gap-3 py-3 px-2 text-[12px] text-ok-muted">
         <span class="flex-1 h-px bg-ok-border"></span>{{ day }}<span class="flex-1 h-px bg-ok-border"></span>
       </div>
-      <ChatItem [item]="it" [canReply]="canReply"
+      <ChatItem [item]="it" [canReply]="canReply" [editing]="it.message.id === editingId"
                 (replyClicked)="replyTo.emit($event)"
                 (editClicked)="edit.emit($event)"
+                (saveEdit)="saveEdit.emit($event)"
+                (cancelEdit)="cancelEdit.emit()"
                 (deleteClicked)="remove.emit($event)"
                 (authorClicked)="author.emit($event)" />
       </ng-container>
+      <PendingItem *ngFor="let p of pending; trackBy: byNonce" [item]="p" (retry)="retry.emit($event)" (discard)="discard.emit($event)" />
     </div>
   `,
 })
@@ -45,8 +49,16 @@ export class ChatMessages implements AfterViewChecked {
   @Input() reachedStart = false;
   @Input() canReply = true;
   @Input() notice: string | null = null;
+  /** The message being edited in place. */
+  @Input() editingId: string | null = null;
+  /** Sent by the user and not confirmed yet, shown after the rest. */
+  @Input() pending: PendingMessage[] = [];
   @Output() replyTo = new EventEmitter<ChatMessage>();
   @Output() edit = new EventEmitter<ChatMessage>();
+  @Output() saveEdit = new EventEmitter<{ item: ChatMessage; text: string }>();
+  @Output() cancelEdit = new EventEmitter<void>();
+  @Output() retry = new EventEmitter<string>();
+  @Output() discard = new EventEmitter<string>();
   @Output() remove = new EventEmitter<ChatMessage>();
   @Output() author = new EventEmitter<string>();
   /** Scrolled to the top: time to load older messages. */
@@ -58,6 +70,7 @@ export class ChatMessages implements AfterViewChecked {
   private lastFirst: string | null = null;
 
   protected byId = (_: number, it: ChatMessage) => it.message.id;
+  protected byNonce = (_: number, p: PendingMessage) => p.nonce;
 
   /** The day heading before message i: where the local date changes. */
   protected dayAt(i: number): string | null {

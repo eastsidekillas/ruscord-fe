@@ -156,6 +156,25 @@ await step('direct message both ways and typing', async () => {
   await sees(ann, 'пишу');
 });
 
+await step('reply, edit in place and delete in a DM; both sides see it live', async () => {
+  const msg = (p, text) => p.locator('ChatItem', { hasText: text }).last();
+  await msg(ann, 'пишу').hover();
+  await msg(ann, 'пишу').getByRole('button', { name: 'Ответить' }).click();
+  await ann.getByRole('button', { name: 'Отменить ответ' }).waitFor({ timeout: 8000 });
+  await say(ann, 'ответ на пишу');
+  await bob.locator('ChatItem', { hasText: 'ответ на пишу' }).getByText('пишу', { exact: true }).waitFor({ timeout: 8000 });
+  await msg(ann, 'ответ на пишу').hover();
+  await msg(ann, 'ответ на пишу').getByRole('button', { name: 'Изменить' }).click();
+  const field = ann.getByLabel('Изменить сообщение');
+  await field.fill('ответ, исправленный');
+  await field.press('Enter');
+  await sees(bob, 'ответ, исправленный');
+  await msg(bob, 'ответ, исправленный').getByText('(изменено)').waitFor({ timeout: 8000 });
+  await msg(ann, 'ответ, исправленный').hover();
+  await msg(ann, 'ответ, исправленный').getByRole('button', { name: 'Удалить' }).click();
+  await bob.getByText('ответ, исправленный').waitFor({ state: 'detached', timeout: 8000 });
+});
+
 await step('connection lost for 6 s: "no connection" shows, the gap is replayed once', async () => {
   const resumed = () => ann.frames_.filter(f => f.t === 'RESUMED').length;
   const before = resumed();
@@ -176,16 +195,16 @@ await step('connection lost for 6 s: "no connection" shows, the gap is replayed 
   await ann.getByText('Нет соединения').first().waitFor({ state: 'hidden', timeout: 8000 });
 });
 
-await step('sending offline fails visibly and keeps the text; sent once when back online', async () => {
+await step('sending offline fails visibly and keeps the message; retry sends it once', async () => {
+  const failed = ann.locator('[data-pending=failed]', { hasText: 'отправлю, когда будет сеть' });
   await ann.context().setOffline(true);
   try {
     await say(ann, 'отправлю, когда будет сеть');
-    await sees(ann, 'Сообщение не отправлено', 5000);
-    if (await input(ann).inputValue() !== 'отправлю, когда будет сеть') throw new Error('the text was lost');
+    await failed.getByText('Не отправлено — нет связи').waitFor({ timeout: 5000 });
   } finally {
     await ann.context().setOffline(false);
   }
-  await input(ann).press('Enter');
+  await failed.getByRole('button', { name: 'Повторить' }).click();
   await sees(bob, 'отправлю, когда будет сеть');
   await once(bob, 'отправлю, когда будет сеть');
   await once(ann, 'отправлю, когда будет сеть');
@@ -195,10 +214,11 @@ if (process.env.E2E_RESTART_CMD) {
   await step('the core restarts: clients reconnect by themselves and talk on', async () => {
     execSync(process.env.E2E_RESTART_CMD, { stdio: 'inherit', shell: '/bin/bash' });
     await say(bob, 'после рестарта').catch(() => {});
-    // The first send may hit the restart; the composer keeps the text, so retry.
-    for (let i = 0; i < 20 && !(await bob.getByText('после рестарта', { exact: true }).count()); i++) {
+    // The first send may hit the restart; the message stays with "retry".
+    for (let i = 0; i < 20 && !(await bob.locator('ChatItem', { hasText: 'после рестарта' }).count()); i++) {
       await bob.waitForTimeout(1000);
-      if (await input(bob).inputValue()) await input(bob).press('Enter');
+      const retry = bob.locator('[data-pending=failed]').getByRole('button', { name: 'Повторить' });
+      if (await retry.count()) await retry.first().click();
     }
     await sees(ann, 'после рестарта', 30000);
     await once(ann, 'после рестарта');
