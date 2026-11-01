@@ -101,6 +101,9 @@ export interface VoiceState {
   channel_id: Snowflake | null;
   self_mute: boolean;
   self_deaf: boolean;
+  /** Muted and deafened by a moderator (ruscord-core ADR-0026). */
+  mute?: boolean;
+  deaf?: boolean;
   user?: PublicUser;
 }
 

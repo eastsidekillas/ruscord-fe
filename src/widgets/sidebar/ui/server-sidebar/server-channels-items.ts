@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, Input, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { HeadphoneOff, LucideAngularModule, MicOff, Settings, Volume2 } from 'lucide-angular';
-import { FullGuild, Perm, VoiceState, hasPerm, nameOf } from '@shared/api';
+import { HeadphoneOff, Headphones, LucideAngularModule, Mic, MicOff, PhoneOff, Settings, Volume2 } from 'lucide-angular';
 import { ModalService } from '@shared/model/modal.service';
+import { NotificationService } from '@shared/model/notification.service';
+import { ApiService, FullGuild, Perm, VoiceState, errorText, hasPerm, nameOf } from '@shared/api';
 import { AppStateStore, channelGroups } from '@entities/app-state';
 import { VoiceService } from '@entities/voice';
 import { AvatarUI } from '@shared/ui/avatar';
@@ -60,7 +61,7 @@ import { AvatarUI } from '@shared/ui/avatar';
                   <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
                 </button>
               </div>
-              <div *ngFor="let v of inVoice(channel.id); trackBy: byUser" class="flex items-center gap-2 py-1 pl-8 pr-2"
+              <div *ngFor="let v of inVoice(channel.id); trackBy: byUser" class="flex items-center gap-2 py-1 pl-8 pr-2 group/member"
                    [attr.data-voice-member]="nameOf(v)">
                 <div class="w-6 h-6 rounded-full overflow-hidden shrink-0 ring-2 transition"
                      [ngClass]="speaking(channel.id, v.user_id) ? 'ring-green-500' : 'ring-transparent'"
@@ -68,8 +69,26 @@ import { AvatarUI } from '@shared/ui/avatar';
                   <AvatarUI [src]="store.user(v.user ?? null)?.avatar ?? null" [name]="nameOf(v)" />
                 </div>
                 <span class="text-xs text-gray-300 truncate flex-1">{{ nameOf(v) }}</span>
-                <lucide-angular *ngIf="v.self_mute" class="w-3.5 h-3.5 text-gray-400" [img]="MicOff" title="Микрофон выключен"></lucide-angular>
-                <lucide-angular *ngIf="v.self_deaf" class="w-3.5 h-3.5 text-gray-400" [img]="HeadphoneOff" title="Звук выключен"></lucide-angular>
+                <lucide-angular *ngIf="v.mute" class="w-3.5 h-3.5 text-red-400" [img]="MicOff" title="Микрофон выключил модератор"></lucide-angular>
+                <lucide-angular *ngIf="v.self_mute && !v.mute" class="w-3.5 h-3.5 text-gray-400" [img]="MicOff" title="Микрофон выключен"></lucide-angular>
+                <lucide-angular *ngIf="v.deaf" class="w-3.5 h-3.5 text-red-400" [img]="HeadphoneOff" title="Звук выключил модератор"></lucide-angular>
+                <lucide-angular *ngIf="v.self_deaf && !v.deaf" class="w-3.5 h-3.5 text-gray-400" [img]="HeadphoneOff" title="Звук выключен"></lucide-angular>
+                <span class="hidden group-hover/member:flex group-focus-within/member:flex items-center gap-0.5" data-voice-moderation>
+                  <button *ngIf="can(channel.id, Perm.MuteMembers)" type="button" (click)="moderate(v, { mute: !v.mute })"
+                          [title]="v.mute ? 'Вернуть микрофон' : 'Выключить микрофон участнику'"
+                          class="p-0.5 rounded text-gray-400 hover:text-white hover:bg-white/10">
+                    <lucide-angular class="w-3.5 h-3.5" [img]="v.mute ? Mic : MicOff"></lucide-angular>
+                  </button>
+                  <button *ngIf="can(channel.id, Perm.DeafenMembers)" type="button" (click)="moderate(v, { deaf: !v.deaf })"
+                          [title]="v.deaf ? 'Вернуть звук' : 'Выключить звук участнику'"
+                          class="p-0.5 rounded text-gray-400 hover:text-white hover:bg-white/10">
+                    <lucide-angular class="w-3.5 h-3.5" [img]="v.deaf ? Headphones : HeadphoneOff"></lucide-angular>
+                  </button>
+                  <button *ngIf="can(channel.id, Perm.MoveMembers)" type="button" (click)="disconnect(v)" title="Отключить от канала"
+                          class="p-0.5 rounded text-red-400 hover:bg-red-500/20">
+                    <lucide-angular class="w-3.5 h-3.5" [img]="PhoneOff"></lucide-angular>
+                  </button>
+                </span>
               </div>
             </ng-container>
           </ng-container>
@@ -111,6 +130,31 @@ export class ServerChannelsItems {
   /** LiveKit tells who speaks only in the room we are in. */
   protected speaking(channelId: string, userId: string): boolean {
     return this.here(channelId) && this.voice.speaking().has(userId);
+  }
+
+  protected readonly Perm = Perm;
+  protected readonly Mic = Mic;
+  protected readonly Headphones = Headphones;
+  protected readonly PhoneOff = PhoneOff;
+  private readonly api = inject(ApiService);
+  private readonly notify = inject(NotificationService);
+
+  /** A permission in that channel, as the server computed it; the server decides anyway. */
+  protected can(channelId: string, bit: bigint): boolean {
+    return hasPerm(this.current()?.channel_permissions[channelId], bit);
+  }
+
+  /** The new state comes back through the gateway, like everyone else's. */
+  protected moderate(v: VoiceState, change: { mute?: boolean; deaf?: boolean }): void {
+    this.api.setServerVoice(v.guild_id, v.user_id, change).subscribe({
+      error: err => this.notify.show(errorText(err, 'Не получилось'), 'error'),
+    });
+  }
+
+  protected disconnect(v: VoiceState): void {
+    this.api.disconnectVoice(v.guild_id, v.user_id).subscribe({
+      error: err => this.notify.show(errorText(err, 'Не получилось отключить'), 'error'),
+    });
   }
 
   protected canConnect(channelId: string): boolean {

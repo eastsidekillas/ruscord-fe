@@ -60,6 +60,16 @@ export class ApiService {
     return this.http.post<VoiceJoinInfo>(this.url(`channels/${encodeURIComponent(channelId)}/voice`), null);
   }
 
+  /** A moderator mutes or deafens someone in voice (MUTE_MEMBERS, DEAFEN_MEMBERS). */
+  setServerVoice(guildId: string, userId: string, change: { mute?: boolean; deaf?: boolean }): Observable<VoiceState> {
+    return this.http.patch<VoiceState>(this.url(`guilds/${encodeURIComponent(guildId)}/voice-states/${encodeURIComponent(userId)}`), change);
+  }
+
+  /** A moderator disconnects someone from voice (MOVE_MEMBERS). */
+  disconnectVoice(guildId: string, userId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`guilds/${encodeURIComponent(guildId)}/voice-states/${encodeURIComponent(userId)}`));
+  }
+
   setSelfVoice(channelId: string, selfMute: boolean, selfDeaf: boolean): Observable<VoiceState> {
     return this.http.patch<VoiceState>(this.url(`channels/${encodeURIComponent(channelId)}/voice`), {
       self_mute: selfMute,
