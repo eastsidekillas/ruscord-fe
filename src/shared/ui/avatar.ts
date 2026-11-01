@@ -3,7 +3,7 @@ import { NgIf } from '@angular/common';
 
 /**
  * A picture or initials filling its box; the box sets the size and the
- * rounded square (Okno avatars are squares, not circles).
+ * rounded square (Zvonilka avatars are squares, not circles).
  */
 @Component({
   selector: 'AvatarUI',

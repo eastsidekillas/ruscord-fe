@@ -1,8 +1,11 @@
 /**
- * The product name shown in the interface. Okno is a temporary name
- * (ruscord-core ADR-0027): change it here when the final one is chosen.
+ * The brand (ruscord-core ADR-0028): Zvonilka. The wordmark is written in
+ * lower case, like the mark's calm style; prose uses "Zvonilka".
  */
-export const APP_NAME = 'okno';
+export const APP_NAME = 'Zvonilka';
 
-/** The mark (public/okno-mark.svg): a frame with a lit pane. */
-export const APP_MARK = 'okno-mark.svg';
+/** The wordmark next to the mark (sign-in, invite, splash). */
+export const WORDMARK = 'zvonilka';
+
+/** The mark (public/mark.svg): a frame with a lit pane. */
+export const APP_MARK = 'mark.svg';

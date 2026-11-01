@@ -50,7 +50,7 @@ import { GatewayService } from '@shared/api';
   template: `
     <div class="overlay" [class.hidden]="!visible()">
       <div class="inner">
-        <img src="okno-icon.svg" alt="" width="80" height="80">
+        <img src="app-icon.svg" alt="" width="80" height="80">
         <div style="text-align:center;display:flex;flex-direction:column;gap:6px">
           <span style="color:var(--color-ok-text);font-size:18px;font-weight:600">
             {{ stopped() ? 'Соединение закрыто' : 'Нет соединения' }}

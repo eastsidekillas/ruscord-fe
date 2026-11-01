@@ -1,5 +1,6 @@
 import {Component} from '@angular/core';
 import {RouterLink} from '@angular/router';
+import { APP_NAME } from '@shared/config/brand';
 
 @Component({
   selector: 'LandingLayout',
@@ -20,7 +21,7 @@ import {RouterLink} from '@angular/router';
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M4 4h16v16H4zM8 8h8v8H8z"/>
               </svg>
-              <span class="text-xl font-bold tracking-wide">Ruscord</span>
+              <span class="text-xl font-bold tracking-wide">{{ appName }}</span>
             </a>
 
             <ul class=" hidden xl:flex justify-between text-white gap-10 font-[600] text-[16px] " >
@@ -130,4 +131,6 @@ import {RouterLink} from '@angular/router';
     `
 })
 
-export class LandingLayout {}
+export class LandingLayout {
+  protected readonly appName = APP_NAME;
+}

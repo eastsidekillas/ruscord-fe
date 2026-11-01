@@ -13,7 +13,7 @@ import { AuthService } from '@entities/session/api/auth.service';
 import { AppStateStore, firstTextChannel } from '@entities/app-state';
 import { AvatarUI } from '@shared/ui/avatar';
 import { members } from '@shared/lib/plural';
-import { APP_MARK, APP_NAME } from '@shared/config/brand';
+import { APP_MARK, WORDMARK } from '@shared/config/brand';
 
 interface InviteDetails {
   server_name: string;
@@ -34,7 +34,7 @@ interface InviteDetails {
   template: `
     <div class="min-h-screen flex flex-col items-center justify-center gap-8 px-4 py-12 bg-ok-bg text-ok-text text-[15px]">
       <div class="flex items-center gap-3 text-2xl font-semibold tracking-[-0.02em]">
-        <img [src]="mark" alt="" class="w-9 h-9" />{{ appName }}
+        <img [src]="mark" alt="" class="w-9 h-9" />{{ wordmark }}
       </div>
 
       <section *ngIf="loading()" aria-busy="true" aria-label="Загрузка приглашения"
@@ -101,7 +101,7 @@ export class InvitePage implements OnInit {
   private readonly store = inject(AppStateStore);
   protected readonly isLoggedIn = this.auth.signedIn;
   protected readonly username = computed(() => this.auth.user()?.username ?? '');
-  protected readonly appName = APP_NAME;
+  protected readonly wordmark = WORDMARK;
   protected readonly mark = APP_MARK;
 
   private token: string | null = null;
