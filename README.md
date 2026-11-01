@@ -1,4 +1,4 @@
-# Ruscord — клиент
+# Zvonilka — клиент
 
 Angular-клиент для [ruscord-core](https://github.com/eastsidekillas/ruscord-core).
 Протокол и пути описаны в `docs/api.md` ядра.
@@ -38,11 +38,11 @@ CI (`.github/workflows/ci.yml`) на каждом PR собирает прода
 
 ## Дизайн
 
-Дизайн-система Okno (ruscord-core ADR-0027): токены — в `src/styles.css`
+Дизайн-система Zvonilka (ruscord-core ADR-0027, ADR-0028): токены — в `src/styles.css`
 (`bg-ok-bg`, `text-ok-muted`, `rounded-ok-md`…), иконки — lucide, название и
-знак — `src/shared/config/brand.ts` (Okno — временное название). Экраны
+знак — `src/shared/config/brand.ts` (Zvonilka, ADR-0028). Экраны
 первого сценария сверены с макетами попиксельно на 1440×900. Старые имена
-цветов (`main-surface-*`, `typo-secondary`) пока указывают на цвета Okno, до
+цветов (`main-surface-*`, `typo-secondary`) пока указывают на цвета системы, до
 переделки остальных экранов.
 
 Открывайте `http://localhost:4200`, а не `127.0.0.1:4200`: ядро проверяет

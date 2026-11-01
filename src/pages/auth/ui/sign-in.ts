@@ -4,7 +4,7 @@ import { AuthService } from '@entities/session/api/auth.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import {NgIf} from '@angular/common';
 import { errorText } from '@shared/api';
-import { APP_MARK, APP_NAME } from '@shared/config/brand';
+import { APP_MARK, WORDMARK } from '@shared/config/brand';
 
 @Component({
   selector: 'app-auth',
@@ -17,7 +17,7 @@ import { APP_MARK, APP_NAME } from '@shared/config/brand';
   template: `
     <div class="min-h-screen flex flex-col items-center justify-center gap-8 px-4 py-12 bg-ok-bg text-ok-text text-[15px]">
       <div class="flex items-center gap-3 text-2xl font-semibold tracking-[-0.02em]">
-        <img [src]="mark" alt="" class="w-9 h-9" />{{ appName }}
+        <img [src]="mark" alt="" class="w-9 h-9" />{{ wordmark }}
       </div>
 
       <form [formGroup]="authForm" (ngSubmit)="onSubmit()" novalidate
@@ -82,7 +82,7 @@ export class SignIn implements OnInit {
   isLoginMode = true;
   /** Signals: the page sits under OnPush parents, plain fields would not redraw it. */
   protected readonly errorMessage = signal('');
-  protected readonly appName = APP_NAME;
+  protected readonly wordmark = WORDMARK;
   protected readonly mark = APP_MARK;
 
   constructor(

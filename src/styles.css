@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 /*
- * Okno design system tokens (ruscord-core ADR-0027), dark theme. Names follow
+ * Zvonilka design system tokens (ruscord-core ADR-0027, ADR-0028), dark theme.
+ * The ok- prefix is from its first, temporary name; names follow
  * the system's tokens.json: bg, sidebar, surface-1, surface-2, border,
  * border-control, text, text-muted, accent, on-accent, danger, success,
  * warning. Utilities: bg-ok-bg, text-ok-muted, border-ok-border...
@@ -26,7 +27,7 @@
   --radius-ok-md: 12px;
   --radius-ok-lg: 20px;
 
-  /* Older names, mapped onto Okno until their screens are redone. */
+  /* Older names, mapped onto the system until their screens are redone. */
   --color-main-surface-primary: #181B1D;
   --color-main-surface-secondary: #22272A;
   --color-typo-secondary: #8D9396;
