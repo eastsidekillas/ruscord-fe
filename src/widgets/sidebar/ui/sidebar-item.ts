@@ -56,8 +56,6 @@ export class SidebarItem {
       const other = this.store.dmPartner(dm);
       return { id: dm.id, name: nameOf(other), avatar: other?.avatar ?? null, userId: other?.id ?? null, members: 2 };
     }
-    const me = this.store.me()?.id;
-    const others = dm.recipients.filter(r => r.id !== me).map(r => nameOf(this.store.user(r)));
-    return { id: dm.id, name: dm.name || others.join(', ') || 'Группа', avatar: null, userId: null, members: dm.recipients.length };
+    return { id: dm.id, name: this.store.groupTitle(dm), avatar: null, userId: null, members: dm.recipients.length };
   }
 }

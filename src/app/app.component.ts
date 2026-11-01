@@ -13,9 +13,10 @@ import { UserSettingsModal } from '@widgets/user/ui/UserSettingsModal';
 import { ConnectionOverlay } from '@shared/ui/connection-overlay';
 import { AppStateStore, IdleService, TypingStore } from '@entities/app-state';
 
+import { GroupModal } from '@features/group/ui/group-modal';
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay],
+  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay, GroupModal],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -29,6 +30,7 @@ import { AppStateStore, IdleService, TypingStore } from '@entities/app-state';
     <ServerSettingsModal *ngIf="modalService.modalType() === 'editServer'"></ServerSettingsModal>
     <ChannelModal *ngIf="modalService.modalType() === 'channel'"></ChannelModal>
     <UserSettingsModal *ngIf="modalService.modalType() === 'userSettings'"></UserSettingsModal>
+    <GroupModal *ngIf="modalService.modalType() === 'group'" />
     <Notification *ngIf="notificationService.state().visible"></Notification>
   `,
 })

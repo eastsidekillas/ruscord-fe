@@ -175,6 +175,27 @@ await step('reply, edit in place and delete in a DM; both sides see it live', as
   await bob.getByText('ответ, исправленный').waitFor({ state: 'detached', timeout: 8000 });
 });
 
+await step('group: create with a friend, rename, both see it; the friend leaves', async () => {
+  await ann.getByRole('button', { name: 'Создать группу' }).click();
+  const dialog = ann.getByRole('dialog');
+  await dialog.getByText('BOB', { exact: true }).click();
+  await dialog.getByRole('button', { name: 'Создать группу' }).click();
+  await ann.getByText('УЧАСТНИКИ — 2 ИЗ 10').waitFor({ timeout: 8000 });
+  await ann.getByRole('button', { name: 'Переименовать группу' }).click();
+  await ann.getByLabel('Название группы').fill('Поход');
+  await ann.getByLabel('Название группы').press('Enter');
+  await bob.getByRole('link', { name: /Поход/ }).click();
+  await bob.getByRole('heading', { name: 'Поход' }).waitFor({ timeout: 8000 });
+  await say(bob, 'беру палатку');
+  await sees(ann, 'беру палатку');
+  await bob.getByRole('button', { name: 'Выйти из группы' }).click();
+  await bob.waitForURL(/\/channels\/me$/, { timeout: 8000 });
+  await ann.getByText('УЧАСТНИКИ — 1 ИЗ 10').waitFor({ timeout: 8000 });
+  // Back to the DM the next steps use.
+  await ann.getByRole('link', { name: /BOB$/ }).click();
+  await bob.getByRole('link', { name: /ANN$/ }).click();
+});
+
 await step('connection lost for 6 s: "no connection" shows, the gap is replayed once', async () => {
   const resumed = () => ann.frames_.filter(f => f.t === 'RESUMED').length;
   const before = resumed();

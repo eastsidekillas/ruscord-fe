@@ -136,6 +136,24 @@ export class ApiService {
     return this.http.post<DMChannel>(this.url('users/@me/channels'), { recipient_id: recipientId });
   }
 
+  /** A group of the user and 1 to 9 friends (docs/api.md, «Личные чаты»). */
+  createGroup(recipients: string[]): Observable<DMChannel> {
+    return this.http.post<DMChannel>(this.url('users/@me/channels'), { recipients });
+  }
+
+  /** An empty name resets it to the members' names. */
+  renameGroup(channelId: string, name: string): Observable<DMChannel> {
+    return this.http.patch<DMChannel>(this.url(`users/@me/channels/${channelId}`), { name: name || null });
+  }
+
+  leaveGroup(channelId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`users/@me/channels/${channelId}`));
+  }
+
+  addToGroup(channelId: string, userId: string): Observable<void> {
+    return this.http.put<void>(this.url(`channels/${channelId}/recipients/${userId}`), {});
+  }
+
   // Guilds
   createGuild(name: string): Observable<FullGuild> {
     return this.http.post<FullGuild>(this.url('guilds'), { name });

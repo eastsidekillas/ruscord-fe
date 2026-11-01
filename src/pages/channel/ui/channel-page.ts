@@ -20,6 +20,7 @@ import { ChatMessage } from '@widgets/chat/ui/chat-item';
 import { PendingMessage, failReason } from '@widgets/chat/ui/pending-item';
 import { MessageInput, SendPayload } from '@features/update-message/ui/message-input';
 import { ServerMembersSidebar } from '@widgets/sidebar/ui/server-sidebar/server-members-sidebar';
+import { GroupMembersSidebar } from '@widgets/sidebar/ui/group-members-sidebar';
 import { ApiService, GatewayService, Message, Perm, PublicUser, errorText, hasPerm, nameOf } from '@shared/api';
 import { AppStateStore, TypingStore } from '@entities/app-state';
 import { ModalService } from '@shared/model/modal.service';
@@ -44,7 +45,7 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
   selector: 'ChannelPage',
   standalone: true,
   host: { class: 'flex-1 min-h-0' },
-  imports: [CommonModule, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar],
+  imports: [CommonModule, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar, GroupMembersSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .typing-indicator { display: inline-flex; align-items: center; }
@@ -62,7 +63,8 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
     <div class="flex h-full" *ngIf="view() as v; else waiting">
         <div class="flex-1 min-w-0 flex flex-col overflow-hidden min-h-0">
           <ChatHeader [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
-                      (profile)="openProfile($event)" />
+                      [title]="v.group?.name ?? null" [members]="v.group?.recipients?.length ?? 0"
+                      (profile)="openProfile($event)" (rename)="renameGroup($event)" (addMembers)="addToGroup()" />
           <ChatMessages
             class="flex-1 min-h-0"
             [items]="items()"
@@ -102,6 +104,8 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
 
         <ServerMembersSidebar *ngIf="v.guildId" [guildId]="v.guildId"
           class="w-[240px] shrink-0 hidden lg:block" />
+        <GroupMembersSidebar *ngIf="v.group as g" [group]="g" (leave)="leaveGroup()"
+          class="w-[260px] shrink-0 hidden lg:flex" />
     </div>
     <ng-template #waiting>
       <div class="h-full flex items-center justify-center text-ok-muted text-[13px]">
@@ -132,7 +136,7 @@ export class ChannelPage {
       if (channel.type !== 0) return null;
       const perms = guild.channel_permissions[channel.id];
       return {
-        kind: 'channel' as const, title: channel.name, topic: channel.topic || null, image: null, partnerId: null,
+        kind: 'channel' as const, title: channel.name, topic: channel.topic || null, image: null, partnerId: null, group: null,
         guildId: guild.id, placeholder: `Написать в #${channel.name}`,
         canSend: hasPerm(perms, Perm.SendMessages),
         canRead: hasPerm(perms, Perm.ReadMessageHistory),
@@ -144,15 +148,14 @@ export class ChannelPage {
     if (dm.type === 1) {
       const other = this.store.dmPartner(dm);
       return {
-        kind: 'dm' as const, title: nameOf(other), topic: null, image: other?.avatar ?? null, partnerId: other?.id ?? null,
+        kind: 'dm' as const, title: nameOf(other), topic: null, image: other?.avatar ?? null, partnerId: other?.id ?? null, group: null,
         guildId: null, placeholder: `Написать ${nameOf(other)}`, canSend: true, canRead: true, canManage: false,
       };
     }
-    const me = this.store.me()?.id;
-    const title = dm.name || dm.recipients.filter(r => r.id !== me).map(r => nameOf(this.store.user(r))).join(', ');
+    const title = this.store.groupTitle(dm);
     return {
-      kind: 'group' as const, title, topic: null, image: null, partnerId: null,
-      guildId: null, placeholder: `Написать в ${title}`, canSend: true, canRead: true, canManage: false,
+      kind: 'group' as const, title, topic: null, image: null, partnerId: null, group: dm,
+      guildId: null, placeholder: `Написать в «${title}»`, canSend: true, canRead: true, canManage: false,
     };
   });
 
@@ -374,6 +377,28 @@ export class ChannelPage {
     if (!id || now - this.lastTyping < TYPING_EVERY_MS) return;
     this.lastTyping = now;
     this.api.typing(id).subscribe({ error: () => undefined });
+  }
+
+  protected renameGroup(name: string): void {
+    const id = this.channelId();
+    if (!id) return;
+    this.api.renameGroup(id, name).subscribe({
+      next: dm => this.store.noteDM(dm),
+      error: err => this.notify.show(errorText(err, 'Не удалось переименовать группу'), 'error'),
+    });
+  }
+
+  protected addToGroup(): void {
+    this.modal.open('group', { channelId: this.channelId() });
+  }
+
+  protected leaveGroup(): void {
+    const id = this.channelId();
+    if (!id || !confirm('Выйти из группы? Вернуть вас сможет только участник группы.')) return;
+    this.api.leaveGroup(id).subscribe({
+      next: () => this.router.navigate(['/channels/me'], { replaceUrl: true }),
+      error: err => this.notify.show(errorText(err, 'Не удалось выйти из группы'), 'error'),
+    });
   }
 
   protected openProfile(userId: string): void {

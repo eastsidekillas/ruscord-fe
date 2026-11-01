@@ -10,7 +10,7 @@ import { DropdownMenuItem } from '@shared/ui/dropdown-menu';
 import { ApiService, Perm, errorText, hasPerm } from '@shared/api';
 import { AppStateStore } from '@entities/app-state';
 import { settingsTabs } from '@features/server-settings/ui/server-settings-modal';
-import { LucideAngularModule, Users } from 'lucide-angular';
+import { LucideAngularModule, Plus, Users } from 'lucide-angular';
 import { SidebarFooter } from '@widgets/sidebar/ui/sidebar-footer';
 
 @Component({
@@ -34,7 +34,13 @@ import { SidebarFooter } from '@widgets/sidebar/ui/sidebar-footer';
         <span *ngIf="incoming() as n" class="ml-auto min-w-5 h-5 px-1.5 rounded-md bg-ok-danger text-ok-on-accent text-[12px] flex items-center justify-center"
               [attr.aria-label]="n + ' входящих заявок'">{{ n }}</span>
       </a>
-      <h3 class="text-[12px] font-semibold tracking-[0.1em] text-ok-muted px-2.5 pt-4 pb-1.5">ЛИЧНЫЕ СООБЩЕНИЯ</h3>
+      <div class="flex items-center text-[12px] font-semibold tracking-[0.1em] text-ok-muted px-2.5 pt-4 pb-1.5">
+        <h3 class="flex-1 m-0 text-[12px] font-semibold">ЛИЧНЫЕ СООБЩЕНИЯ</h3>
+        <button type="button" class="inline-flex rounded hover:text-ok-text" title="Создать группу" aria-label="Создать группу"
+                (click)="modal.open('group')">
+          <lucide-angular class="w-4 h-4" [img]="Plus"></lucide-angular>
+        </button>
+      </div>
       <SidebarItem />
     </div>
 
@@ -49,13 +55,14 @@ export class Sidebar {
 
   private readonly id = signal<string | null>(null);
   private readonly store = inject(AppStateStore);
-  private readonly modal = inject(ModalService);
+  protected readonly modal = inject(ModalService);
   private readonly api = inject(ApiService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
 
   protected readonly guild = computed(() => this.store.guild(this.id()));
   protected readonly Users = Users;
+  protected readonly Plus = Plus;
   /** Incoming friend requests (relationship type 3). */
   protected readonly incoming = computed(() => this.store.relationships().filter(r => r.type === 3).length);
 
