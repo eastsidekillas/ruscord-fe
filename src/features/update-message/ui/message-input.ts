@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatMessage } from '@widgets/chat/ui/chat-item';
@@ -94,9 +94,16 @@ export class MessageInput implements OnChanges {
     }
   }
 
-  /** Clears the input after the page sent the message (or restores it on failure). */
+  private readonly cdr = inject(ChangeDetectorRef);
+
+  /**
+   * Clears the input after the page sent the message, or puts the text back
+   * when sending failed. The page calls it, so this OnPush view must be
+   * marked: otherwise the restored text would stay invisible.
+   */
   reset(text = ''): void {
     this.message = text;
+    this.cdr.markForCheck();
   }
 
   protected onInput(): void {

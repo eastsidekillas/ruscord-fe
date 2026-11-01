@@ -1,13 +1,21 @@
 // End-to-end smoke test of the client against a running ruscord-core.
 //
+//   e2e/ci.sh ../ruscord-core      # everything in Docker, like CI does
+//
+// or against a stack of your own:
+//
 //   npm start                      # the client on http://localhost:4200
 //   E2E_FIXTURES=../ruscord-core/internal/platform/imaging/testdata node e2e/smoke.mjs
+//
+// E2E_RESTART_CMD, when set, is a shell command that restarts the core; the
+// smoke then checks that clients recover from it.
 //
 // Needs `npx playwright install chromium` once, and a fresh core: it
 // registers ann_<n>, bob_<n>, cat_<n> with a random <n>. The core limits
 // registrations to 5 an hour per address, so run it at most once an hour
 // against the same core (or flush Valkey).
 import { chromium } from 'playwright';
+import { execSync } from 'node:child_process';
 
 const BASE = process.env.E2E_BASE ?? 'http://localhost:4200';
 const FIX = process.env.E2E_FIXTURES ?? '../ruscord-core/internal/platform/imaging/testdata';
@@ -30,6 +38,38 @@ async function user(browser) {
   }));
   page.on('dialog', d => d.accept(d.type() === 'prompt' ? 'нарушение правил' : undefined));
   return page;
+}
+
+// Puts a page's gateway socket through Playwright, so a test can drop it
+// like a lost network (the page sees close 4000 and reconnects) and keep it
+// down for a while. Frames are recorded like for other pages.
+async function droppable(page) {
+  page.wsRoutes = [];
+  page.wsBlocked = false;
+  await page.routeWebSocket(/\/gateway/, ws => {
+    if (page.wsBlocked) {
+      ws.close({ code: 4000, reason: 'test: network down' });
+      return;
+    }
+    page.wsRoutes.push(ws);
+    const server = ws.connectToServer();
+    ws.onMessage(m => server.send(m));
+    server.onMessage(m => {
+      try { const x = JSON.parse(m); if (x.t) page.frames_.push(x); } catch { /* not JSON */ }
+      ws.send(m);
+    });
+  });
+}
+
+function dropConnection(page) {
+  page.wsBlocked = true;
+  for (const ws of page.wsRoutes.splice(0)) ws.close({ code: 4000, reason: 'test: network down' }).catch(() => {});
+}
+
+// Every copy of a message on screen: exactly one is expected.
+async function once(p, text) {
+  const n = await p.getByText(text, { exact: true }).count();
+  if (n !== 1) throw new Error(`"${text}" shown ${n} times`);
 }
 
 async function register(page, n) {
@@ -72,6 +112,7 @@ const menu = async (p, item) => {
 const browser = await chromium.launch();
 const ann = await user(browser), bob = await user(browser), cat = await user(browser);
 Object.assign(pages, { ann, bob, cat });
+await droppable(ann);
 await import('node:fs').then(fs => fs.mkdirSync(SHOTS, { recursive: true }));
 
 await step('register three users', async () => {
@@ -102,6 +143,57 @@ await step('direct message both ways and typing', async () => {
   await input(bob).press('Enter');
   await sees(ann, 'пишу');
 });
+
+await step('connection lost for 6 s: "no connection" shows, the gap is replayed once', async () => {
+  const resumed = () => ann.frames_.filter(f => f.t === 'RESUMED').length;
+  const before = resumed();
+  dropConnection(ann);
+  try {
+    await say(bob, 'пока связи не было 1');
+    await say(bob, 'пока связи не было 2');
+    await sees(bob, 'пока связи не было 2');
+    await sees(ann, 'Нет соединения', 8000);
+    await ann.waitForTimeout(3000);
+  } finally {
+    ann.wsBlocked = false;
+  }
+  await sees(ann, 'пока связи не было 2', 40000);
+  await once(ann, 'пока связи не было 1');
+  await once(ann, 'пока связи не было 2');
+  if (resumed() <= before) throw new Error('reconnected without RESUME');
+  await ann.getByText('Нет соединения').first().waitFor({ state: 'hidden', timeout: 8000 });
+});
+
+await step('sending offline fails visibly and keeps the text; sent once when back online', async () => {
+  await ann.context().setOffline(true);
+  try {
+    await say(ann, 'отправлю, когда будет сеть');
+    await sees(ann, 'Сообщение не отправлено', 5000);
+    if (await input(ann).inputValue() !== 'отправлю, когда будет сеть') throw new Error('the text was lost');
+  } finally {
+    await ann.context().setOffline(false);
+  }
+  await input(ann).press('Enter');
+  await sees(bob, 'отправлю, когда будет сеть');
+  await once(bob, 'отправлю, когда будет сеть');
+  await once(ann, 'отправлю, когда будет сеть');
+});
+
+if (process.env.E2E_RESTART_CMD) {
+  await step('the core restarts: clients reconnect by themselves and talk on', async () => {
+    execSync(process.env.E2E_RESTART_CMD, { stdio: 'inherit', shell: '/bin/bash' });
+    await say(bob, 'после рестарта').catch(() => {});
+    // The first send may hit the restart; the composer keeps the text, so retry.
+    for (let i = 0; i < 20 && !(await bob.getByText('после рестарта', { exact: true }).count()); i++) {
+      await bob.waitForTimeout(1000);
+      if (await input(bob).inputValue()) await input(bob).press('Enter');
+    }
+    await sees(ann, 'после рестарта', 30000);
+    await once(ann, 'после рестарта');
+    await say(ann, 'и я на месте');
+    await sees(bob, 'и я на месте');
+  });
+}
 
 let invite = '';
 await step('server with an icon, invite link, join by link', async () => {

@@ -284,6 +284,7 @@ export class ChannelPage {
     const id = this.channelId();
     if (!id) return;
     const body = { content: p.text, nonce: crypto.randomUUID(), reply_to: p.replyToId ?? undefined };
+    const reply = this.replyTo();
     this.replyTo.set(null);
     this.lastTyping = 0;
     this.api.sendMessage(id, body).subscribe({
@@ -292,8 +293,10 @@ export class ChannelPage {
         this.list?.scrollToBottom();
       },
       error: err => {
-        this.notify.show(errorText(err, 'Сообщение не отправлено'), 'error');
+        // Nothing is lost: the text and the reply come back to the input.
+        this.notify.show(errorText(err, 'Сообщение не отправлено'), 'error', 6000);
         this.input?.reset(p.text);
+        if (!this.replyTo()) this.replyTo.set(reply);
       },
     });
   }

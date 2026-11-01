@@ -22,3 +22,29 @@ jobs:
       # the repository (fonts are bundled).
       - run: npm run build
       - run: npm run test:ci
+
+  # The client against the real core, both in Docker (e2e/ci.sh).
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: ruscord-fe }
+      # Public now; if the repository becomes private, this needs a token
+      # with read access to it (repository secret).
+      - uses: actions/checkout@v4
+        with: { repository: eastsidekillas/ruscord-core, ref: main, path: ruscord-core }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ruscord-fe/package-lock.json
+      - run: npm ci
+        working-directory: ruscord-fe
+      - run: npx playwright install --with-deps chromium
+        working-directory: ruscord-fe
+      - run: ruscord-fe/e2e/ci.sh ruscord-core ruscord-fe
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failures
+          path: ruscord-fe/e2e/failures/
