@@ -18,6 +18,8 @@ import {
   Ban,
   Session,
   User,
+  VoiceJoinInfo,
+  VoiceState,
 } from './models';
 
 /** REST client of ruscord-core; paths follow docs/api.md. */
@@ -51,6 +53,18 @@ export class ApiService {
   /** Deletes the account; the password is asked again (ruscord-core ADR-0021). */
   deleteMe(password: string): Observable<void> {
     return this.http.delete<void>(this.url('users/@me'), { body: { password } });
+  }
+
+  // Voice (ruscord-core ADR-0025)
+  joinVoice(channelId: string): Observable<VoiceJoinInfo> {
+    return this.http.post<VoiceJoinInfo>(this.url(`channels/${encodeURIComponent(channelId)}/voice`), null);
+  }
+
+  setSelfVoice(channelId: string, selfMute: boolean, selfDeaf: boolean): Observable<VoiceState> {
+    return this.http.patch<VoiceState>(this.url(`channels/${encodeURIComponent(channelId)}/voice`), {
+      self_mute: selfMute,
+      self_deaf: selfDeaf,
+    });
   }
 
   // Sessions (ruscord-core ADR-0023)

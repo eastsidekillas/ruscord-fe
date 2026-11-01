@@ -1,5 +1,23 @@
 {
-  "/api": { "target": "http://127.0.0.1:8080", "secure": false },
-  "/cdn": { "target": "http://127.0.0.1:8080", "secure": false },
-  "/gateway": { "target": "http://127.0.0.1:8080", "secure": false, "ws": true }
+  "/api": {
+    "target": "http://127.0.0.1:8080",
+    "secure": false
+  },
+  "/cdn": {
+    "target": "http://127.0.0.1:8080",
+    "secure": false
+  },
+  "/gateway": {
+    "target": "http://127.0.0.1:8080",
+    "secure": false,
+    "ws": true
+  },
+  "/livekit": {
+    "target": "http://127.0.0.1:7880",
+    "secure": false,
+    "ws": true,
+    "pathRewrite": {
+      "^/livekit": ""
+    }
+  }
 }

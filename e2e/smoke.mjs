@@ -109,7 +109,10 @@ const menu = async (p, item) => {
   await p.getByText(item, { exact: true }).click();
 };
 
-const browser = await chromium.launch();
+// Fake microphone and camera (a beep and a test pattern), allowed without asking.
+const browser = await chromium.launch({
+  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+});
 const ann = await user(browser), bob = await user(browser), cat = await user(browser);
 Object.assign(pages, { ann, bob, cat });
 await droppable(ann);
@@ -229,6 +232,22 @@ await step('create a channel from the menu; others see it live', async () => {
   await say(ann, 'первая новость');
   await bob.getByText('новости').first().click();
   await sees(bob, 'первая новость');
+});
+
+await step('voice: both enter the voice channel, hear who speaks, mute shows, leave', async () => {
+  const room = p => p.locator('[data-voice-member]');
+  for (const p of [ann, bob]) await p.locator('[data-voice-channel="General"]').click();
+  for (const p of [ann, bob]) {
+    await sees(p, 'Голос подключён', 15000);
+    await room(p).nth(1).waitFor({ timeout: 15000 }); // both are listed
+  }
+  // The fake microphone beeps: LiveKit reports a speaker.
+  await ann.locator('[data-speaking]').first().waitFor({ timeout: 15000 });
+  await bob.locator('[data-voice-panel] button[title="Выключить микрофон"]').click();
+  await ann.locator('[data-voice-member="BOB"] [title="Микрофон выключен"]').waitFor({ timeout: 10000 });
+  for (const p of [bob, ann]) await p.locator('[data-voice-panel] button[title="Отключиться"]').click();
+  await ann.locator('[data-voice-panel]').waitFor({ state: 'detached', timeout: 10000 });
+  await room(ann).first().waitFor({ state: 'detached', timeout: 15000 });
 });
 
 await step('a role with kick rights, given to Bob, opens settings for him', async () => {

@@ -12,6 +12,7 @@ import {
   Snowflake,
   User,
   UserStatus,
+  VoiceState,
 } from '@shared/api/models';
 
 /**
@@ -157,9 +158,23 @@ export function reduce(s: AppState, ev: Dispatch): AppState {
 
     case 'CHANNEL_DELETE':
       if (d.guild_id) {
-        return withGuild(s, d.guild_id, g => ({ ...g, channels: g.channels.filter(c => c.id !== d.id) }));
+        // The channel's voice states go with it (the server dropped them too).
+        return withGuild(s, d.guild_id, g => ({
+          ...g,
+          channels: g.channels.filter(c => c.id !== d.id),
+          voice_states: (g.voice_states ?? []).filter(v => v.channel_id !== d.id),
+        }));
       }
       return { ...s, dms: without(s.dms, d.id) };
+
+    case 'VOICE_STATE_UPDATE': {
+      const v = d as VoiceState;
+      if (!v.user_id || !v.guild_id) return s;
+      return withGuild(s, v.guild_id, g => {
+        const rest = (g.voice_states ?? []).filter(x => x.user_id !== v.user_id);
+        return { ...g, voice_states: v.channel_id ? [...rest, v] : rest };
+      });
+    }
 
     case 'CHANNEL_RECIPIENT_ADD':
     case 'CHANNEL_RECIPIENT_REMOVE':
