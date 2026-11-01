@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Ruscord - Груповой чат</title>
+  <title>okno</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="ruscord_logo_green.ico">
+  <link rel="icon" type="image/svg+xml" href="okno-icon.svg">
   <style>
     #app-splash {
       position: fixed;
@@ -14,7 +14,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #212121;
+      background: #0F1112;
       transition: opacity .4s ease, visibility .4s ease;
     }
     #app-splash.splash-hide {
@@ -33,11 +33,11 @@
       to   { opacity: 1; transform: translateY(0)   scale(1); }
     }
     #app-splash-title {
-      font-family: 'Inter Variable', Inter, system-ui, sans-serif;
+      font-family: 'Manrope Variable', Manrope, system-ui, sans-serif;
       font-size: 28px;
-      font-weight: 700;
-      color: #ffffff;
-      letter-spacing: -.5px;
+      font-weight: 600;
+      color: #EDEFF0;
+      letter-spacing: -.02em;
     }
     #app-splash-dots {
       display: flex;
@@ -47,7 +47,7 @@
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: #01796F;
+      background: #7FB2E5;
       animation: splash-dot 1.2s ease-in-out infinite;
     }
     #app-splash-dots span:nth-child(2) { animation-delay: .2s; }
@@ -58,12 +58,12 @@
     }
   </style>
 </head>
-<body class="bg-main-surface-secondary text-gray-200 font-sans">
+<body class="bg-ok-bg text-ok-text font-sans">
 
   <div id="app-splash">
     <div id="app-splash-inner">
-      <img src="logo.png" alt="Ruscord" width="88" height="88" style="border-radius:22px">
-      <span id="app-splash-title">Ruscord</span>
+      <img src="okno-icon.svg" alt="" width="88" height="88">
+      <span id="app-splash-title">okno</span>
       <div id="app-splash-dots">
         <span></span><span></span><span></span>
       </div>

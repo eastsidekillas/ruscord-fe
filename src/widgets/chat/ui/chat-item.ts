@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
+import { messageTime } from '@shared/lib/dates';
 import { AvatarUI } from '@shared/ui/avatar';
-import { LucideAngularModule, Pencil, Reply, Trash2 } from 'lucide-angular';
+import { CornerUpRight, LucideAngularModule, Pencil, Reply, Trash2 } from 'lucide-angular';
 import { Message } from '@shared/api';
 
 /** A message ready to show: the author resolved to the newest profile. */
@@ -19,44 +20,44 @@ export interface ChatMessage {
 @Component({
   selector: 'ChatItem',
   standalone: true,
-  imports: [DatePipe, CommonModule, AvatarUI, LucideAngularModule],
+  imports: [CommonModule, AvatarUI, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block relative group px-2' },
+  host: { class: 'block relative group rounded-[10px] p-2 hover:bg-ok-surface-2 focus-within:bg-ok-surface-2' },
   template: `
-    <div *ngIf="item.reply" class="flex items-center gap-2 ml-14 mb-0.5 pl-2 border-l-2 border-gray-500/60 max-w-prose">
-      <lucide-angular class="w-3 h-3 text-gray-500 shrink-0" [img]="Reply"></lucide-angular>
+    <div *ngIf="item.reply" class="flex items-center gap-1.5 pl-[52px] pb-1 text-[13px] text-ok-muted min-w-0">
+      <lucide-angular class="w-3.5 h-3.5 shrink-0" [img]="CornerUpRight"></lucide-angular>
       <ng-container *ngIf="item.reply !== 'missing'; else missing">
-        <span class="text-xs font-medium text-gray-400 shrink-0">{{ item.reply.authorName }}</span>
-        <span class="text-xs text-gray-500 truncate">{{ item.reply.content }}</span>
+        <span class="font-semibold text-ok-text shrink-0">{{ item.reply.authorName }}</span>
+        <span class="truncate">{{ item.reply.content }}</span>
       </ng-container>
-      <ng-template #missing><span class="text-xs text-gray-500 italic">Исходное сообщение не загружено или удалено</span></ng-template>
+      <ng-template #missing><span class="italic">Исходное сообщение не загружено или удалено</span></ng-template>
     </div>
 
-    <div class="flex items-start space-x-3">
-      <button class="relative w-10 h-10 rounded-full overflow-hidden bg-main-surface-secondary shrink-0"
+    <div class="flex items-start gap-3">
+      <button type="button" class="w-10 h-10 rounded-[10px] overflow-hidden shrink-0" [attr.aria-label]="'Профиль: ' + item.authorName"
               (click)="item.authorId && authorClicked.emit(item.authorId)">
         <AvatarUI [src]="item.authorAvatar" [name]="item.authorName" />
       </button>
       <div class="min-w-0 flex-1">
-        <div class="flex items-center space-x-2">
-          <span class="text-sm font-medium text-gray-300">{{ item.authorName }}</span>
-          <span class="text-xs text-gray-500">{{ item.message.created_at | date:'dd.MM.yyyy, HH:mm' }}</span>
-          <span *ngIf="item.message.edited_at" class="text-[10px] text-gray-500">(изменено)</span>
+        <div class="flex items-baseline gap-2">
+          <span class="text-[15px] font-semibold text-ok-text">{{ item.authorName }}</span>
+          <time class="text-[12px] text-ok-muted" [attr.datetime]="item.message.created_at">{{ when(item.message.created_at) }}</time>
         </div>
-        <div class="text-sm text-gray-400 break-words whitespace-pre-wrap">{{ item.message.content }}</div>
+        <p class="mt-0.5 text-[15px] leading-[22px] text-ok-text break-words whitespace-pre-wrap">{{ item.message.content }}<span *ngIf="item.message.edited_at" class="ml-1 text-[12px] text-ok-muted">(изменено)</span></p>
       </div>
     </div>
 
-    <div class="absolute right-2 top-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-      <button *ngIf="canReply" class="p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300" title="Ответить"
+    <div role="toolbar" aria-label="Действия с сообщением"
+         class="absolute right-3 -top-4 hidden group-hover:flex group-focus-within:flex gap-0.5 p-0.5 rounded-[10px] bg-ok-surface-1 border border-ok-border shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
+      <button *ngIf="canReply" type="button" class="w-8 h-8 rounded-lg text-ok-text hover:bg-ok-surface-2 flex items-center justify-center" title="Ответить" aria-label="Ответить"
               (click)="replyClicked.emit(item)">
         <lucide-angular class="w-4 h-4" [img]="Reply"></lucide-angular>
       </button>
-      <button *ngIf="item.canEdit" class="p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300" title="Изменить"
+      <button *ngIf="item.canEdit" type="button" class="w-8 h-8 rounded-lg text-ok-text hover:bg-ok-surface-2 flex items-center justify-center" title="Изменить" aria-label="Изменить"
               (click)="editClicked.emit(item)">
         <lucide-angular class="w-4 h-4" [img]="Pencil"></lucide-angular>
       </button>
-      <button *ngIf="item.canDelete" class="p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-red-400" title="Удалить"
+      <button *ngIf="item.canDelete" type="button" class="w-8 h-8 rounded-lg text-ok-danger hover:bg-ok-surface-2 flex items-center justify-center" title="Удалить" aria-label="Удалить"
               (click)="deleteClicked.emit(item)">
         <lucide-angular class="w-4 h-4" [img]="Trash2"></lucide-angular>
       </button>
@@ -74,4 +75,11 @@ export class ChatItem {
   protected readonly Reply = Reply;
   protected readonly Pencil = Pencil;
   protected readonly Trash2 = Trash2;
+  protected readonly CornerUpRight = CornerUpRight;
+
+  /** Time only for today, the date as well for older messages. */
+  protected when(iso: string): string {
+    return messageTime(new Date(iso), new Date());
+  }
 }
+

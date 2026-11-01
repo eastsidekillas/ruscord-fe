@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, Input, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { HeadphoneOff, Headphones, LucideAngularModule, Mic, MicOff, PhoneOff, Settings, Volume2 } from 'lucide-angular';
+import { Hash, HeadphoneOff, Headphones, Lock, LucideAngularModule, Mic, MicOff, PhoneOff, Plus, Settings, Volume2 } from 'lucide-angular';
 import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
 import { ApiService, FullGuild, Perm, VoiceState, errorText, hasPerm, nameOf } from '@shared/api';
@@ -16,84 +16,82 @@ import { AvatarUI } from '@shared/ui/avatar';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block overflow-y-auto' },
   template: `
-    <div class="px-2 py-3 space-y-4">
-      <div *ngFor="let group of groups(); trackBy: byGroup">
-        <div *ngIf="group.category as cat" class="flex items-center gap-1 mb-1 px-2 group/cat">
-          <h4 class="flex-1 text-[11px] font-semibold text-typo-secondary uppercase tracking-wider truncate">{{ cat.name }}</h4>
+    <div class="flex flex-col gap-0.5 px-2 py-3">
+      <ng-container *ngFor="let group of groups(); trackBy: byGroup; let first = first">
+        <div *ngIf="group.category as cat" class="flex items-center gap-1 px-2 pb-1 group/cat" [ngClass]="first ? 'pt-2' : 'pt-4'">
+          <h4 class="flex-1 text-[12px] font-semibold tracking-[0.1em] uppercase text-ok-muted truncate">{{ cat.name }}</h4>
           <ng-container *ngIf="canManage(cat.id)">
-            <button type="button" (click)="create(cat.id)" title="Создать канал в категории"
-                    class="text-typo-secondary hover:text-white opacity-0 group-hover/cat:opacity-100 text-sm leading-none">+</button>
-            <button type="button" (click)="edit(cat.id)" title="Настройки категории"
-                    class="text-typo-secondary hover:text-white opacity-0 group-hover/cat:opacity-100">
+            <button type="button" (click)="create(cat.id)" title="Создать канал в категории" aria-label="Создать канал в категории"
+                    class="w-6 h-6 rounded-md text-ok-muted hover:text-ok-text opacity-0 group-hover/cat:opacity-100 focus:opacity-100 flex items-center justify-center">
+              <lucide-angular class="w-3.5 h-3.5" [img]="Plus"></lucide-angular>
+            </button>
+            <button type="button" (click)="edit(cat.id)" title="Настройки категории" aria-label="Настройки категории"
+                    class="w-6 h-6 rounded-md text-ok-muted hover:text-ok-text opacity-0 group-hover/cat:opacity-100 focus:opacity-100 flex items-center justify-center">
               <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
             </button>
           </ng-container>
         </div>
-        <div class="space-y-0.5">
-          <ng-container *ngFor="let channel of group.channels; trackBy: byId">
-            <a *ngIf="channel.type === 0"
-               [routerLink]="['/channels', guildId(), channel.id]"
-               routerLinkActive="bg-main-surface-secondary text-white"
-               class="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-main-surface-secondary text-gray-300 hover:text-white transition group">
-              <svg class="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-gray-200" fill="none"
-                   stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" d="M5 7h14M5 12h14M5 17h14"/>
-              </svg>
-              <span class="text-sm truncate flex-1">{{ channel.name }}</span>
-              <button *ngIf="canManage(channel.id)" type="button" (click)="edit(channel.id, $event)" title="Настройки канала"
-                      class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white">
+        <ng-container *ngFor="let channel of group.channels; trackBy: byId">
+          <a *ngIf="channel.type === 0"
+             [routerLink]="['/channels', guildId(), channel.id]"
+             routerLinkActive="!bg-ok-surface-2 !text-ok-text"
+             class="flex items-center gap-2 p-2 rounded-lg text-ok-muted hover:bg-ok-surface-1 hover:text-ok-text group">
+            <lucide-angular class="w-4 h-4 shrink-0 text-ok-muted" [img]="Hash"></lucide-angular>
+            <span class="truncate flex-1">{{ channel.name }}</span>
+            <button *ngIf="canManage(channel.id)" type="button" (click)="edit(channel.id, $event)" title="Настройки канала" aria-label="Настройки канала"
+                    class="w-6 h-6 -my-1 rounded-md opacity-0 group-hover:opacity-100 focus:opacity-100 text-ok-muted hover:text-ok-text flex items-center justify-center">
+              <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
+            </button>
+          </a>
+          <ng-container *ngIf="channel.type === 2">
+            <div (click)="join(channel.id)" [attr.data-voice-channel]="channel.name" [attr.aria-current]="here(channel.id) ? 'true' : null"
+                 [title]="canConnect(channel.id) ? 'Войти в голосовой канал' : 'Нет права подключаться'"
+                 class="flex items-center gap-2 p-2 rounded-lg group"
+                 [ngClass]="[
+                   here(channel.id) || inVoice(channel.id).length ? 'text-ok-text' : 'text-ok-muted',
+                   canConnect(channel.id) ? 'cursor-pointer hover:bg-ok-surface-1 hover:text-ok-text' : 'cursor-not-allowed'
+                 ]">
+              <lucide-angular class="w-4 h-4 shrink-0 text-ok-muted" [img]="canConnect(channel.id) ? Volume2 : Lock"></lucide-angular>
+              <span class="truncate flex-1">{{ channel.name }}</span>
+              <span *ngIf="channel.user_limit" class="text-[12px] text-ok-muted tabular-nums">{{ inVoice(channel.id).length }}/{{ channel.user_limit }}</span>
+              <button *ngIf="canManage(channel.id)" type="button" (click)="edit(channel.id, $event)" title="Настройки канала" aria-label="Настройки канала"
+                      class="w-6 h-6 -my-1 rounded-md opacity-0 group-hover:opacity-100 focus:opacity-100 text-ok-muted hover:text-ok-text flex items-center justify-center">
                 <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
               </button>
-            </a>
-            <ng-container *ngIf="channel.type === 2">
-              <div (click)="join(channel.id)" [attr.data-voice-channel]="channel.name"
-                   [title]="canConnect(channel.id) ? 'Войти в голосовой канал' : 'Нет права подключаться'"
-                   class="flex items-center gap-2 py-1.5 px-2 rounded-md transition group"
-                   [ngClass]="[
-                     here(channel.id) ? 'bg-main-surface-secondary text-white' : 'text-gray-300',
-                     canConnect(channel.id) ? 'cursor-pointer hover:bg-main-surface-secondary hover:text-white' : 'text-gray-500 cursor-not-allowed'
-                   ]">
-                <lucide-angular class="w-4 h-4 flex-shrink-0 text-gray-400" [img]="Volume2"></lucide-angular>
-                <span class="text-sm truncate flex-1">{{ channel.name }}</span>
-                <span *ngIf="channel.user_limit" class="text-[11px] text-gray-500">{{ inVoice(channel.id).length }}/{{ channel.user_limit }}</span>
-                <button *ngIf="canManage(channel.id)" type="button" (click)="edit(channel.id, $event)" title="Настройки канала"
-                        class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white">
-                  <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
+            </div>
+            <div *ngFor="let v of inVoice(channel.id); trackBy: byUser"
+                 class="flex items-center gap-2 py-1 pl-8 pr-2 rounded-md text-[13px] font-medium group/member hover:bg-ok-surface-1"
+                 [attr.data-voice-member]="nameOf(v)">
+              <span class="w-6 h-6 rounded-ok-sm overflow-hidden shrink-0 transition-shadow"
+                    [ngClass]="speaking(channel.id, v.user_id) ? 'shadow-[0_0_0_2px_var(--color-ok-accent)]' : ''"
+                    [attr.data-speaking]="speaking(channel.id, v.user_id) ? '' : null">
+                <AvatarUI [src]="store.user(v.user ?? null)?.avatar ?? null" [name]="nameOf(v)" />
+              </span>
+              <span class="truncate flex-1">{{ nameOf(v) }}</span>
+              <lucide-angular *ngIf="v.mute" class="w-3.5 h-3.5 text-ok-danger" [img]="MicOff" title="Микрофон выключил модератор"></lucide-angular>
+              <lucide-angular *ngIf="v.self_mute && !v.mute" class="w-3.5 h-3.5 text-ok-muted" [img]="MicOff" title="Микрофон выключен"></lucide-angular>
+              <lucide-angular *ngIf="v.deaf" class="w-3.5 h-3.5 text-ok-danger" [img]="HeadphoneOff" title="Звук выключил модератор"></lucide-angular>
+              <lucide-angular *ngIf="v.self_deaf && !v.deaf" class="w-3.5 h-3.5 text-ok-muted" [img]="HeadphoneOff" title="Звук выключен"></lucide-angular>
+              <span class="hidden group-hover/member:flex group-focus-within/member:flex items-center gap-0.5" data-voice-moderation>
+                <button *ngIf="can(channel.id, Perm.MuteMembers)" type="button" (click)="moderate(v, { mute: !v.mute })"
+                        [title]="v.mute ? 'Вернуть микрофон' : 'Выключить микрофон участнику'"
+                        class="w-6 h-6 rounded-md text-ok-muted hover:text-ok-text hover:bg-ok-surface-2 flex items-center justify-center">
+                  <lucide-angular class="w-3.5 h-3.5" [img]="v.mute ? Mic : MicOff"></lucide-angular>
                 </button>
-              </div>
-              <div *ngFor="let v of inVoice(channel.id); trackBy: byUser" class="flex items-center gap-2 py-1 pl-8 pr-2 group/member"
-                   [attr.data-voice-member]="nameOf(v)">
-                <div class="w-6 h-6 rounded-full overflow-hidden shrink-0 ring-2 transition"
-                     [ngClass]="speaking(channel.id, v.user_id) ? 'ring-green-500' : 'ring-transparent'"
-                     [attr.data-speaking]="speaking(channel.id, v.user_id) ? '' : null">
-                  <AvatarUI [src]="store.user(v.user ?? null)?.avatar ?? null" [name]="nameOf(v)" />
-                </div>
-                <span class="text-xs text-gray-300 truncate flex-1">{{ nameOf(v) }}</span>
-                <lucide-angular *ngIf="v.mute" class="w-3.5 h-3.5 text-red-400" [img]="MicOff" title="Микрофон выключил модератор"></lucide-angular>
-                <lucide-angular *ngIf="v.self_mute && !v.mute" class="w-3.5 h-3.5 text-gray-400" [img]="MicOff" title="Микрофон выключен"></lucide-angular>
-                <lucide-angular *ngIf="v.deaf" class="w-3.5 h-3.5 text-red-400" [img]="HeadphoneOff" title="Звук выключил модератор"></lucide-angular>
-                <lucide-angular *ngIf="v.self_deaf && !v.deaf" class="w-3.5 h-3.5 text-gray-400" [img]="HeadphoneOff" title="Звук выключен"></lucide-angular>
-                <span class="hidden group-hover/member:flex group-focus-within/member:flex items-center gap-0.5" data-voice-moderation>
-                  <button *ngIf="can(channel.id, Perm.MuteMembers)" type="button" (click)="moderate(v, { mute: !v.mute })"
-                          [title]="v.mute ? 'Вернуть микрофон' : 'Выключить микрофон участнику'"
-                          class="p-0.5 rounded text-gray-400 hover:text-white hover:bg-white/10">
-                    <lucide-angular class="w-3.5 h-3.5" [img]="v.mute ? Mic : MicOff"></lucide-angular>
-                  </button>
-                  <button *ngIf="can(channel.id, Perm.DeafenMembers)" type="button" (click)="moderate(v, { deaf: !v.deaf })"
-                          [title]="v.deaf ? 'Вернуть звук' : 'Выключить звук участнику'"
-                          class="p-0.5 rounded text-gray-400 hover:text-white hover:bg-white/10">
-                    <lucide-angular class="w-3.5 h-3.5" [img]="v.deaf ? Headphones : HeadphoneOff"></lucide-angular>
-                  </button>
-                  <button *ngIf="can(channel.id, Perm.MoveMembers)" type="button" (click)="disconnect(v)" title="Отключить от канала"
-                          class="p-0.5 rounded text-red-400 hover:bg-red-500/20">
-                    <lucide-angular class="w-3.5 h-3.5" [img]="PhoneOff"></lucide-angular>
-                  </button>
-                </span>
-              </div>
-            </ng-container>
+                <button *ngIf="can(channel.id, Perm.DeafenMembers)" type="button" (click)="moderate(v, { deaf: !v.deaf })"
+                        [title]="v.deaf ? 'Вернуть звук' : 'Выключить звук участнику'"
+                        class="w-6 h-6 rounded-md text-ok-muted hover:text-ok-text hover:bg-ok-surface-2 flex items-center justify-center">
+                  <lucide-angular class="w-3.5 h-3.5" [img]="v.deaf ? Headphones : HeadphoneOff"></lucide-angular>
+                </button>
+                <button *ngIf="can(channel.id, Perm.MoveMembers)" type="button" (click)="disconnect(v)" title="Отключить от канала"
+                        class="w-6 h-6 rounded-md text-ok-danger hover:bg-ok-surface-2 flex items-center justify-center">
+                  <lucide-angular class="w-3.5 h-3.5" [img]="PhoneOff"></lucide-angular>
+                </button>
+              </span>
+            </div>
           </ng-container>
-        </div>
-      </div>
+        </ng-container>
+      </ng-container>
     </div>
   `,
 })
@@ -167,6 +165,9 @@ export class ServerChannelsItems {
   }
   protected byGroup = (_: number, gr: { category: { id: string } | null }) => gr.category?.id ?? '-';
   protected readonly Volume2 = Volume2;
+  protected readonly Hash = Hash;
+  protected readonly Lock = Lock;
+  protected readonly Plus = Plus;
   protected readonly Settings = Settings;
   private readonly modal = inject(ModalService);
 

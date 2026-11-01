@@ -58,12 +58,10 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
     @keyframes blink { 0% { opacity: .2; } 20% { opacity: 1; } 100% { opacity: .2; } }
   `,
   template: `
-    <div class="flex flex-col h-full" *ngIf="view() as v; else waiting">
-      <ChatHeader [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
-                  (profile)="openProfile($event)" />
-
-      <div class="flex flex-1 overflow-hidden min-h-0">
-        <div class="flex-1 flex flex-col overflow-hidden min-h-0">
+    <div class="flex h-full" *ngIf="view() as v; else waiting">
+        <div class="flex-1 min-w-0 flex flex-col overflow-hidden min-h-0">
+          <ChatHeader [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
+                      (profile)="openProfile($event)" />
           <ChatMessages
             class="flex-1 min-h-0"
             [items]="items()"
@@ -78,14 +76,14 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
             (author)="openProfile($event)"
           />
 
-          <div class="h-5 px-4 text-xs text-gray-500">
+          <div class="h-5 px-6 text-[13px] text-ok-muted" aria-live="polite">
             <span *ngIf="typingText() as t" class="typing-indicator">
               {{ t }}<span class="dot"></span><span class="dot"></span><span class="dot"></span>
             </span>
           </div>
 
           <MessageInput
-            class="flex flex-col px-4 pb-4 pt-1 bg-main-surface-primary"
+            class="flex flex-col px-6 pb-6 pt-1"
             [placeholder]="v.placeholder"
             [disabled]="!v.canSend"
             [replyTo]="replyTo()"
@@ -99,11 +97,10 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
         </div>
 
         <ServerMembersSidebar *ngIf="v.guildId" [guildId]="v.guildId"
-          class="w-64 border-l border-gray-500 bg-sidebar-surface-secondary hidden lg:block" />
-      </div>
+          class="w-[240px] shrink-0 hidden lg:block" />
     </div>
     <ng-template #waiting>
-      <div class="h-full flex items-center justify-center text-typo-secondary text-sm">
+      <div class="h-full flex items-center justify-center text-ok-muted text-[13px]">
         {{ store.loaded() ? 'Канал не найден' : 'Загрузка…' }}
       </div>
     </ng-template>

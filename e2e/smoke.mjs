@@ -118,6 +118,15 @@ Object.assign(pages, { ann, bob, cat });
 await droppable(ann);
 await import('node:fs').then(fs => fs.mkdirSync(SHOTS, { recursive: true }));
 
+await step('a wrong password shows the server\'s error and unlocks the form', async () => {
+  await ann.goto(BASE + '/login');
+  await ann.fill('#email', `nobody_${run}@example.com`);
+  await ann.fill('#password', 'wrong-password');
+  await ann.locator('button[type=submit]').click();
+  await ann.getByRole('alert').getByText('Неверный email или пароль').waitFor({ timeout: 8000 });
+  await ann.locator('button[type=submit]:enabled').waitFor({ timeout: 2000 });
+});
+
 await step('register three users', async () => {
   await register(ann, 'ann');
   await register(bob, 'bob');

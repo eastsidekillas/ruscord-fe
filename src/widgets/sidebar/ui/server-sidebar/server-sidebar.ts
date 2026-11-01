@@ -4,38 +4,40 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { SidebarCreateServer } from '../sidebar-create-server';
 import { AvatarUI } from '@shared/ui/avatar';
 import { AppStateStore } from '@entities/app-state';
+import { APP_MARK } from '@shared/config/brand';
 
+/** The rail of servers: home (direct messages), the servers, a new one. */
 @Component({
   selector: 'ServerSidebar',
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, SidebarCreateServer, AvatarUI],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'w-[72px] shrink-0 flex flex-col items-center gap-2 py-3 bg-ok-bg overflow-y-auto max-sm:hidden' },
   template: `
-    <a [routerLink]="['/channels/me']"
-       class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mb-2 lg:mb-4 hover:bg-gray-500">
-      <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-           fill="currentColor" viewBox="0 0 24 24">
-        <path fill-rule="evenodd"
-              d="M11.293 3.293a1 1 0 0 1 1.414 0l6 6 2 2a1 1 0 0 1-1.414 1.414L19 12.414V19a2 2 0 0 1-2 2h-3a1 1 0 0 1-1-1v-3h-2v3a1 1 0 0 1-1 1H7a2 2 0 0 1-2-2v-6.586l-.293.293a1 1 0 0 1-1.414-1.414l2-2 6-6Z"
-              clip-rule="evenodd"/>
-      </svg>
+    <a [routerLink]="['/channels/me']" routerLinkActive="ok-active" aria-label="Личные сообщения" title="Личные сообщения"
+       class="ok-rail-item bg-ok-surface-1 hover:bg-ok-surface-2">
+      <img [src]="mark" alt="" class="w-7 h-7" />
     </a>
-
-    <div class="w-10 border-b border-2 border-gray-600 mb-2 rounded-full lg:mb-4"></div>
-    <SidebarCreateServer></SidebarCreateServer>
-
-    <div class="space-y-2 lg:space-y-4 overflow-x-hidden flex-grow">
-      <a *ngFor="let server of store.guilds(); trackBy: byId"
-         [routerLink]="['/channels', server.id]"
-         routerLinkActive="ring-2 ring-green-500"
-         [title]="server.name"
-         class="group relative w-12 h-12 bg-main-surface-secondary rounded-full flex items-center justify-center mb-2 lg:mb-4 hover:bg-gray-500 overflow-hidden">
-        <AvatarUI [src]="server.icon" [name]="server.name" />
-      </a>
-    </div>
+    <div class="w-8 h-px bg-ok-border shrink-0"></div>
+    <a *ngFor="let server of store.guilds(); trackBy: byId"
+       [routerLink]="['/channels', server.id]" routerLinkActive="ok-active" #rla="routerLinkActive"
+       [attr.aria-label]="server.name" [title]="server.name"
+       class="ok-rail-item overflow-hidden text-[15px]">
+      <AvatarUI [src]="server.icon" [name]="server.name" [letters]="2"
+                [tone]="rla.isActive ? 'bg-ok-accent text-ok-on-accent' : 'bg-ok-surface-2 text-ok-text'" />
+    </a>
+    <SidebarCreateServer />
+  `,
+  styles: `
+    .ok-rail-item {
+      width: 48px; height: 48px; flex-shrink: 0; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ok-active { box-shadow: 0 0 0 2px var(--color-ok-bg), 0 0 0 4px var(--color-ok-text); }
   `,
 })
 export class ServerSidebar {
   protected readonly store = inject(AppStateStore);
+  protected readonly mark = APP_MARK;
   protected byId = (_: number, g: { id: string }) => g.id;
 }

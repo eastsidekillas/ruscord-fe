@@ -17,23 +17,25 @@ const PAGE = 1000;
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, StatusUi, AvatarUI],
   template: `
-    <div class="bg-sidebar-surface-secondary border-l border-gray-700 h-full overflow-y-auto px-3 py-4">
-      <h2 class="text-md font-semibold text-typo-secondary mb-2">Участники — {{ members().length }}</h2>
-      <button *ngFor="let m of rows(); trackBy: byId" (click)="openProfile(m.user_id)"
-              class="w-full flex items-center space-x-2 py-2 rounded-md hover:bg-main-surface-secondary text-left">
-        <div class="relative w-10 h-10 shrink-0">
-          <div class="w-full h-full rounded-full overflow-hidden">
-            <AvatarUI [src]="m.avatar" [name]="m.name" />
-          </div>
-          <StatusUI *ngIf="withStatus()" [userId]="m.user_id"></StatusUI>
-        </div>
-        <div class="flex flex-col min-w-0">
-          <span class="text-sm text-typo-primary truncate">{{ m.name }}</span>
-          <span class="text-xs text-typo-secondary truncate">{{ m.username }}</span>
-        </div>
-      </button>
-      <p *ngIf="loaded() && !members().length" class="text-sm text-typo-secondary">Нет участников.</p>
-    </div>
+    <aside aria-label="Участники" class="h-full overflow-y-auto bg-ok-sidebar px-2 py-4 flex flex-col gap-0.5">
+      <ng-container *ngFor="let section of sections(); let first = first">
+        <h2 class="text-[12px] font-semibold tracking-[0.1em] text-ok-muted px-2 pb-2" [class.pt-4]="!first">
+          {{ section.title }} — {{ section.rows.length }}
+        </h2>
+        <button *ngFor="let m of section.rows; trackBy: byId" type="button" (click)="openProfile(m.user_id)"
+                class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left hover:bg-ok-surface-1"
+                [ngClass]="section.offline ? 'text-ok-muted' : 'text-ok-text'">
+          <span class="relative w-8 h-8 shrink-0">
+            <span class="block w-full h-full rounded-lg overflow-hidden" [class.grayscale]="section.offline">
+              <AvatarUI [src]="m.avatar" [name]="m.name" [tone]="section.offline ? 'bg-ok-surface-2 text-ok-muted' : 'bg-ok-avatar text-ok-text'" />
+            </span>
+            <StatusUI *ngIf="withStatus() && !section.offline" [userId]="m.user_id" />
+          </span>
+          <span class="text-[13px] font-medium truncate">{{ m.name }}</span>
+        </button>
+      </ng-container>
+      <p *ngIf="loaded() && !members().length" class="text-[13px] text-ok-muted px-2">Нет участников.</p>
+    </aside>
   `,
 })
 export class ServerMembersSidebar {
@@ -62,6 +64,18 @@ export class ServerMembersSidebar {
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
   );
+
+  /** "В сети" and "Не в сети" where statuses are known, otherwise one list. */
+  protected readonly sections = computed(() => {
+    const rows = this.rows();
+    if (!this.withStatus()) return [{ title: 'УЧАСТНИКИ', rows, offline: false }];
+    const off = rows.filter(r => this.store.status(r.user_id) === 'offline');
+    const on = rows.filter(r => this.store.status(r.user_id) !== 'offline');
+    return [
+      { title: 'В СЕТИ', rows: on, offline: false },
+      { title: 'НЕ В СЕТИ', rows: off, offline: true },
+    ].filter(s => s.rows.length);
+  });
 
   constructor() {
     const sub = inject(GatewayService).dispatches
