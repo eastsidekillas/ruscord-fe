@@ -7,7 +7,7 @@ import { AppStateStore } from '@entities/app-state/model/app-state.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex items-center space-x-1">
-      <span class="text-[12px] text-ok-muted">
+      <span class="text-ok-muted" [class]="size()">
         {{ statusText() }}
       </span>
     </div>
@@ -15,6 +15,8 @@ import { AppStateStore } from '@entities/app-state/model/app-state.store';
 })
 export class StatusUIText {
   readonly userId = input.required<string>();
+  /** Font size class of the text. */
+  readonly size = input('text-[12px]');
   protected readonly status = computed(() => this.store.status(this.userId()));
   protected readonly statusText = computed(() => {
     switch (this.status()) {

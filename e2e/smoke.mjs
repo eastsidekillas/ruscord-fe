@@ -137,10 +137,10 @@ await step('friend request by username, live with the name, accepted', async () 
   await ann.getByText('Добавить в друзья').first().click();
   await ann.fill('input[placeholder="Имя пользователя"]', name('bob'));
   await ann.locator('form button[type=submit]').click();
-  await bob.getByText('Ожидание').first().click().catch(() => {});
+  await bob.getByRole('button', { name: /^Заявки/ }).click();
   await sees(bob, 'ANN');
   await bob.getByRole('button', { name: 'Принять' }).click();
-  await ann.getByText('Все').first().click().catch(() => {});
+  await ann.getByRole('button', { name: 'Все', exact: true }).click();
   await sees(ann, 'BOB');
 });
 
@@ -352,6 +352,24 @@ await step('devices: a new sign-in is announced, signing it out works at once; p
   await sees(ann, 'Пароль изменён');
   await ann.keyboard.press('Escape');
   await ann2.context().close();
+});
+
+await step('block from the friends page: the friend is gone on both sides; unblock', async () => {
+  await cat.goto(BASE + '/channels/me');
+  await cat.fill('#friend-add', name('ann'));
+  await cat.locator('form button[type=submit]').click();
+  await sees(cat, 'Запрос в друзья отправлен');
+  await ann.goto(BASE + '/channels/me');
+  await ann.getByRole('button', { name: /^Заявки/ }).click();
+  await ann.locator('[data-rel]', { hasText: 'CAT' }).getByRole('button', { name: 'Принять' }).click();
+  await ann.getByRole('button', { name: 'Все', exact: true }).click();
+  await ann.locator('[data-rel]', { hasText: 'CAT' }).getByRole('button', { name: 'Заблокировать' }).click();
+  await ann.getByRole('button', { name: 'Заблокированные' }).click();
+  await ann.locator('[data-rel]', { hasText: 'CAT' }).waitFor({ timeout: 8000 });
+  await cat.getByRole('button', { name: 'Все', exact: true }).click();
+  await sees(cat, 'У вас пока нет друзей');
+  await ann.locator('[data-rel]', { hasText: 'CAT' }).getByRole('button', { name: 'Разблокировать' }).click();
+  await sees(ann, 'Вы никого не заблокировали');
 });
 
 await step('Cat deletes her account; it cannot sign in again', async () => {

@@ -28,12 +28,12 @@ interface Row {
        class="flex items-center gap-2.5 py-2 px-2.5 rounded-lg text-ok-muted hover:bg-ok-surface-1 hover:text-ok-text">
       <span class="relative w-8 h-8 shrink-0">
         <span class="block w-full h-full rounded-lg overflow-hidden">
-          <AvatarUI [src]="row.avatar" [name]="row.name" [tone]="row.userId ? 'bg-ok-avatar text-ok-text' : 'bg-ok-surface-2 text-ok-text'" />
+          <AvatarUI [src]="row.avatar" [name]="row.userId ? row.name : '' + row.members" [tone]="row.userId ? 'bg-ok-avatar text-ok-text' : 'bg-ok-surface-2 text-ok-text text-[12px]'" [letters]="row.userId ? 1 : 2" />
         </span>
         <StatusUI *ngIf="row.userId" [userId]="row.userId" />
       </span>
       <span class="flex flex-col min-w-0">
-        <span class="truncate" [class.text-ok-text]="!row.userId">{{ row.name }}</span>
+        <span class="truncate text-ok-text">{{ row.name }}</span>
         <span *ngIf="!row.userId" class="text-[12px]">{{ row.members }} {{ plural(row.members) }}</span>
       </span>
     </a>

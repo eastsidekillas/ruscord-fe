@@ -8,13 +8,27 @@ import { ModalService } from '@shared/model/modal.service';
 import { AvatarUI } from '@shared/ui/avatar';
 import { StatusUi, StatusUIText } from '@entities/user-status';
 import { AppStateStore } from '@entities/app-state';
-import { ApiService, PublicUser, Relationship, apiError, errorText, nameOf } from '@shared/api';
+import { ApiService, PublicUser, RelType, RelTypeValue, Relationship, apiError, errorText, nameOf } from '@shared/api';
 
 interface Row {
   rel: Relationship;
   user: PublicUser | null;
   name: string;
 }
+
+interface Group {
+  title: string;
+  rows: Row[];
+}
+
+/** The line after a request's username. */
+export function requestNote(type: RelTypeValue): string {
+  if (type === RelType.Incoming) return ' · хочет дружить';
+  if (type === RelType.Outgoing) return ' · ждёт ответа';
+  return '';
+}
+
+const BTN = 'h-9 px-3.5 rounded-lg text-[13px] font-semibold';
 
 /** Friends, requests and blocks: everything comes from the gateway state. */
 @Component({
@@ -23,66 +37,61 @@ interface Row {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, FriendsHeader, AvatarUI, StatusUi, StatusUIText],
   template: `
-    <FriendsHeader [active]="tab()" [pendingCount]="store.incoming().length" (tabChange)="setTab($event)" />
+    <FriendsHeader [active]="tab()" [pendingCount]="store.incoming().length + store.outgoing().length" (tabChange)="setTab($event)" />
 
-    <!-- Add a friend by exact username, as in Discord -->
-    <div *ngIf="tab() === 'add'" class="px-6 pt-6">
-      <h2 class="text-xl font-semibold text-typo-secondary">Добавить в друзья</h2>
-      <p class="text-sm text-typo-secondary mt-1">Введите имя пользователя целиком, например <span class="text-gray-300">ivan.petrov</span>.</p>
-      <form class="mt-4 flex gap-3" (ngSubmit)="addFriend()">
-        <input name="username" [(ngModel)]="username" (ngModelChange)="addResult.set(null)" maxlength="32" autocomplete="off"
-               class="flex-1 p-3 bg-main-surface-secondary text-sm text-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-               placeholder="Имя пользователя" />
-        <button type="submit" [disabled]="!username.trim() || adding()"
-                class="text-sm text-white px-4 rounded-md bg-green-500 disabled:bg-gray-600 transition">
-          Отправить запрос
-        </button>
-      </form>
-      <p *ngIf="addResult() as r" class="mt-3 text-sm" [class.text-green-400]="r.ok" [class.text-red-400]="!r.ok">{{ r.text }}</p>
-    </div>
-
-    <div *ngIf="tab() !== 'add'" class="px-6 pt-6 flex flex-col gap-2">
-      <input *ngIf="tab() === 'online' || tab() === 'all'" [(ngModel)]="query" (ngModelChange)="q.set($event)"
-             class="w-full p-3 mb-2 bg-main-surface-secondary text-sm text-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-             placeholder="Поиск среди друзей" />
-
-      <h3 class="text-xs uppercase tracking-wide text-typo-secondary mb-1">{{ heading() }}</h3>
-
-      <div *ngFor="let row of rows(); trackBy: byId"
-           class="flex items-center justify-between py-3 px-3 rounded-md bg-main-surface-secondary hover:bg-main-surface-primary transition">
-        <button class="flex items-center space-x-3 min-w-0 text-left" (click)="openProfile(row.rel.id)">
-          <div class="relative w-10 h-10 shrink-0">
-            <div class="w-full h-full rounded-full overflow-hidden">
-              <AvatarUI [src]="row.user?.avatar" [name]="row.name" />
-            </div>
-            <StatusUI *ngIf="row.rel.type === 1" [userId]="row.rel.id"></StatusUI>
+    <div class="flex-1 overflow-y-auto">
+      <div class="p-6 flex flex-col gap-7 max-w-[808px]">
+        <!-- Add a friend by exact username, as in Discord -->
+        <form class="flex flex-col gap-2" (ngSubmit)="addFriend()">
+          <label for="friend-add" class="text-[13px] font-semibold">Добавить в друзья</label>
+          <div class="flex gap-2 flex-wrap">
+            <input id="friend-add" name="username" [(ngModel)]="username" (ngModelChange)="addResult.set(null)" maxlength="32" autocomplete="off"
+                   class="flex-[1_1_240px] h-12 box-border rounded-ok-md border bg-ok-sidebar text-ok-text px-4 placeholder:text-ok-muted"
+                   [class.border-ok-danger]="addResult()?.ok === false" [class.border-ok-border-control]="addResult()?.ok !== false"
+                   [attr.aria-invalid]="addResult()?.ok === false" aria-describedby="friend-add-result"
+                   placeholder="Имя пользователя" />
+            <button type="submit" [disabled]="!username.trim() || adding()"
+                    class="h-12 px-5 rounded-ok-md bg-ok-accent text-ok-on-accent font-semibold disabled:opacity-50">Отправить заявку</button>
           </div>
-          <div class="flex flex-col min-w-0">
-            <span class="text-sm text-gray-200 font-medium truncate">{{ row.name }}</span>
-            <StatusUIText *ngIf="row.rel.type === 1" [userId]="row.rel.id" />
-            <span *ngIf="row.rel.type === 3" class="text-xs text-typo-secondary">Входящий запрос</span>
-            <span *ngIf="row.rel.type === 4" class="text-xs text-typo-secondary">Исходящий запрос</span>
-            <span *ngIf="row.rel.type === 2" class="text-xs text-typo-secondary">{{ row.user?.username }}</span>
-          </div>
-        </button>
+          <span id="friend-add-result" class="text-[13px]" [class.text-ok-success]="addResult()?.ok" [class.text-ok-danger]="addResult()?.ok === false">{{ addResult()?.text }}</span>
+        </form>
 
-        <div class="flex gap-2 shrink-0">
-          <ng-container [ngSwitch]="row.rel.type">
-            <ng-container *ngSwitchCase="1">
-              <button class="text-xs text-gray-300 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10" (click)="openChat(row.rel.id)">Написать</button>
-              <button class="text-xs text-red-400 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 hover:bg-red-500" (click)="removeFriend(row)">Удалить</button>
+        <input *ngIf="(tab() === 'online' || tab() === 'all') && store.friends().length" [(ngModel)]="query" (ngModelChange)="q.set($event)"
+               aria-label="Поиск среди друзей" placeholder="Поиск среди друзей"
+               class="h-12 box-border rounded-ok-md border border-ok-border-control bg-ok-sidebar text-ok-text px-4 placeholder:text-ok-muted" />
+
+        <section *ngFor="let g of groups(); trackBy: byTitle" class="flex flex-col gap-1" [attr.aria-label]="g.title">
+          <h2 class="m-0 mb-1.5 text-[12px] font-semibold tracking-[0.1em] text-ok-muted">{{ g.title }} — {{ g.rows.length }}</h2>
+          <div *ngFor="let row of g.rows; trackBy: byId" [attr.data-rel]="row.rel.type" class="flex items-center gap-3 flex-wrap px-3 py-2.5 rounded-ok-md bg-ok-sidebar">
+            <button type="button" class="flex items-center gap-3 flex-1 min-w-0 text-left" (click)="openProfile(row.rel.id)">
+              <span class="relative w-10 h-10 shrink-0 rounded-[10px] bg-ok-avatar">
+                <span class="block w-full h-full rounded-[10px] overflow-hidden"><AvatarUI [src]="row.user?.avatar" [name]="row.name" /></span>
+                <StatusUI *ngIf="row.rel.type === 1" [userId]="row.rel.id" [large]="true" />
+              </span>
+              <span class="flex flex-col min-w-0">
+                <span class="font-semibold truncate">{{ row.name }}</span>
+                <StatusUIText *ngIf="row.rel.type === 1" [userId]="row.rel.id" size="text-[13px]" />
+                <span *ngIf="row.rel.type !== 1" class="text-[13px] text-ok-muted truncate">{{ row.user?.username }}{{ note(row.rel.type) }}</span>
+              </span>
+            </button>
+            <ng-container [ngSwitch]="row.rel.type">
+              <ng-container *ngSwitchCase="1">
+                <button type="button" [class]="btn" (click)="openChat(row.rel.id)">Написать</button>
+                <button type="button" [class]="btn" (click)="removeFriend(row)">Удалить из друзей</button>
+                <button type="button" [class]="btn + ' !text-ok-danger'" (click)="block(row)">Заблокировать</button>
+              </ng-container>
+              <ng-container *ngSwitchCase="3">
+                <button type="button" [class]="btnAccent" (click)="accept(row.rel.id)">Принять</button>
+                <button type="button" [class]="btn" (click)="drop(row.rel.id, 'Не удалось отклонить запрос')">Отклонить</button>
+              </ng-container>
+              <button *ngSwitchCase="4" type="button" [class]="btn" (click)="drop(row.rel.id, 'Не удалось отменить запрос')">Отменить</button>
+              <button *ngSwitchCase="2" type="button" [class]="btn" (click)="drop(row.rel.id, 'Не удалось разблокировать')">Разблокировать</button>
             </ng-container>
-            <ng-container *ngSwitchCase="3">
-              <button class="text-xs text-white px-3 py-1.5 rounded-lg bg-green-500" (click)="accept(row.rel.id)">Принять</button>
-              <button class="text-xs text-white px-3 py-1.5 rounded-lg bg-red-500" (click)="drop(row.rel.id, 'Не удалось отклонить запрос')">Отклонить</button>
-            </ng-container>
-            <button *ngSwitchCase="4" class="text-xs text-gray-300 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10" (click)="drop(row.rel.id, 'Не удалось отменить запрос')">Отменить</button>
-            <button *ngSwitchCase="2" class="text-xs text-gray-300 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10" (click)="drop(row.rel.id, 'Не удалось разблокировать')">Разблокировать</button>
-          </ng-container>
-        </div>
+          </div>
+        </section>
+
+        <p *ngIf="store.loaded() && !groups().length" class="m-0 text-center text-ok-muted text-[13px]">{{ empty() }}</p>
       </div>
-
-      <p *ngIf="store.loaded() && !rows().length" class="text-center text-typo-secondary text-sm mt-8">{{ empty() }}</p>
     </div>
   `,
 })
@@ -105,34 +114,26 @@ export class RelationshipsPage {
     return { rel, user, name: nameOf(user) };
   };
 
-  protected readonly rows = computed<Row[]>(() => {
+  protected readonly groups = computed<Group[]>(() => {
     const sort = (a: Row, b: Row) => a.name.localeCompare(b.name, 'ru');
+    const rows = (rels: Relationship[]) => rels.map(this.toRow).sort(sort);
+    const keep = (gs: Group[]) => gs.filter(g => g.rows.length);
     switch (this.tab()) {
       case 'online':
       case 'all': {
         const q = this.q().trim().toLowerCase();
-        return this.store.friends()
-          .map(this.toRow)
+        const list = rows(this.store.friends())
           .filter(r => this.tab() === 'all' || this.store.status(r.rel.id) !== 'offline')
-          .filter(r => !q || r.name.toLowerCase().includes(q) || (r.user?.username ?? '').includes(q))
-          .sort(sort);
+          .filter(r => !q || r.name.toLowerCase().includes(q) || (r.user?.username ?? '').includes(q));
+        return keep([{ title: this.tab() === 'online' ? 'В СЕТИ' : 'ВСЕ ДРУЗЬЯ', rows: list }]);
       }
       case 'pending':
-        return [...this.store.incoming().map(this.toRow).sort(sort), ...this.store.outgoing().map(this.toRow).sort(sort)];
-      case 'blocked':
-        return this.store.blocked().map(this.toRow).sort(sort);
+        return keep([
+          { title: 'ВХОДЯЩИЕ', rows: rows(this.store.incoming()) },
+          { title: 'ИСХОДЯЩИЕ', rows: rows(this.store.outgoing()) },
+        ]);
       default:
-        return [];
-    }
-  });
-
-  protected readonly heading = computed(() => {
-    const n = this.rows().length;
-    switch (this.tab()) {
-      case 'online': return `В сети — ${n}`;
-      case 'all': return `Все друзья — ${n}`;
-      case 'pending': return `Ожидание — ${n}`;
-      default: return `Заблокированные — ${n}`;
+        return keep([{ title: 'ЗАБЛОКИРОВАННЫЕ', rows: rows(this.store.blocked()) }]);
     }
   });
 
@@ -146,7 +147,13 @@ export class RelationshipsPage {
     }
   });
 
+  protected readonly btn = `${BTN} bg-ok-surface-2 text-ok-text hover:bg-ok-border`;
+  protected readonly btnAccent = `${BTN} bg-ok-accent text-ok-on-accent`;
+
   protected byId = (_: number, r: Row) => r.rel.id;
+  protected byTitle = (_: number, g: Group) => g.title;
+
+  protected readonly note = requestNote;
 
   protected setTab(t: FriendsTab): void {
     this.tab.set(t);
@@ -183,6 +190,13 @@ export class RelationshipsPage {
   protected drop(userId: string, failText: string): void {
     this.api.removeRelationship(userId).subscribe({
       error: err => this.notify.show(errorText(err, failText), 'error'),
+    });
+  }
+
+  protected block(row: Row): void {
+    if (!confirm(`Заблокировать ${row.name}? Дружба и заявки пропадут, писать вам будет нельзя.`)) return;
+    this.api.block(row.rel.id).subscribe({
+      error: err => this.notify.show(errorText(err, 'Не удалось заблокировать'), 'error'),
     });
   }
 
