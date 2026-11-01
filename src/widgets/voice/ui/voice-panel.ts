@@ -24,7 +24,7 @@ import { AudioDeviceKind, VoiceService } from '@entities/voice';
           <div class="text-xs text-gray-400 truncate">{{ place() }}</div>
         </div>
         <button type="button" (click)="voice.toggleMute()" [disabled]="!voice.canSpeak()"
-                [title]="voice.selfMute() ? 'Включить микрофон' : 'Выключить микрофон'"
+                [title]="voice.serverMute() ? 'Микрофон выключил модератор' : voice.selfMute() ? 'Включить микрофон' : 'Выключить микрофон'"
                 class="p-1.5 rounded-md hover:bg-white/10 disabled:opacity-40"
                 [ngClass]="voice.selfMute() ? 'text-red-400' : 'text-gray-300'">
           <lucide-angular class="w-4 h-4" [img]="voice.selfMute() ? MicOff : Mic"></lucide-angular>

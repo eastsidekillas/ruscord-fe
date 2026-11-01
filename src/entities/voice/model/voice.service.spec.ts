@@ -1,5 +1,5 @@
-import { DisconnectReason } from 'livekit-client';
-import { disconnectText, liveKitUrl } from './voice.service';
+import { DisconnectReason, Track } from 'livekit-client';
+import { disconnectText, liveKitUrl, micAllowed } from './voice.service';
 
 describe('voice helpers', () => {
   it('connects to LiveKit on this site unless the core names another address', () => {
@@ -13,5 +13,15 @@ describe('voice helpers', () => {
     expect(disconnectText(DisconnectReason.PARTICIPANT_REMOVED)).toContain('отключены');
     expect(disconnectText(DisconnectReason.DUPLICATE_IDENTITY)).toContain('другой вкладке');
     expect(disconnectText(undefined)).toContain('потеряно');
+  });
+
+  it('knows whether LiveKit lets us publish the microphone', () => {
+    const src = (...s: Track.Source[]) => s.map(Track.sourceToProto);
+    expect(micAllowed({ canPublish: true, canPublishSources: src(Track.Source.Microphone, Track.Source.Camera) })).toBeTrue();
+    // A moderator's mute: the microphone is gone, the screen stays.
+    expect(micAllowed({ canPublish: true, canPublishSources: src(Track.Source.Camera, Track.Source.ScreenShare) })).toBeFalse();
+    expect(micAllowed({ canPublish: true, canPublishSources: [] })).toBeTrue();
+    expect(micAllowed({ canPublish: false, canPublishSources: [] })).toBeFalse();
+    expect(micAllowed(undefined)).toBeFalse();
   });
 });

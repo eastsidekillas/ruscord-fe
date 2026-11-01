@@ -234,7 +234,7 @@ await step('create a channel from the menu; others see it live', async () => {
   await sees(bob, 'первая новость');
 });
 
-await step('voice: both enter the voice channel, hear who speaks, mute shows, leave', async () => {
+await step('voice: both enter the voice channel, hear who speaks, mute shows; the owner mutes and disconnects Bob', async () => {
   const room = p => p.locator('[data-voice-member]');
   for (const p of [ann, bob]) await p.locator('[data-voice-channel="General"]').click();
   for (const p of [ann, bob]) {
@@ -245,9 +245,29 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows, le
   await ann.locator('[data-speaking]').first().waitFor({ timeout: 15000 });
   await bob.locator('[data-voice-panel] button[title="Выключить микрофон"]').click();
   await ann.locator('[data-voice-member="BOB"] [title="Микрофон выключен"]').waitFor({ timeout: 10000 });
-  for (const p of [bob, ann]) await p.locator('[data-voice-panel] button[title="Отключиться"]').click();
+  await bob.locator('[data-voice-panel] button[title="Включить микрофон"]').click();
+
+  // The owner mutes Bob: LiveKit takes his microphone away, his button goes grey.
+  const bobRow = ann.locator('[data-voice-member="BOB"]');
+  await bobRow.hover();
+  await bobRow.locator('button[title="Выключить микрофон участнику"]').click();
+  await bobRow.locator('[title="Микрофон выключил модератор"]').waitFor({ timeout: 10000 });
+  await sees(bob, 'Модератор выключил вам микрофон', 10000);
+  await bob.locator('[data-voice-panel] button[title="Микрофон выключил модератор"]:disabled').waitFor({ timeout: 10000 });
+  await bobRow.hover();
+  await bobRow.locator('button[title="Вернуть микрофон"]').click();
+  await bob.locator('[data-voice-panel] button[title="Выключить микрофон"]:enabled').waitFor({ timeout: 10000 });
+
+  // And disconnects him.
+  await bobRow.hover();
+  await bobRow.locator('button[title="Отключить от канала"]').click();
+  await sees(bob, 'Вы отключены от голосового канала', 10000);
+  await bobRow.waitFor({ state: 'detached', timeout: 10000 });
+
+  await ann.locator('[data-voice-panel] button[title="Отключиться"]').click();
   await ann.locator('[data-voice-panel]').waitFor({ state: 'detached', timeout: 10000 });
   await room(ann).first().waitFor({ state: 'detached', timeout: 15000 });
+  await bob.locator('[data-voice-panel] button[title="Скрыть"]').click();
 });
 
 await step('a role with kick rights, given to Bob, opens settings for him', async () => {

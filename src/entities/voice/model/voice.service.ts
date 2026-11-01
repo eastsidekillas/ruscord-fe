@@ -2,6 +2,7 @@ import { DestroyRef, Injectable, NgZone, computed, effect, inject, signal, untra
 import { firstValueFrom } from 'rxjs';
 import {
   DisconnectReason,
+  LocalParticipant,
   Participant,
   RemoteAudioTrack,
   RemoteTrack,
@@ -64,6 +65,16 @@ export function disconnectText(reason: DisconnectReason | undefined): string | n
   }
 }
 
+/** LiveKit's permission of a participant (livekit-client does not export the type). */
+type ParticipantPermission = NonNullable<Participant['permissions']>;
+
+/** Whether LiveKit's permission lets the participant publish the microphone. */
+export function micAllowed(p: Pick<ParticipantPermission, 'canPublish' | 'canPublishSources'> | undefined): boolean {
+  if (!p?.canPublish) return false;
+  // An empty list allows every source.
+  return !p.canPublishSources.length || p.canPublishSources.some(s => Track.sourceFromProto(s) === Track.Source.Microphone);
+}
+
 /**
  * The voice connection of this tab (ruscord-core ADR-0025): one LiveKit room
  * at a time. Components read its signals and call its methods; nothing else
@@ -85,6 +96,9 @@ export class VoiceService {
   /** The token does not allow the microphone, or push-to-talk is required. */
   readonly canSpeak = signal(true);
   readonly pushToTalk = signal(false);
+  /** A moderator muted or deafened us (from our voice state). */
+  readonly serverMute = signal(false);
+  readonly serverDeaf = signal(false);
   readonly inputs = signal<MediaDeviceInfo[]>([]);
   readonly outputs = signal<MediaDeviceInfo[]>([]);
   readonly input = signal(readDevice('audioinput'));
@@ -110,6 +124,7 @@ export class VoiceService {
       const v = ev.d as VoiceState;
       const t = this.target();
       if (!t || v.user_id !== auth.user()?.id || v.channel_id !== t.channelId) return;
+      this.moderated(!!v.mute, !!v.deaf);
       if (v.self_mute !== this.selfMute() || v.self_deaf !== this.selfDeaf()) this.report();
     });
   }
@@ -213,6 +228,26 @@ export class VoiceService {
     }
   }
 
+  /** Tells about a moderator's mute or deafen once, when it changes. */
+  private moderated(mute: boolean, deaf: boolean): void {
+    if (mute && !this.serverMute()) this.error.set('Модератор выключил вам микрофон');
+    if (deaf && !this.serverDeaf()) this.error.set('Модератор выключил вам звук');
+    this.serverMute.set(mute);
+    this.serverDeaf.set(deaf);
+  }
+
+  /**
+   * LiveKit changed what we may publish: a moderator's mute, or lost or
+   * regained SPEAK. LiveKit stops a track that is no longer allowed itself;
+   * a microphone allowed again comes back unless we muted ourselves.
+   */
+  private async permissionsChanged(local: LocalParticipant): Promise<void> {
+    const allowed = micAllowed(local.permissions);
+    if (allowed === this.canSpeak()) return;
+    this.canSpeak.set(allowed);
+    if (allowed) await this.setMic(!this.pushToTalk() && !this.selfMute() && !this.selfDeaf());
+  }
+
   private applyDeaf(deaf: boolean): void {
     this.selfDeaf.set(deaf);
     for (const el of this.audio.values()) el.muted = deaf;
@@ -236,6 +271,9 @@ export class VoiceService {
         run(() => this.speaking.set(new Set(speakers.map(p => p.identity)))))
       .on(RoomEvent.Reconnecting, () => run(() => this.status.set('reconnecting')))
       .on(RoomEvent.Reconnected, () => run(() => this.status.set('connected')))
+      .on(RoomEvent.ParticipantPermissionsChanged, (_prev: ParticipantPermission | undefined, p: Participant) => {
+        if (p === room.localParticipant) run(() => void this.permissionsChanged(room.localParticipant));
+      })
       .on(RoomEvent.MediaDevicesChanged, () => run(() => void this.refreshDevices()))
       .on(RoomEvent.Disconnected, (reason?: DisconnectReason) =>
         run(() => {
@@ -278,6 +316,8 @@ export class VoiceService {
     this.status.set('idle');
     this.target.set(null);
     this.speaking.set(new Set());
+    this.serverMute.set(false);
+    this.serverDeaf.set(false);
     if (error) this.error.set(error);
   }
 }
