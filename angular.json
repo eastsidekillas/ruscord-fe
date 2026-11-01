@@ -27,7 +27,7 @@
               }
             ],
             "styles": [
-              "node_modules/@fontsource-variable/inter/index.css",
+              "node_modules/@fontsource-variable/manrope/index.css",
               "src/styles.css"
             ],
             "scripts": []
@@ -101,7 +101,7 @@
               }
             ],
             "styles": [
-              "node_modules/@fontsource-variable/inter/index.css",
+              "node_modules/@fontsource-variable/manrope/index.css",
               "src/styles.css"
             ],
             "scripts": []

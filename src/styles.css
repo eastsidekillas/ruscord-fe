@@ -1,33 +1,70 @@
 @import "tailwindcss";
 
+/*
+ * Okno design system tokens (ruscord-core ADR-0027), dark theme. Names follow
+ * the system's tokens.json: bg, sidebar, surface-1, surface-2, border,
+ * border-control, text, text-muted, accent, on-accent, danger, success,
+ * warning. Utilities: bg-ok-bg, text-ok-muted, border-ok-border...
+ */
 @theme {
-  /* Цвета */
-  --color-main-surface-primary: #212121;
-  --color-main-surface-secondary: #2f2f2f;
+  --color-ok-bg: #0F1112;
+  --color-ok-sidebar: #131617;
+  --color-ok-surface-1: #181B1D;
+  --color-ok-surface-2: #22272A;
+  --color-ok-avatar: #343A3E;
+  --color-ok-border: #2A2F32;
+  --color-ok-border-control: #666E73;
+  --color-ok-text: #EDEFF0;
+  --color-ok-muted: #8D9396;
+  --color-ok-accent: #7FB2E5;
+  --color-ok-on-accent: #0F1112;
+  --color-ok-danger: #F08A80;
+  --color-ok-success: #7FD1A8;
+  --color-ok-warning: #E6C27A;
 
-  --color-typo-secondary: #b4b4b4;
+  --radius-ok-sm: 6px;
+  --radius-ok-md: 12px;
+  --radius-ok-lg: 20px;
 
-  --color-sidebar-surface-primary: #171717;
-  --color-sidebar-surface-secondary: #212121;
-
+  /* Older names, mapped onto Okno until their screens are redone. */
+  --color-main-surface-primary: #181B1D;
+  --color-main-surface-secondary: #22272A;
+  --color-typo-secondary: #8D9396;
+  --color-sidebar-surface-primary: #131617;
+  --color-sidebar-surface-secondary: #131617;
   --color-green-500: #01796F;
 
-  /* Шрифты */
-  --font-sans: "Inter Variable", "Inter", 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  --font-sans: "Manrope Variable", "Manrope", system-ui, -apple-system, "Segoe UI", 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
 }
 
-/* Настройка скроллбара */
+html, body {
+  background: var(--color-ok-bg);
+  color: var(--color-ok-text);
+}
+
+input, textarea, select, button {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ok-accent);
+  outline-offset: 2px;
+}
+
+/* A label read by screen readers, not shown. */
+.sr-only-ok {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 @layer utilities {
   .scrollbar-rounded::-webkit-scrollbar {
     border-radius: 9999px;
   }
-}
-
-
-
-
-input, textarea {
-  font-family: "Inter Variable", "Inter", 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
 }
 
 #video-container video {
@@ -38,23 +75,20 @@ input, textarea {
   background: black;
 }
 
-
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #4caf50;
+  background-color: var(--color-ok-surface-2);
   border-radius: 4px;
-  border: 2px solid #1e1e1e;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #66bb6a;
+  background-color: var(--color-ok-border-control);
 }
 
 ::-webkit-scrollbar-track {
-  background-color: #1e1e1e;
-  border-radius: 4px;
+  background-color: transparent;
 }

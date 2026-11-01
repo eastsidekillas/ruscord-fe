@@ -33,8 +33,17 @@ CI (`.github/workflows/ci.yml`) на каждом PR собирает прода
 гоняет юнит-тесты. Сквозной прогон требует запущенного ядра и пока
 запускается вручную: `npx playwright install chromium` один раз, затем
 `E2E_FIXTURES=../ruscord-core/internal/platform/imaging/testdata npm run e2e`.
-Шрифт Inter лежит в сборке (`@fontsource-variable/inter`): клиент не ходит на
+Шрифт Manrope лежит в сборке (`@fontsource-variable/manrope`): клиент не ходит на
 внешние серверы (152-ФЗ, см. `docs/legal/russia.md` ядра).
+
+## Дизайн
+
+Дизайн-система Okno (ruscord-core ADR-0027): токены — в `src/styles.css`
+(`bg-ok-bg`, `text-ok-muted`, `rounded-ok-md`…), иконки — lucide, название и
+знак — `src/shared/config/brand.ts` (Okno — временное название). Экраны
+первого сценария сверены с макетами попиксельно на 1440×900. Старые имена
+цветов (`main-surface-*`, `typo-secondary`) пока указывают на цвета Okno, до
+переделки остальных экранов.
 
 Открывайте `http://localhost:4200`, а не `127.0.0.1:4200`: ядро проверяет
 Origin по списку `RUSCORD_ALLOWED_ORIGINS` (по умолчанию `http://localhost:4200`).

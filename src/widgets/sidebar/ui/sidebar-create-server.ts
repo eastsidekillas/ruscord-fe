@@ -1,29 +1,24 @@
-import { Component, OnInit } from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {ModalService} from '@shared/model/modal.service';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { LucideAngularModule, Plus } from 'lucide-angular';
+import { ModalService } from '@shared/model/modal.service';
 
 @Component({
   selector: 'SidebarCreateServer',
   standalone: true,
-  imports: [CommonModule],
-  template:
-    `
-      <button
-        (click)="openCreateServerModal()"
-        class="w-12 h-12 bg-main-surface-secondary rounded-full flex items-center justify-center mb-2 lg:mb-4 hover:bg-gray-500"
-      >
-        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 4v16m8-8H4" />
-        </svg>
-      </button>
-    `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [LucideAngularModule],
+  template: `
+    <button type="button" (click)="open()" aria-label="Добавить сервер" title="Добавить сервер"
+            class="w-12 h-12 shrink-0 rounded-ok-md border border-dashed border-ok-border-control text-ok-muted hover:text-ok-text flex items-center justify-center">
+      <lucide-angular class="w-5 h-5" [img]="Plus"></lucide-angular>
+    </button>
+  `,
 })
 export class SidebarCreateServer {
+  private readonly modal = inject(ModalService);
+  protected readonly Plus = Plus;
 
-  constructor(private modalService: ModalService) {}
-
-  openCreateServerModal() {
-    this.modalService.open('createServer');
+  open(): void {
+    this.modal.open('createServer');
   }
 }

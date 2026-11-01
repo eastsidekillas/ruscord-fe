@@ -18,24 +18,27 @@ export const MAX_MESSAGE = 4000;
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, LucideAngularModule],
   template: `
-    <div *ngIf="replyTo || editing" class="flex items-center gap-2 mb-2 pl-3 pr-2 py-1.5 bg-main-surface-secondary rounded-xl text-xs border border-white/5">
-      <lucide-angular [img]="editing ? Pencil : Reply" class="w-3.5 h-3.5 text-green-500 shrink-0"></lucide-angular>
+    <div *ngIf="replyTo || editing" class="flex items-center gap-2 px-3 py-2 rounded-t-ok-md bg-ok-surface-2 text-[13px] text-ok-muted min-w-0">
+      <lucide-angular [img]="editing ? Pencil : Reply" class="w-3.5 h-3.5 shrink-0"></lucide-angular>
       <ng-container *ngIf="editing; else replyLine">
-        <span class="text-gray-400 flex-1">Редактирование сообщения · Esc — отмена</span>
+        <span class="flex-1">Редактирование сообщения · Esc — отмена</span>
       </ng-container>
       <ng-template #replyLine>
-        <span class="text-gray-400">Ответ для</span>
-        <span class="text-green-400 font-medium">{{ replyTo!.authorName }}</span>
-        <span class="text-gray-500 truncate flex-1">{{ replyTo!.message.content }}</span>
+        <span class="shrink-0">Ответ для</span>
+        <span class="font-semibold text-ok-text shrink-0">{{ replyTo!.authorName }}</span>
+        <span class="truncate flex-1">{{ replyTo!.message.content }}</span>
       </ng-template>
-      <button (click)="cancel()" class="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors shrink-0" title="Отменить">
+      <button type="button" (click)="cancel()" class="w-7 h-7 rounded-lg text-ok-muted hover:text-ok-text hover:bg-ok-surface-1 flex items-center justify-center shrink-0"
+              title="Отменить" aria-label="Отменить">
         <lucide-angular [img]="X" class="w-3.5 h-3.5"></lucide-angular>
       </button>
     </div>
 
-    <div class="bg-main-surface-secondary rounded-xl shadow-lg px-4 py-4 flex items-center gap-3" [class.opacity-60]="disabled">
+    <label class="flex items-center gap-2 h-12 pl-4 pr-1.5 border border-ok-border-control bg-ok-sidebar"
+           [ngClass]="replyTo || editing ? 'rounded-b-ok-md' : 'rounded-ok-md'" [class.opacity-60]="disabled">
+      <span class="sr-only-ok">Сообщение</span>
       <input #field
-        class="flex-1 bg-transparent text-sm text-gray-200 focus:outline-none placeholder-typo-secondary h-10"
+        class="flex-1 min-w-0 bg-transparent text-[15px] text-ok-text placeholder:text-ok-muted outline-none"
         type="text"
         [maxlength]="max"
         [disabled]="disabled"
@@ -45,10 +48,11 @@ export const MAX_MESSAGE = 4000;
         (keydown.enter)="handleSend()"
         (keydown.escape)="cancel()"
       />
-      <button (click)="handleSend()" [disabled]="disabled" class="text-green-500 hover:text-green-400 transition-all shrink-0 disabled:text-gray-600" title="Отправить">
-        <lucide-angular class="w-5 h-5" [img]="SendHorizonal"></lucide-angular>
+      <button type="button" (click)="handleSend()" [disabled]="disabled || !message.trim()" title="Отправить" aria-label="Отправить"
+              class="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center text-ok-accent hover:bg-ok-surface-1 disabled:text-ok-muted disabled:hover:bg-transparent">
+        <lucide-angular class="w-[18px] h-[18px]" [img]="SendHorizonal"></lucide-angular>
       </button>
-    </div>
+    </label>
   `,
 })
 export class MessageInput implements OnChanges {

@@ -7,11 +7,7 @@ import { AppStateStore } from '@entities/app-state/model/app-state.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="flex items-center space-x-1">
-      <span class="text-xs"
-            [class.text-green-400]="status() === 'online'"
-            [class.text-yellow-400]="status() === 'idle'"
-            [class.text-red-400]="status() === 'dnd'"
-            [class.text-gray-400]="status() === 'offline'">
+      <span class="text-[12px] text-ok-muted">
         {{ statusText() }}
       </span>
     </div>
@@ -23,7 +19,7 @@ export class StatusUIText {
   protected readonly statusText = computed(() => {
     switch (this.status()) {
       case 'online':  return 'В сети';
-      case 'idle':    return 'Не активен';
+      case 'idle':    return 'Не на месте';
       case 'dnd':     return 'Не беспокоить';
       case 'offline': return 'Не в сети';
       default:        return 'Неизвестно';

@@ -4,26 +4,20 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
 import { Sidebar } from '@widgets/sidebar/ui/sidebar';
 import { ServerSidebar } from '@widgets/sidebar/ui/server-sidebar/server-sidebar';
-import { SidebarFooter } from '@widgets/sidebar/ui/sidebar-footer';
 import { AppStateStore } from '@entities/app-state';
 
 @Component({
   selector: 'app-server-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Sidebar, ServerSidebar, RouterOutlet, SidebarFooter],
+  imports: [Sidebar, ServerSidebar, RouterOutlet],
   template: `
-    <div class="flex flex-col lg:flex-row h-screen relative">
-      <ServerSidebar class="w-full lg:w-20 bg-sidebar-surface-primary flex lg:flex-col max-sm:hidden items-center pt-2 pb-4 lg:pb-6" />
-      <Sidebar
-        class="flex flex-col lg:w-64 bg-sidebar-surface-primary"
-        [serverId]="serverId()"
-        [isServerRoute]="true"
-      />
-      <div class="flex-1 flex flex-col bg-main-surface-primary min-w-0">
+    <div class="flex h-screen overflow-hidden bg-ok-bg text-ok-text text-[15px]">
+      <ServerSidebar />
+      <Sidebar [serverId]="serverId()" [isServerRoute]="true" />
+      <main class="flex-1 flex flex-col min-w-0 bg-ok-surface-1">
         <router-outlet></router-outlet>
-      </div>
-      <SidebarFooter />
+      </main>
     </div>
   `,
 })

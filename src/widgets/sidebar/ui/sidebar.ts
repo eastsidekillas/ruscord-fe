@@ -9,46 +9,38 @@ import { NotificationService } from '@shared/model/notification.service';
 import { DropdownMenuItem } from '@shared/ui/dropdown-menu';
 import { ApiService, Perm, errorText, hasPerm } from '@shared/api';
 import { AppStateStore } from '@entities/app-state';
-import { VoiceService } from '@entities/voice';
 import { settingsTabs } from '@features/server-settings/ui/server-settings-modal';
+import { LucideAngularModule, Users } from 'lucide-angular';
+import { SidebarFooter } from '@widgets/sidebar/ui/sidebar-footer';
 
 @Component({
   selector: 'Sidebar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterLink, RouterLinkActive, SidebarItem, SidebarHeader, ServerChannelsItems],
+  imports: [CommonModule, RouterLink, RouterLinkActive, LucideAngularModule, SidebarItem, SidebarHeader, ServerChannelsItems, SidebarFooter],
+  host: { class: 'w-[248px] shrink-0 flex flex-col min-h-0 bg-ok-sidebar rounded-tl-ok-lg' },
   template: `
-    <div class="flex flex-col h-full">
-      <SidebarHeader
-        [serverName]="guild()?.name ?? null"
-        [isServerRoute]="isServerRoute"
-        [items]="menu()"
-        (menuAction)="handleMenuAction($event)"
-      />
+    <SidebarHeader *ngIf="isServerRoute"
+      [serverName]="guild()?.name ?? null"
+      [items]="menu()"
+      (menuAction)="handleMenuAction($event)"
+    />
 
-      <ng-container *ngIf="!isServerRoute">
-        <div class="overflow-y-auto space-y-3 mb-4 px-4">
-          <a [routerLink]="['/channels/me']" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive="bg-green-500"
-             class="flex items-center space-x-3 py-3 px-3 rounded-md bg-main-surface-secondary hover:bg-green-500">
-            <svg class="w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
-                 viewBox="0 0 24 24">
-              <path fill-rule="evenodd"
-                    d="M12 6a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm-1.5 8a4 4 0 0 0-4 4 2 2 0 0 0 2 2h7a2 2 0 0 0 2-2 4 4 0 0 0-4-4h-3Zm6.82-3.096a5.51 5.51 0 0 0-2.797-6.293 3.5 3.5 0 1 1 2.796 6.292ZM19.5 18h.5a2 2 0 0 0 2-2 4 4 0 0 0-4-4h-1.1a5.503 5.503 0 0 1-.471.762A5.998 5.998 0 0 1 19.5 18ZM4 7.5a3.5 3.5 0 0 1 5.477-2.889 5.5 5.5 0 0 0-2.796 6.293A3.501 3.501 0 0 1 4 7.5ZM7.1 12H6a4 4 0 0 0-4 4 2 2 0 0 0 2 2h.5a5.998 5.998 0 0 1 3.071-5.238A5.505 5.505 0 0 1 7.1 12Z"
-                    clip-rule="evenodd"/>
-            </svg>
-            <span class="text-sm text-gray-300">Друзья</span>
-          </a>
-        </div>
-        <div class="flex-1 overflow-y-auto space-y-3 px-4" [ngClass]="voice.connected() ? 'pb-48' : 'pb-28'">
-          <h3 class="text-lg font-medium text-typo-secondary mb-4">Личные сообщения</h3>
-          <SidebarItem></SidebarItem>
-        </div>
-      </ng-container>
-
-      <ng-container *ngIf="isServerRoute && guild() as g">
-        <ServerChannelsItems class="flex-1 min-h-0" [ngClass]="voice.connected() ? 'pb-48' : 'pb-28'" [guild]="g"></ServerChannelsItems>
-      </ng-container>
+    <div *ngIf="!isServerRoute" class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-0.5 px-2 py-3">
+      <a [routerLink]="['/channels/me']" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive="!bg-ok-surface-2 !text-ok-text"
+         class="flex items-center gap-2.5 p-2.5 rounded-lg text-ok-muted font-semibold hover:bg-ok-surface-1 hover:text-ok-text">
+        <lucide-angular class="w-[18px] h-[18px]" [img]="Users"></lucide-angular>
+        Друзья
+        <span *ngIf="incoming() as n" class="ml-auto min-w-5 h-5 px-1.5 rounded-md bg-ok-danger text-ok-on-accent text-[12px] flex items-center justify-center"
+              [attr.aria-label]="n + ' входящих заявок'">{{ n }}</span>
+      </a>
+      <h3 class="text-[12px] font-semibold tracking-[0.1em] text-ok-muted px-2.5 pt-4 pb-1.5">ЛИЧНЫЕ СООБЩЕНИЯ</h3>
+      <SidebarItem />
     </div>
+
+    <ServerChannelsItems *ngIf="isServerRoute && guild() as g" class="flex-1 min-h-0" [guild]="g" />
+
+    <SidebarFooter />
   `,
 })
 export class Sidebar {
@@ -57,13 +49,15 @@ export class Sidebar {
 
   private readonly id = signal<string | null>(null);
   private readonly store = inject(AppStateStore);
-  protected readonly voice = inject(VoiceService);
   private readonly modal = inject(ModalService);
   private readonly api = inject(ApiService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
 
   protected readonly guild = computed(() => this.store.guild(this.id()));
+  protected readonly Users = Users;
+  /** Incoming friend requests (relationship type 3). */
+  protected readonly incoming = computed(() => this.store.relationships().filter(r => r.type === 3).length);
 
   /** Only what the user may do (rights come from the server, ADR-0017). */
   protected readonly menu = computed<DropdownMenuItem[]>(() => {

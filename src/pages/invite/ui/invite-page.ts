@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   OnInit,
   inject,
   signal,
@@ -10,6 +11,9 @@ import { CommonModule } from '@angular/common';
 import { ApiService, InvitePreview, apiError, nameOf } from '@shared/api';
 import { AuthService } from '@entities/session/api/auth.service';
 import { AppStateStore, firstTextChannel } from '@entities/app-state';
+import { AvatarUI } from '@shared/ui/avatar';
+import { members } from '@shared/lib/plural';
+import { APP_MARK, APP_NAME } from '@shared/config/brand';
 
 interface InviteDetails {
   server_name: string;
@@ -18,161 +22,71 @@ interface InviteDetails {
   member_count: number;
   creator_name: string | null;
   creator_avatar: string | null;
+  /** When it stops working, in local time; null for an invite without an end. */
+  expires: string | null;
 }
 
 @Component({
   selector: 'app-invite-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, AvatarUI],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styles: `
-    @keyframes fade-in {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .animate-fade-in { animation: fade-in .35s ease both; }
-  `,
   template: `
-    <div class="min-h-screen bg-main-surface-primary flex items-center justify-center p-4">
-
-      <!-- Loading skeleton -->
-      <div *ngIf="loading()" class="w-full max-w-sm bg-main-surface-secondary rounded-2xl p-8 flex flex-col items-center gap-4">
-        <div class="w-20 h-20 rounded-full bg-white/10 animate-pulse"></div>
-        <div class="w-40 h-4 rounded bg-white/10 animate-pulse"></div>
-        <div class="w-28 h-3 rounded bg-white/10 animate-pulse"></div>
-        <div class="w-36 h-10 rounded-xl bg-white/10 animate-pulse mt-2"></div>
+    <div class="min-h-screen flex flex-col items-center justify-center gap-8 px-4 py-12 bg-ok-bg text-ok-text text-[15px]">
+      <div class="flex items-center gap-3 text-2xl font-semibold tracking-[-0.02em]">
+        <img [src]="mark" alt="" class="w-9 h-9" />{{ appName }}
       </div>
 
-      <!-- Error state -->
-      <div *ngIf="!loading() && error()"
-           class="w-full max-w-sm bg-main-surface-secondary rounded-2xl p-8 flex flex-col items-center gap-3 animate-fade-in text-center">
-        <div class="w-16 h-16 rounded-full bg-red-500/15 flex items-center justify-center">
-          <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
-          </svg>
+      <section *ngIf="loading()" aria-busy="true" aria-label="Загрузка приглашения"
+               class="w-full max-w-[440px] rounded-ok-lg bg-ok-surface-1 border border-ok-border p-10 flex flex-col items-center gap-6">
+        <div class="w-20 h-20 rounded-ok-lg bg-ok-surface-2 animate-pulse"></div>
+        <div class="w-40 h-6 rounded-md bg-ok-surface-2 animate-pulse"></div>
+        <div class="w-full h-12 rounded-ok-md bg-ok-surface-2 animate-pulse"></div>
+      </section>
+
+      <section *ngIf="!loading() && error()" role="alert"
+               class="w-full max-w-[440px] rounded-ok-lg bg-ok-surface-1 border border-ok-border p-8 flex flex-col items-center gap-3 text-center">
+        <img [src]="mark" alt="" class="w-10 h-10 opacity-60" />
+        <h1 class="text-xl font-semibold">Приглашение недействительно</h1>
+        <p class="text-[13px] text-ok-muted">{{ error() }}</p>
+        <button type="button" (click)="goHome()" class="mt-1 h-10 px-4 rounded-[10px] bg-ok-surface-2 font-semibold">На главную</button>
+      </section>
+
+      <section *ngIf="!loading() && !error() && !isLoggedIn()"
+               class="w-full max-w-[440px] rounded-ok-lg bg-ok-surface-1 border border-ok-border p-10 flex flex-col items-center gap-6 text-center">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-[32px] leading-10 font-semibold tracking-[-0.02em]">Вас позвали на сервер</h1>
+          <p class="text-[13px] text-ok-muted">Войдите, чтобы увидеть приглашение и принять его.</p>
         </div>
-        <p class="text-white font-semibold text-lg">Приглашение недействительно</p>
-        <p class="text-gray-400 text-sm">{{ error() }}</p>
-        <button (click)="goHome()"
-                class="mt-2 px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm transition">
-          На главную
-        </button>
-      </div>
+        <button type="button" (click)="goLogin()" class="w-full h-12 rounded-ok-md bg-ok-accent text-ok-on-accent font-semibold">Войти, чтобы принять</button>
+      </section>
 
-      <!-- Signed out: the preview needs an account -->
-      <div *ngIf="!loading() && !error() && !isLoggedIn()"
-           class="w-full max-w-sm bg-main-surface-secondary rounded-2xl p-8 flex flex-col items-center gap-3 animate-fade-in text-center">
-        <p class="text-white font-semibold text-lg">Вас пригласили на сервер</p>
-        <p class="text-gray-400 text-sm">Войдите, чтобы увидеть приглашение и принять его.</p>
-        <button (click)="goLogin()"
-                class="w-full py-3 rounded-xl bg-green-500 hover:opacity-90 text-white font-semibold text-sm transition">
-          Войти, чтобы принять
-        </button>
-      </div>
-
-      <!-- Invite card -->
-      <div *ngIf="!loading() && !error() && details()"
-           class="w-full max-w-sm bg-main-surface-secondary rounded-2xl overflow-hidden shadow-2xl animate-fade-in">
-
-        <!-- Server banner area -->
-        <div class="h-20 bg-gradient-to-br from-green-500 to-[#015249] relative">
-          <!-- Server avatar -->
-          <div class="absolute -bottom-10 left-6">
-            <div class="w-20 h-20 rounded-2xl border-4 border-main-surface-secondary overflow-hidden bg-green-500 flex items-center justify-center shadow-lg">
-              <img *ngIf="details()!.server_avatar"
-                   [src]="details()!.server_avatar"
-                   [alt]="details()!.server_name"
-                   class="w-full h-full object-cover" />
-              <span *ngIf="!details()!.server_avatar"
-                    class="text-white text-2xl font-bold select-none">
-                {{ serverInitials() }}
-              </span>
-            </div>
-          </div>
+      <section *ngIf="!loading() && !error() && details() as d" aria-labelledby="inv-title"
+               class="w-full max-w-[440px] rounded-ok-lg bg-ok-surface-1 border border-ok-border p-10 flex flex-col items-center gap-6 text-center">
+        <div class="w-20 h-20 rounded-ok-lg overflow-hidden text-[28px]">
+          <AvatarUI [src]="d.server_avatar" [name]="d.server_name" [letters]="2" tone="bg-ok-accent text-ok-on-accent" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <div class="text-[13px] text-ok-muted">{{ d.creator_name ? d.creator_name + ' зовёт вас на сервер' : 'Вас зовут на сервер' }}</div>
+          <h1 id="inv-title" class="text-[32px] leading-10 font-semibold tracking-[-0.02em] break-words">{{ d.server_name }}</h1>
+          <div class="text-[13px] text-ok-muted">{{ d.member_count }} {{ members(d.member_count) }} · канал {{ d.server_description }}</div>
         </div>
 
-        <!-- Content -->
-        <div class="pt-14 px-6 pb-6">
-
-          <!-- Server name -->
-          <h1 class="text-white text-xl font-bold leading-tight">{{ details()!.server_name }}</h1>
-
-          <!-- Description -->
-          <p *ngIf="details()!.server_description"
-             class="text-gray-400 text-sm mt-1 line-clamp-2">
-            {{ details()!.server_description }}
-          </p>
-
-          <!-- Stats row -->
-          <div class="flex items-center gap-4 mt-3">
-            <div class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-full bg-gray-500 flex-shrink-0"></span>
-              <span class="text-gray-300 text-sm">{{ details()!.member_count }} участников</span>
-            </div>
-          </div>
-
-          <!-- Inviter line -->
-          <div *ngIf="details()!.creator_name"
-               class="flex items-center gap-2 mt-4 p-3 rounded-xl bg-black/20">
-            <div class="w-7 h-7 rounded-full overflow-hidden bg-green-500 flex-shrink-0 flex items-center justify-center">
-              <img *ngIf="details()!.creator_avatar"
-                   [src]="details()!.creator_avatar"
-                   class="w-full h-full object-cover" />
-              <span *ngIf="!details()!.creator_avatar"
-                    class="text-white text-xs font-semibold">
-                {{ details()!.creator_name!.charAt(0).toUpperCase() }}
-              </span>
-            </div>
-            <p class="text-gray-400 text-sm">
-              <span class="text-white font-medium">{{ details()!.creator_name }}</span>
-              приглашает вас присоединиться
-            </p>
-          </div>
-
-          <!-- Divider -->
-          <div class="border-t border-white/10 mt-5 mb-4"></div>
-
-          <!-- CTA — авторизован -->
-          <div *ngIf="!joined() && isLoggedIn()" class="flex flex-col gap-2">
-            <button (click)="joinServer()"
-                    [disabled]="joining()"
-                    class="w-full py-3 rounded-xl bg-green-500 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition">
-              {{ joining() ? 'Подключение...' : 'Принять приглашение' }}
-            </button>
-            <p class="text-center text-gray-500 text-xs">
-              Присоединяясь, вы принимаете правила сервера.
-            </p>
-          </div>
-
-          <!-- CTA — не авторизован -->
-          <div *ngIf="!isLoggedIn()" class="flex flex-col gap-2">
-            <button (click)="goLogin()"
-                    class="w-full py-3 rounded-xl bg-green-500 hover:opacity-90 text-white font-semibold text-sm transition">
-              Войти, чтобы принять
-            </button>
-            <p class="text-center text-gray-500 text-xs">
-              Нужна учётная запись Ruscord.
-            </p>
-          </div>
-
-          <!-- Success state -->
-          <div *ngIf="joined()" class="flex flex-col items-center gap-3 animate-fade-in">
-            <div class="w-12 h-12 rounded-full bg-green-500/15 flex items-center justify-center">
-              <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-              </svg>
-            </div>
-            <p class="text-green-500 font-medium text-sm">Вы успешно присоединились!</p>
-            <p class="text-gray-500 text-xs">Переход на сервер...</p>
-          </div>
-
-          <!-- Join error -->
-          <p *ngIf="joinError()"
-             class="mt-2 text-center text-red-400 text-sm">
-            {{ joinError() }}
-          </p>
+        <div *ngIf="!joined()" class="w-full flex flex-col gap-2">
+          <button type="button" (click)="joinServer()" [disabled]="joining()"
+                  class="h-12 rounded-ok-md bg-ok-accent text-ok-on-accent font-semibold disabled:opacity-60">
+            {{ joining() ? 'Подключение…' : 'Принять приглашение' }}
+          </button>
+          <button type="button" (click)="switchAccount()" class="h-12 rounded-ok-md bg-ok-surface-2 text-ok-text font-semibold">Войти другим аккаунтом</button>
         </div>
-      </div>
+        <p *ngIf="joined()" role="status" class="text-ok-success font-semibold">Вы на сервере. Открываем канал…</p>
+        <p *ngIf="joinError()" role="alert" class="text-[13px] text-ok-danger">{{ joinError() }}</p>
+
+        <p class="text-[13px] leading-[18px] text-ok-muted">
+          Вы вошли как <span class="font-semibold text-ok-text">{{ username() }}</span>.
+          {{ d.expires ? 'Приглашение действует до ' + d.expires + '.' : 'Приглашение бессрочное.' }}
+        </p>
+      </section>
     </div>
   `,
 })
@@ -186,6 +100,9 @@ export class InvitePage implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly store = inject(AppStateStore);
   protected readonly isLoggedIn = this.auth.signedIn;
+  protected readonly username = computed(() => this.auth.user()?.username ?? '');
+  protected readonly appName = APP_NAME;
+  protected readonly mark = APP_MARK;
 
   private token: string | null = null;
 
@@ -220,6 +137,13 @@ export class InvitePage implements OnInit {
         },
       });
     });
+  }
+
+  protected readonly members = members;
+
+  /** Signs out and comes back here after signing in as someone else. */
+  protected switchAccount(): void {
+    this.auth.logout().subscribe({ complete: () => this.goLogin(), error: () => this.goLogin() });
   }
 
   protected serverInitials(): string {
@@ -261,6 +185,14 @@ export class InvitePage implements OnInit {
   }
 }
 
+const EXPIRES_DAY = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' });
+const EXPIRES_TIME = new Intl.DateTimeFormat('ru', { hour: '2-digit', minute: '2-digit' });
+
+/** "2 ноября, 21:51" in the browser's time zone. */
+export function expiresText(d: Date): string {
+  return `${EXPIRES_DAY.format(d)}, ${EXPIRES_TIME.format(d)}`;
+}
+
 function toDetails(p: InvitePreview): InviteDetails {
   return {
     server_name: p.guild.name,
@@ -269,5 +201,6 @@ function toDetails(p: InvitePreview): InviteDetails {
     member_count: p.member_count,
     creator_name: p.inviter ? nameOf(p.inviter) : null,
     creator_avatar: p.inviter?.avatar ?? null,
+    expires: p.expires_at ? expiresText(new Date(p.expires_at)) : null,
   };
 }

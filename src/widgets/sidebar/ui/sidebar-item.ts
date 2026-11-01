@@ -5,6 +5,7 @@ import { StatusUi } from '@entities/user-status';
 import { AvatarUI } from '@shared/ui/avatar';
 import { AppStateStore } from '@entities/app-state';
 import { DMChannel, nameOf } from '@shared/api';
+import { members } from '@shared/lib/plural';
 
 interface Row {
   id: string;
@@ -22,25 +23,23 @@ interface Row {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgForOf, NgIf, RouterLink, RouterLinkActive, StatusUi, AvatarUI],
   template: `
-    <div class="flex flex-col space-y-2">
-      <a *ngFor="let row of rows(); trackBy: byId"
-         [routerLink]="['/channels/me', row.id]" routerLinkActive="bg-main-surface-secondary"
-         class="flex items-center space-x-3 py-3 px-3 rounded-md hover:bg-main-surface-secondary">
-        <div class="relative w-10 h-10 shrink-0">
-          <div class="w-full h-full rounded-full overflow-hidden">
-            <AvatarUI [src]="row.avatar" [name]="row.name" />
-          </div>
-          <StatusUI *ngIf="row.userId" [userId]="row.userId"></StatusUI>
-        </div>
-        <div class="flex flex-col min-w-0">
-          <span class="text-gray-300 text-sm truncate">{{ row.name }}</span>
-          <span *ngIf="!row.userId" class="text-xs text-typo-secondary">{{ row.members }} участников</span>
-        </div>
-      </a>
-      <p *ngIf="store.loaded() && !rows().length" class="text-sm text-typo-secondary">
-        Здесь появятся ваши переписки. Начните её из списка друзей.
-      </p>
-    </div>
+    <a *ngFor="let row of rows(); trackBy: byId"
+       [routerLink]="['/channels/me', row.id]" routerLinkActive="!bg-ok-surface-2 !text-ok-text"
+       class="flex items-center gap-2.5 py-2 px-2.5 rounded-lg text-ok-muted hover:bg-ok-surface-1 hover:text-ok-text">
+      <span class="relative w-8 h-8 shrink-0">
+        <span class="block w-full h-full rounded-lg overflow-hidden">
+          <AvatarUI [src]="row.avatar" [name]="row.name" [tone]="row.userId ? 'bg-ok-avatar text-ok-text' : 'bg-ok-surface-2 text-ok-text'" />
+        </span>
+        <StatusUI *ngIf="row.userId" [userId]="row.userId" />
+      </span>
+      <span class="flex flex-col min-w-0">
+        <span class="truncate" [class.text-ok-text]="!row.userId">{{ row.name }}</span>
+        <span *ngIf="!row.userId" class="text-[12px]">{{ row.members }} {{ plural(row.members) }}</span>
+      </span>
+    </a>
+    <p *ngIf="store.loaded() && !rows().length" class="text-[13px] text-ok-muted px-2.5">
+      Здесь появятся ваши переписки. Начните её из списка друзей.
+    </p>
   `,
 })
 export class SidebarItem {
@@ -49,6 +48,8 @@ export class SidebarItem {
   protected readonly rows = computed<Row[]>(() => this.store.dms().map(dm => this.row(dm)));
 
   protected byId = (_: number, r: Row) => r.id;
+
+  protected readonly plural = members;
 
   private row(dm: DMChannel): Row {
     if (dm.type === 1) {

@@ -15,58 +15,69 @@ import { AudioDeviceKind, VoiceService } from '@entities/voice';
   imports: [CommonModule, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div *ngIf="voice.connected() || voice.error()" class="bg-main-surface-secondary rounded-xl shadow-lg px-4 py-3 text-sm" data-voice-panel>
-      <div *ngIf="voice.connected()" class="flex items-center gap-2">
-        <div class="min-w-0 flex-1">
-          <div class="font-semibold" [ngClass]="voice.status() === 'connected' ? 'text-green-400' : 'text-yellow-400'">
-            {{ statusText() }}
+    <div *ngIf="voice.connected() || voice.error()" class="flex flex-col gap-2" data-voice-panel>
+      <div *ngIf="voice.connected()" class="rounded-ok-md bg-ok-surface-2 p-3 flex flex-col gap-3">
+        <div class="flex items-center gap-2">
+          <div class="min-w-0 flex-1">
+            <div class="text-[13px] font-semibold truncate" [ngClass]="voice.status() === 'connected' ? 'text-ok-accent' : 'text-ok-warning'">
+              {{ statusText() }}
+            </div>
+            <div class="text-[12px] text-ok-muted truncate">{{ place() }}</div>
           </div>
-          <div class="text-xs text-gray-400 truncate">{{ place() }}</div>
+          <button type="button" (click)="voice.leave()" title="Отключиться"
+                  class="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-ok-danger hover:bg-ok-surface-1">
+            <lucide-angular class="w-4 h-4" [img]="PhoneOff"></lucide-angular>
+          </button>
         </div>
-        <button type="button" (click)="voice.toggleMute()" [disabled]="!voice.canSpeak()"
-                [title]="voice.serverMute() ? 'Микрофон выключил модератор' : voice.selfMute() ? 'Включить микрофон' : 'Выключить микрофон'"
-                class="p-1.5 rounded-md hover:bg-white/10 disabled:opacity-40"
-                [ngClass]="voice.selfMute() ? 'text-red-400' : 'text-gray-300'">
-          <lucide-angular class="w-4 h-4" [img]="voice.selfMute() ? MicOff : Mic"></lucide-angular>
-        </button>
-        <button type="button" (click)="voice.toggleDeaf()" [title]="voice.selfDeaf() ? 'Включить звук' : 'Выключить звук'"
-                class="p-1.5 rounded-md hover:bg-white/10" [ngClass]="voice.selfDeaf() ? 'text-red-400' : 'text-gray-300'">
-          <lucide-angular class="w-4 h-4" [img]="voice.selfDeaf() ? HeadphoneOff : Headphones"></lucide-angular>
-        </button>
-        <button type="button" (click)="toggleDevices()" title="Устройства" class="p-1.5 rounded-md hover:bg-white/10 text-gray-300">
-          <lucide-angular class="w-4 h-4" [img]="Settings2"></lucide-angular>
-        </button>
-        <button type="button" (click)="voice.leave()" title="Отключиться" class="p-1.5 rounded-md hover:bg-red-500/20 text-red-400">
-          <lucide-angular class="w-4 h-4" [img]="PhoneOff"></lucide-angular>
-        </button>
+        <div class="grid grid-cols-3 gap-1">
+          <button type="button" (click)="voice.toggleMute()" [disabled]="!voice.canSpeak()"
+                  [title]="voice.serverMute() ? 'Микрофон выключил модератор' : voice.selfMute() ? 'Включить микрофон' : 'Выключить микрофон'"
+                  [attr.aria-pressed]="voice.selfMute()"
+                  class="h-9 rounded-lg flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                  [ngClass]="voice.serverMute() ? 'bg-ok-surface-1 text-ok-danger' : voice.selfMute() ? 'bg-ok-text text-ok-bg' : 'text-ok-text hover:bg-ok-surface-1'">
+            <lucide-angular class="w-4 h-4" [img]="voice.selfMute() || voice.serverMute() ? MicOff : Mic"></lucide-angular>
+          </button>
+          <button type="button" (click)="voice.toggleDeaf()" [title]="voice.selfDeaf() ? 'Включить звук' : 'Выключить звук'"
+                  [attr.aria-pressed]="voice.selfDeaf()"
+                  class="h-9 rounded-lg flex items-center justify-center"
+                  [ngClass]="voice.selfDeaf() ? 'bg-ok-text text-ok-bg' : 'text-ok-text hover:bg-ok-surface-1'">
+            <lucide-angular class="w-4 h-4" [img]="voice.selfDeaf() ? HeadphoneOff : Headphones"></lucide-angular>
+          </button>
+          <button type="button" (click)="toggleDevices()" title="Устройства" [attr.aria-expanded]="devicesOpen()"
+                  class="h-9 rounded-lg flex items-center justify-center text-ok-text hover:bg-ok-surface-1"
+                  [class.bg-ok-surface-1]="devicesOpen()">
+            <lucide-angular class="w-4 h-4" [img]="Settings2"></lucide-angular>
+          </button>
+        </div>
+
+        <div *ngIf="devicesOpen()" class="flex flex-col gap-2 text-[12px]">
+          <label class="flex flex-col gap-1">
+            <span class="text-ok-muted">Микрофон</span>
+            <select [value]="voice.input()" (change)="pick('audioinput', $event)"
+                    class="h-9 bg-ok-sidebar border border-ok-border-control rounded-lg px-2 text-ok-text">
+              <option value="">По умолчанию</option>
+              <option *ngFor="let d of voice.inputs()" [value]="d.deviceId">{{ d.label || 'Микрофон' }}</option>
+            </select>
+          </label>
+          <label *ngIf="voice.outputs().length" class="flex flex-col gap-1">
+            <span class="text-ok-muted">Динамики</span>
+            <select [value]="voice.output()" (change)="pick('audiooutput', $event)"
+                    class="h-9 bg-ok-sidebar border border-ok-border-control rounded-lg px-2 text-ok-text">
+              <option value="">По умолчанию</option>
+              <option *ngFor="let d of voice.outputs()" [value]="d.deviceId">{{ d.label || 'Динамики' }}</option>
+            </select>
+          </label>
+          <p *ngIf="!voice.outputs().length" class="text-ok-muted">Этот браузер не даёт выбрать динамики.</p>
+        </div>
+
+        <p *ngIf="voice.pushToTalk()" class="text-[12px] text-ok-warning">
+          На этом канале только push-to-talk — он появится в настройках голоса. Пока вы слушаете.
+        </p>
       </div>
 
-      <div *ngIf="voice.connected() && devicesOpen()" class="mt-3 flex flex-col gap-2 text-xs">
-        <label class="flex flex-col gap-1">
-          <span class="text-gray-400">Микрофон</span>
-          <select [value]="voice.input()" (change)="pick('audioinput', $event)"
-                  class="bg-sidebar-surface-primary rounded-md px-2 py-1.5 text-gray-200 focus:outline-none">
-            <option value="">По умолчанию</option>
-            <option *ngFor="let d of voice.inputs()" [value]="d.deviceId">{{ d.label || 'Микрофон' }}</option>
-          </select>
-        </label>
-        <label *ngIf="voice.outputs().length" class="flex flex-col gap-1">
-          <span class="text-gray-400">Динамики</span>
-          <select [value]="voice.output()" (change)="pick('audiooutput', $event)"
-                  class="bg-sidebar-surface-primary rounded-md px-2 py-1.5 text-gray-200 focus:outline-none">
-            <option value="">По умолчанию</option>
-            <option *ngFor="let d of voice.outputs()" [value]="d.deviceId">{{ d.label || 'Динамики' }}</option>
-          </select>
-        </label>
-        <p *ngIf="!voice.outputs().length" class="text-gray-500">Этот браузер не даёт выбрать динамики.</p>
-      </div>
-
-      <p *ngIf="voice.connected() && voice.pushToTalk()" class="mt-2 text-xs text-yellow-400">
-        На этом канале только push-to-talk — он появится в настройках голоса. Пока вы слушаете.
-      </p>
-      <div *ngIf="voice.error() as err" class="flex items-start gap-2 text-xs text-red-400" [class.mt-2]="voice.connected()">
+      <div *ngIf="voice.error() as err" role="alert" class="flex items-start gap-2 rounded-ok-md bg-ok-surface-2 p-3 text-[13px] text-ok-danger">
         <span class="flex-1">{{ err }}</span>
-        <button type="button" (click)="voice.error.set(null)" title="Скрыть" class="text-gray-400 hover:text-white">×</button>
+        <button type="button" (click)="voice.error.set(null)" title="Скрыть" aria-label="Скрыть" class="text-ok-muted hover:text-ok-text leading-none">×</button>
       </div>
     </div>
   `,
@@ -83,12 +94,12 @@ export class VoicePanel {
       default: return 'Голос подключён';
     }
   });
-  /** "voice / Server". */
+  /** "voice · Server". */
   protected readonly place = computed(() => {
     const t = this.voice.target();
     const g = t ? this.store.guild(t.guildId) : null;
     const ch = g?.channels.find(c => c.id === t?.channelId);
-    return [ch?.name, g?.name].filter(Boolean).join(' / ');
+    return [ch?.name, g?.name].filter(Boolean).join(' · ');
   });
 
   protected toggleDevices(): void {

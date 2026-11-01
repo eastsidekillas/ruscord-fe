@@ -1,9 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { AuthService } from '@entities/session/api/auth.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import {NgIf} from '@angular/common';
 import { errorText } from '@shared/api';
+import { APP_MARK, APP_NAME } from '@shared/config/brand';
 
 @Component({
   selector: 'app-auth',
@@ -12,122 +13,77 @@ import { errorText } from '@shared/api';
     ReactiveFormsModule,
     NgIf
   ],
-  template:
-    `
-      <div class="flex flex-col items-center justify-center min-h-screen bg-main-surface-primary">
-
-        <div class="w-full max-w-md bg-main-surface-secondary shadow-lg rounded-lg p-8">
-
-
-          <h2 class="text-2xl font-bold text-center text-white mb-4">
-            {{ isLoginMode ? 'Авторизация' : 'Регистрация' }}
-          </h2>
-
-          <form [formGroup]="authForm" (ngSubmit)="onSubmit()" class="space-y-4">
-
-            <!-- Поле для username (только при регистрации) -->
-
-            <div>
-              <label for="email" class="block mb-2 text-sm font-medium text-white">Email</label>
-              <input
-                id="email"
-                formControlName="email"
-                type="email"
-                class="w-full px-3 py-2 bg-main-surface-primary text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              />
-              <div *ngIf="authForm.get('email')?.invalid && authForm.get('email')?.touched"
-                   class="text-red-500 text-sm mt-2">
-                Введите корректный email
-              </div>
-            </div>
-
-            <div *ngIf="!isLoginMode">
-              <label for="name" class="block mb-2 text-sm font-medium text-white">Отображаемое имя</label>
-              <input
-                id="name"
-                formControlName="name"
-                type="text"
-                class="w-full px-3 py-2 bg-main-surface-primary text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              />
-              <div *ngIf="authForm.get('name')?.invalid && authForm.get('name')?.touched"
-                   class="text-red-500 text-sm mt-2">
-                Не больше 32 символов
-              </div>
-            </div>
-
-
-            <div *ngIf="!isLoginMode">
-              <label for="username" class="block mb-2 text-sm font-medium text-white">Имя пользователя</label>
-              <input
-                id="username"
-                formControlName="username"
-                type="text"
-                class="w-full px-3 py-2 bg-main-surface-primary text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              />
-              <div *ngIf="authForm.get('username')?.invalid && authForm.get('username')?.touched"
-                   class="text-red-500 text-sm mt-2">
-                От 2 до 32 символов: латиница, цифры, «_» и «.»
-              </div>
-            </div>
-
-
-
-            <div>
-              <label for="password" class="block mb-2 text-sm font-medium text-white">Пароль</label>
-              <input
-                id="password"
-                formControlName="password"
-                type="password"
-                class="w-full px-3 py-2 bg-main-surface-primary text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                placeholder="Введите ваш пароль"
-                required
-              />
-              <div *ngIf="authForm.get('password')?.hasError('required') && authForm.get('password')?.touched"
-                   class="text-red-500 text-sm mt-2">
-                Пароль обязателен
-              </div>
-              <div *ngIf="authForm.get('password')?.hasError('minlength') && authForm.get('password')?.touched"
-                   class="text-red-500 text-sm mt-2">
-                Пароль должен быть не менее 8 символов
-              </div>
-            </div>
-
-
-
-            <button
-              type="submit"
-              [disabled]="busy"
-              class="text-white bg-green-500 disabled:bg-gray-600 hover:bg-gray-600 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center transition"
-            >
-              {{ isLoginMode ? 'Войти' : 'Зарегистрироваться' }}
-            </button>
-
-            <!-- Сообщения об ошибке или успехе -->
-            <div *ngIf="successMessage" class="text-green-500 text-sm text-center mt-4">
-              {{ successMessage }}
-            </div>
-            <div *ngIf="errorMessage" class="text-red-500 text-sm text-center mt-4">
-              {{ errorMessage }}
-            </div>
-          </form>
-
-          <p class="text-sm text-center mt-4 text-white">
-            {{ isLoginMode ? 'Нет аккаунта?' : 'Уже есть аккаунт?' }}
-            <a (click)="onSwitchMode()" class="text-green-500 cursor-pointer">
-              {{ isLoginMode ? 'Зарегистрироваться' : 'Войти' }}
-            </a>
-          </p>
-        </div>
+  host: { class: 'block' },
+  template: `
+    <div class="min-h-screen flex flex-col items-center justify-center gap-8 px-4 py-12 bg-ok-bg text-ok-text text-[15px]">
+      <div class="flex items-center gap-3 text-2xl font-semibold tracking-[-0.02em]">
+        <img [src]="mark" alt="" class="w-9 h-9" />{{ appName }}
       </div>
 
+      <form [formGroup]="authForm" (ngSubmit)="onSubmit()" novalidate
+            class="w-full max-w-[400px] rounded-ok-lg bg-ok-surface-1 border border-ok-border p-10 flex flex-col gap-5">
+        <div class="flex flex-col gap-1.5">
+          <h1 class="text-[32px] leading-10 font-semibold tracking-[-0.02em]">{{ isLoginMode ? 'С возвращением' : 'Создать аккаунт' }}</h1>
+          <p *ngIf="isLoginMode" class="text-ok-muted">Войдите, чтобы зайти к своим.</p>
+        </div>
 
-    `
+        <div *ngIf="errorMessage() as err" role="alert" class="rounded-ok-md bg-ok-surface-2 px-3.5 py-3 text-[13px] leading-[18px] text-ok-danger">{{ err }}</div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="email" class="text-[13px] font-medium text-ok-muted">Email</label>
+          <input id="email" formControlName="email" type="email" autocomplete="email"
+                 class="ok-input" [class.ok-invalid]="bad('email')" [attr.aria-invalid]="bad('email')" aria-describedby="email-err" />
+          <span *ngIf="bad('email')" id="email-err" class="text-[13px] text-ok-danger">Некорректный email</span>
+        </div>
+
+        <div *ngIf="!isLoginMode" class="flex flex-col gap-1.5">
+          <label for="username" class="text-[13px] font-medium text-ok-muted">Имя пользователя</label>
+          <input id="username" formControlName="username" type="text" autocomplete="username"
+                 class="ok-input" [class.ok-invalid]="bad('username')" [attr.aria-invalid]="bad('username')" aria-describedby="username-err" />
+          <span *ngIf="bad('username')" id="username-err" class="text-[13px] text-ok-danger">От 2 до 32 символов: латиница, цифры, _ и .</span>
+        </div>
+
+        <div *ngIf="!isLoginMode" class="flex flex-col gap-1.5">
+          <label for="name" class="text-[13px] font-medium text-ok-muted">Как вас показывать <span class="font-normal">(необязательно)</span></label>
+          <input id="name" formControlName="name" type="text" autocomplete="nickname"
+                 class="ok-input" [class.ok-invalid]="bad('name')" [attr.aria-invalid]="bad('name')" aria-describedby="name-err" />
+          <span *ngIf="bad('name')" id="name-err" class="text-[13px] text-ok-danger">Не длиннее 32 символов</span>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="password" class="text-[13px] font-medium text-ok-muted">Пароль</label>
+          <input id="password" formControlName="password" type="password" [attr.autocomplete]="isLoginMode ? 'current-password' : 'new-password'"
+                 class="ok-input" [class.ok-invalid]="bad('password')" [attr.aria-invalid]="bad('password')" aria-describedby="password-err" />
+          <span *ngIf="bad('password')" id="password-err" class="text-[13px] text-ok-danger">{{ passwordError() }}</span>
+        </div>
+
+        <button type="submit" [disabled]="busy()"
+                class="h-12 rounded-ok-md bg-ok-accent text-ok-on-accent font-semibold disabled:opacity-60">
+          {{ isLoginMode ? 'Войти' : 'Зарегистрироваться' }}
+        </button>
+
+        <p class="text-[13px] text-ok-muted text-center">
+          {{ isLoginMode ? 'Нет аккаунта?' : 'Уже есть аккаунт?' }}
+          <a href="#" (click)="$event.preventDefault(); onSwitchMode()" class="text-ok-accent underline">{{ isLoginMode ? 'Зарегистрироваться' : 'Войти' }}</a>
+        </p>
+      </form>
+    </div>
+  `,
+  styles: `
+    .ok-input {
+      height: 48px; box-sizing: border-box; border-radius: 12px; padding: 0 16px;
+      border: 1px solid var(--color-ok-border-control); background: var(--color-ok-sidebar); color: var(--color-ok-text);
+    }
+    .ok-input.ok-invalid { border-color: var(--color-ok-danger); }
+  `,
 })
 export class SignIn implements OnInit {
   authForm!: FormGroup;
   isLoginMode = true;
-  errorMessage: string = '';
-  successMessage: string = '';
+  /** Signals: the page sits under OnPush parents, plain fields would not redraw it. */
+  protected readonly errorMessage = signal('');
+  protected readonly appName = APP_NAME;
+  protected readonly mark = APP_MARK;
 
   constructor(
     private fb: FormBuilder,
@@ -140,7 +96,7 @@ export class SignIn implements OnInit {
     this.initForm();
   }
 
-  busy = false;
+  protected readonly busy = signal(false);
 
   // Rules match ruscord-core (docs/api.md); the server checks them anyway.
   initForm() {
@@ -160,7 +116,7 @@ export class SignIn implements OnInit {
   }
 
   private applyMode() {
-    this.errorMessage = '';
+    this.errorMessage.set('');
     const set = (name: string, v: ValidatorFn[]) => {
       const c = this.authForm.get(name)!;
       c.setValidators(v);
@@ -171,8 +127,22 @@ export class SignIn implements OnInit {
     set('password', this.isLoginMode ? [Validators.required] : [Validators.required, Validators.minLength(8), Validators.maxLength(128)]);
   }
 
+  /** A field the user touched that does not pass. */
+  protected bad(name: string): boolean {
+    const c = this.authForm.get(name);
+    return !!c && c.invalid && c.touched;
+  }
+
+  /** The password rule that fails, as the server words it. */
+  protected passwordError(): string {
+    const c = this.authForm.get('password')!;
+    if (c.hasError('required')) return 'Введите пароль';
+    if (c.hasError('minlength')) return 'Не короче 8 символов';
+    return 'Не длиннее 128 символов';
+  }
+
   onSubmit() {
-    if (this.authForm.invalid || this.busy) {
+    if (this.authForm.invalid || this.busy()) {
       this.authForm.markAllAsTouched();
       return;
     }
@@ -180,18 +150,18 @@ export class SignIn implements OnInit {
     const request = this.isLoginMode
       ? this.authService.login(email, password)
       : this.authService.register({ email, password, username, display_name: (name || '').trim() || username });
-    this.busy = true;
-    this.errorMessage = '';
+    this.busy.set(true);
+    this.errorMessage.set('');
     request.subscribe({
       next: () => {
-        this.busy = false;
+        this.busy.set(false);
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
         // Only paths inside the app.
         this.router.navigateByUrl(returnUrl?.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : '/channels/me');
       },
       error: err => {
-        this.busy = false;
-        this.errorMessage = errorText(err, this.isLoginMode ? 'Ошибка входа. Проверьте данные.' : 'Ошибка регистрации. Попробуйте снова.');
+        this.busy.set(false);
+        this.errorMessage.set(errorText(err, this.isLoginMode ? 'Ошибка входа. Проверьте данные.' : 'Ошибка регистрации. Попробуйте снова.'));
       },
     });
   }
