@@ -17,6 +17,7 @@ import { map } from 'rxjs/operators';
 import { ChatHeader } from '@widgets/chat/ui/chat-header';
 import { ChatMessages } from '@widgets/chat/ui/chat-messages';
 import { ChatMessage } from '@widgets/chat/ui/chat-item';
+import { PendingMessage, failReason } from '@widgets/chat/ui/pending-item';
 import { MessageInput, SendPayload } from '@features/update-message/ui/message-input';
 import { ServerMembersSidebar } from '@widgets/sidebar/ui/server-sidebar/server-members-sidebar';
 import { ApiService, GatewayService, Message, Perm, PublicUser, errorText, hasPerm, nameOf } from '@shared/api';
@@ -71,14 +72,20 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
             [notice]="v.canRead ? null : 'У вас нет доступа к истории этого канала.'"
             (top)="loadOlder()"
             (replyTo)="startReply($event)"
-            (edit)="editing.set($event)"
+            [editingId]="editing()?.message?.id ?? null"
+            [pending]="pending()"
+            (edit)="startEdit($event)"
+            (saveEdit)="saveEdit($event.item, $event.text)"
+            (cancelEdit)="editing.set(null)"
+            (retry)="retry($event)"
+            (discard)="discard($event)"
             (remove)="remove($event)"
             (author)="openProfile($event)"
           />
 
           <div class="h-5 px-6 text-[13px] text-ok-muted" aria-live="polite">
             <span *ngIf="typingText() as t" class="typing-indicator">
-              {{ t }}<span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              <b class="font-semibold text-ok-text">{{ t.who }}</b>&nbsp;{{ t.verb }}<span class="dot"></span><span class="dot"></span><span class="dot"></span>
             </span>
           </div>
 
@@ -87,11 +94,8 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
             [placeholder]="v.placeholder"
             [disabled]="!v.canSend"
             [replyTo]="replyTo()"
-            [editing]="editing()"
             (cancelReply)="replyTo.set(null)"
-            (cancelEdit)="editing.set(null)"
             (sendMessage)="send($event)"
-            (saveEdit)="saveEdit($event.item, $event.text)"
             (typing)="onTyping()"
           />
         </div>
@@ -157,6 +161,8 @@ export class ChannelPage {
   protected readonly loadingOlder = signal(false);
   protected readonly replyTo = signal<ChatMessage | null>(null);
   protected readonly editing = signal<ChatMessage | null>(null);
+  /** Sent here and not confirmed yet; cleared when the channel changes. */
+  protected readonly pending = signal<PendingMessage[]>([]);
 
   protected readonly items = computed<ChatMessage[]>(() => {
     const v = this.view();
@@ -190,7 +196,8 @@ export class ChannelPage {
       const u = known.get(id) ?? this.store.relationship(id)?.user;
       return u ? nameOf(this.store.user(u)) : 'Кто-то';
     });
-    return names.length === 1 ? `${names[0]} печатает` : names.length <= 3 ? `${names.join(', ')} печатают` : 'Несколько человек печатают';
+    if (names.length === 1) return { who: names[0], verb: 'печатает' };
+    return names.length <= 3 ? { who: names.join(', '), verb: 'печатают' } : { who: 'Несколько человек', verb: 'печатают' };
   });
 
   private loading?: Subscription;
@@ -224,6 +231,7 @@ export class ChannelPage {
       switch (ev.t) {
         case 'MESSAGE_CREATE':
         case 'MESSAGE_UPDATE':
+          if ((d as Message).nonce && (d as Message).author?.id === this.store.me()?.id) this.discard((d as Message).nonce!);
           this.messages.update(list => upsertMessage(list, d as Message));
           if (ev.t === 'MESSAGE_CREATE' && document.hidden && d.author?.id !== this.store.me()?.id) this.ding();
           break;
@@ -239,9 +247,13 @@ export class ChannelPage {
   }
 
   private loadedFor: string | null = null;
+  private pendingFor: string | null = null;
 
   private load(id: string, canRead: boolean): void {
     this.loading?.unsubscribe();
+    // A reload after reconnecting keeps unsent messages; another channel does not.
+    if (id !== this.pendingFor) this.pending.set([]);
+    this.pendingFor = id;
     this.loadedFor = id;
     this.messages.set([]);
     this.replyTo.set(null);
@@ -278,24 +290,52 @@ export class ChannelPage {
   }
 
   protected send(p: SendPayload): void {
-    const id = this.channelId();
-    if (!id) return;
-    const body = { content: p.text, nonce: crypto.randomUUID(), reply_to: p.replyToId ?? undefined };
-    const reply = this.replyTo();
+    const me = this.store.me();
     this.replyTo.set(null);
     this.lastTyping = 0;
+    const item: PendingMessage = {
+      nonce: crypto.randomUUID(), content: p.text, replyToId: p.replyToId,
+      authorName: nameOf(me), authorAvatar: me?.avatar ?? null, error: null,
+    };
+    this.pending.update(list => [...list, item]);
+    this.list?.scrollToBottom();
+    this.deliver(item);
+  }
+
+  /** Sends again with the same nonce: the server keeps one copy at most. */
+  protected retry(nonce: string): void {
+    const item = this.pending().find(p => p.nonce === nonce);
+    if (!item) return;
+    this.setPending(nonce, null);
+    this.deliver(item);
+  }
+
+  protected discard(nonce: string): void {
+    this.pending.update(list => list.filter(p => p.nonce !== nonce));
+  }
+
+  private deliver(item: PendingMessage): void {
+    const id = this.channelId();
+    if (!id) return;
+    const body = { content: item.content, nonce: item.nonce, reply_to: item.replyToId ?? undefined };
     this.api.sendMessage(id, body).subscribe({
       next: m => {
+        if (m.channel_id !== this.channelId()) return;
+        this.discard(item.nonce);
         this.messages.update(list => upsertMessage(list, m));
         this.list?.scrollToBottom();
       },
-      error: err => {
-        // Nothing is lost: the text and the reply come back to the input.
-        this.notify.show(errorText(err, 'Сообщение не отправлено'), 'error', 6000);
-        this.input?.reset(p.text);
-        if (!this.replyTo()) this.replyTo.set(reply);
-      },
+      error: err => this.setPending(item.nonce, failReason(err)),
     });
+  }
+
+  private setPending(nonce: string, error: string | null): void {
+    this.pending.update(list => list.map(p => (p.nonce === nonce ? { ...p, error } : p)));
+  }
+
+  /** Editing is in place, so a reply being written stays as it is. */
+  protected startEdit(item: ChatMessage): void {
+    this.editing.set(item);
   }
 
   protected saveEdit(item: ChatMessage, text: string): void {
@@ -324,7 +364,6 @@ export class ChannelPage {
   }
 
   protected startReply(item: ChatMessage): void {
-    this.editing.set(null);
     this.replyTo.set(item);
   }
 
