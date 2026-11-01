@@ -90,6 +90,28 @@ export interface FullGuild extends Guild {
   member: Member | null;
   permissions: string;
   channel_permissions: Record<Snowflake, string>;
+  /** Who is in the voice channels the user can see (ruscord-core ADR-0025). */
+  voice_states?: VoiceState[];
+}
+
+/** Someone in a voice channel; channel_id null in an event means they left. */
+export interface VoiceState {
+  user_id: Snowflake;
+  guild_id: Snowflake;
+  channel_id: Snowflake | null;
+  self_mute: boolean;
+  self_deaf: boolean;
+  user?: PublicUser;
+}
+
+/** What POST /channels/{id}/voice answers: how to enter the LiveKit room. */
+export interface VoiceJoinInfo {
+  /** LiveKit address; empty means this site under /livekit. */
+  url: string;
+  token: string;
+  room: string;
+  sources: ('microphone' | 'camera' | 'screen_share' | 'screen_share_audio')[];
+  push_to_talk: boolean;
 }
 
 export interface DMChannel {

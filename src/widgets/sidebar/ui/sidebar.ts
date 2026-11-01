@@ -9,6 +9,7 @@ import { NotificationService } from '@shared/model/notification.service';
 import { DropdownMenuItem } from '@shared/ui/dropdown-menu';
 import { ApiService, Perm, errorText, hasPerm } from '@shared/api';
 import { AppStateStore } from '@entities/app-state';
+import { VoiceService } from '@entities/voice';
 import { settingsTabs } from '@features/server-settings/ui/server-settings-modal';
 
 @Component({
@@ -38,14 +39,14 @@ import { settingsTabs } from '@features/server-settings/ui/server-settings-modal
             <span class="text-sm text-gray-300">Друзья</span>
           </a>
         </div>
-        <div class="flex-1 overflow-y-auto space-y-3 px-4 pb-28">
+        <div class="flex-1 overflow-y-auto space-y-3 px-4" [ngClass]="voice.connected() ? 'pb-48' : 'pb-28'">
           <h3 class="text-lg font-medium text-typo-secondary mb-4">Личные сообщения</h3>
           <SidebarItem></SidebarItem>
         </div>
       </ng-container>
 
       <ng-container *ngIf="isServerRoute && guild() as g">
-        <ServerChannelsItems class="flex-1 min-h-0 pb-28" [guild]="g"></ServerChannelsItems>
+        <ServerChannelsItems class="flex-1 min-h-0" [ngClass]="voice.connected() ? 'pb-48' : 'pb-28'" [guild]="g"></ServerChannelsItems>
       </ng-container>
     </div>
   `,
@@ -56,6 +57,7 @@ export class Sidebar {
 
   private readonly id = signal<string | null>(null);
   private readonly store = inject(AppStateStore);
+  protected readonly voice = inject(VoiceService);
   private readonly modal = inject(ModalService);
   private readonly api = inject(ApiService);
   private readonly notify = inject(NotificationService);

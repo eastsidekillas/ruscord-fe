@@ -16,6 +16,9 @@ compose=(docker compose --env-file "$core/.env" -f "$core/deploy/docker-compose.
 
 [ -f "$core/.env" ] || "$core/scripts/gen-env.sh" > "$core/.env"
 export RUSCORD_FE_DIR="$fe"
+# Chromium sends WebRTC media from the machine's own address, from which
+# LiveKit's default 127.0.0.1 is unreachable; give LiveKit that address.
+export RUSCORD_LIVEKIT_NODE_IP="${RUSCORD_LIVEKIT_NODE_IP:-$(hostname -I | awk '{print $1}')}"
 
 logs() { "${compose[@]}" logs --no-color > "$fe/e2e/failures/stack.log" 2>&1 || true; }
 mkdir -p "$fe/e2e/failures"

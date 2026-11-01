@@ -1,15 +1,17 @@
 import { ChangeDetectionStrategy, Component, Input, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { LucideAngularModule, Settings, Volume2 } from 'lucide-angular';
-import { FullGuild, Perm, hasPerm } from '@shared/api';
+import { HeadphoneOff, LucideAngularModule, MicOff, Settings, Volume2 } from 'lucide-angular';
+import { FullGuild, Perm, VoiceState, hasPerm, nameOf } from '@shared/api';
 import { ModalService } from '@shared/model/modal.service';
-import { channelGroups } from '@entities/app-state';
+import { AppStateStore, channelGroups } from '@entities/app-state';
+import { VoiceService } from '@entities/voice';
+import { AvatarUI } from '@shared/ui/avatar';
 
 @Component({
   selector: 'ServerChannelsItems',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, LucideAngularModule],
+  imports: [CommonModule, RouterLink, RouterLinkActive, LucideAngularModule, AvatarUI],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block overflow-y-auto' },
   template: `
@@ -42,17 +44,34 @@ import { channelGroups } from '@entities/app-state';
                 <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
               </button>
             </a>
-            <!-- Voice arrives with step 6; until then the channel is shown, not joinable. -->
-            <div *ngIf="channel.type === 2"
-                 title="Голосовые каналы появятся в следующем обновлении"
-                 class="flex items-center gap-2 py-1.5 px-2 rounded-md text-gray-500 group">
-              <lucide-angular class="w-4 h-4 flex-shrink-0" [img]="Volume2"></lucide-angular>
-              <span class="text-sm truncate flex-1 cursor-not-allowed">{{ channel.name }}</span>
-              <button *ngIf="canManage(channel.id)" type="button" (click)="edit(channel.id, $event)" title="Настройки канала"
-                      class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white">
-                <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
-              </button>
-            </div>
+            <ng-container *ngIf="channel.type === 2">
+              <div (click)="join(channel.id)" [attr.data-voice-channel]="channel.name"
+                   [title]="canConnect(channel.id) ? 'Войти в голосовой канал' : 'Нет права подключаться'"
+                   class="flex items-center gap-2 py-1.5 px-2 rounded-md transition group"
+                   [ngClass]="[
+                     here(channel.id) ? 'bg-main-surface-secondary text-white' : 'text-gray-300',
+                     canConnect(channel.id) ? 'cursor-pointer hover:bg-main-surface-secondary hover:text-white' : 'text-gray-500 cursor-not-allowed'
+                   ]">
+                <lucide-angular class="w-4 h-4 flex-shrink-0 text-gray-400" [img]="Volume2"></lucide-angular>
+                <span class="text-sm truncate flex-1">{{ channel.name }}</span>
+                <span *ngIf="channel.user_limit" class="text-[11px] text-gray-500">{{ inVoice(channel.id).length }}/{{ channel.user_limit }}</span>
+                <button *ngIf="canManage(channel.id)" type="button" (click)="edit(channel.id, $event)" title="Настройки канала"
+                        class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white">
+                  <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
+                </button>
+              </div>
+              <div *ngFor="let v of inVoice(channel.id); trackBy: byUser" class="flex items-center gap-2 py-1 pl-8 pr-2"
+                   [attr.data-voice-member]="nameOf(v)">
+                <div class="w-6 h-6 rounded-full overflow-hidden shrink-0 ring-2 transition"
+                     [ngClass]="speaking(channel.id, v.user_id) ? 'ring-green-500' : 'ring-transparent'"
+                     [attr.data-speaking]="speaking(channel.id, v.user_id) ? '' : null">
+                  <AvatarUI [src]="store.user(v.user ?? null)?.avatar ?? null" [name]="nameOf(v)" />
+                </div>
+                <span class="text-xs text-gray-300 truncate flex-1">{{ nameOf(v) }}</span>
+                <lucide-angular *ngIf="v.self_mute" class="w-3.5 h-3.5 text-gray-400" [img]="MicOff" title="Микрофон выключен"></lucide-angular>
+                <lucide-angular *ngIf="v.self_deaf" class="w-3.5 h-3.5 text-gray-400" [img]="HeadphoneOff" title="Звук выключен"></lucide-angular>
+              </div>
+            </ng-container>
           </ng-container>
         </div>
       </div>
@@ -70,6 +89,38 @@ export class ServerChannelsItems {
   });
 
   protected byId = (_: number, c: { id: string }) => c.id;
+  protected byUser = (_: number, v: VoiceState) => v.user_id;
+  protected readonly store = inject(AppStateStore);
+  private readonly voice = inject(VoiceService);
+  protected readonly MicOff = MicOff;
+  protected readonly HeadphoneOff = HeadphoneOff;
+
+  /** Who is in a voice channel, in the order they came. */
+  protected inVoice(channelId: string): VoiceState[] {
+    return (this.current()?.voice_states ?? []).filter(v => v.channel_id === channelId);
+  }
+
+  protected nameOf(v: VoiceState): string {
+    return nameOf(this.store.user(v.user ?? null));
+  }
+
+  protected here(channelId: string): boolean {
+    return this.voice.target()?.channelId === channelId;
+  }
+
+  /** LiveKit tells who speaks only in the room we are in. */
+  protected speaking(channelId: string, userId: string): boolean {
+    return this.here(channelId) && this.voice.speaking().has(userId);
+  }
+
+  protected canConnect(channelId: string): boolean {
+    return hasPerm(this.current()?.channel_permissions[channelId], Perm.Connect);
+  }
+
+  protected join(channelId: string): void {
+    const g = this.guildId();
+    if (g && this.canConnect(channelId)) void this.voice.join({ guildId: g, channelId });
+  }
   protected byGroup = (_: number, gr: { category: { id: string } | null }) => gr.category?.id ?? '-';
   protected readonly Volume2 = Volume2;
   protected readonly Settings = Settings;

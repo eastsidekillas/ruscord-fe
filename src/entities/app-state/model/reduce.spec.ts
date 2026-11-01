@@ -187,4 +187,20 @@ describe('reduce', () => {
     const s = reduce(start(), { t: 'USER_UPDATE', d: { ...me, display_name: 'Новое имя' } });
     expect(resolveUser(s, { ...bob, id: 'me' }).display_name).toBe('Новое имя');
   });
+
+  it('keeps who is in the voice channels from VOICE_STATE_UPDATE', () => {
+    const voice: GuildChannel = { id: 'v1', guild_id: 'g1', type: 2, name: 'v1', position: 1, permission_overwrites: [] };
+    let s = reduce(start(), { t: 'CHANNEL_CREATE', d: voice });
+    const st = (user: string, channel: string | null, mute = false) =>
+      ({ t: 'VOICE_STATE_UPDATE', d: { user_id: user, guild_id: 'g1', channel_id: channel, self_mute: mute, self_deaf: false } });
+    s = reduce(s, st('bob', 'v1'));
+    s = reduce(s, st('cat', 'v1'));
+    s = reduce(s, st('bob', 'v1', true)); // muted: replaced, not added
+    expect(s.guilds['g1'].voice_states!.map(v => [v.user_id, v.self_mute])).toEqual([['cat', false], ['bob', true]]);
+    s = reduce(s, st('cat', null)); // left
+    expect(s.guilds['g1'].voice_states!.map(v => v.user_id)).toEqual(['bob']);
+    s = reduce(s, { t: 'CHANNEL_DELETE', d: { id: 'v1', guild_id: 'g1' } }); // the channel takes its states
+    expect(s.guilds['g1'].voice_states).toEqual([]);
+    expect(reduce(s, { t: 'VOICE_STATE_UPDATE', d: { user_id: 'x', guild_id: 'nope', channel_id: 'v1' } })).toBe(s);
+  });
 });
