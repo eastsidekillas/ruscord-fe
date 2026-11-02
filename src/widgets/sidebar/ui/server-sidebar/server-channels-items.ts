@@ -171,15 +171,16 @@ export class ServerChannelsItems {
   protected readonly Settings = Settings;
   private readonly modal = inject(ModalService);
 
-  /** MANAGE_CHANNELS in that channel, as the server computed it. */
+  /** MANAGE_CHANNELS or MANAGE_ROLES in that channel, as the server computed it: either opens the settings. */
   protected canManage(channelId: string): boolean {
-    return hasPerm(this.current()?.channel_permissions[channelId], Perm.ManageChannels);
+    const p = this.current()?.channel_permissions[channelId];
+    return hasPerm(p, Perm.ManageChannels) || hasPerm(p, Perm.ManageRoles);
   }
 
   protected edit(channelId: string, ev?: Event): void {
     ev?.preventDefault();
     ev?.stopPropagation();
-    this.modal.open('channel', { serverId: this.guildId(), channelId });
+    this.modal.open('channelSettings', { serverId: this.guildId(), channelId });
   }
 
   protected create(parentId: string): void {

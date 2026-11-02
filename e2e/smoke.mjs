@@ -283,6 +283,20 @@ await step('create a channel from the menu; others see it live', async () => {
   await sees(bob, 'первая новость');
 });
 
+await step('channel permissions: @everyone loses #новости, Bob stops seeing it live; back to default', async () => {
+  const item = ann.locator('a', { hasText: 'новости' }).first();
+  await item.hover();
+  await item.getByRole('button', { name: 'Настройки канала' }).click();
+  await ann.getByRole('button', { name: 'Права', exact: true }).click();
+  await ann.getByRole('radiogroup', { name: 'Видеть каналы' }).getByRole('radio', { name: 'Запретить' }).click();
+  await ann.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await bob.getByText('новости', { exact: true }).first().waitFor({ state: 'detached', timeout: 8000 });
+  await ann.getByRole('radiogroup', { name: 'Видеть каналы' }).getByRole('radio', { name: 'По умолчанию' }).click();
+  await ann.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await sees(bob, 'новости');
+  await ann.keyboard.press('Escape');
+});
+
 await step('own nickname on the server: set, then reset', async () => {
   await menu(ann, 'Сменить ник');
   await ann.fill('#nk', 'Анюта');
