@@ -3,11 +3,15 @@ import { firstValueFrom } from 'rxjs';
 import {
   DisconnectReason,
   LocalParticipant,
+  LocalTrackPublication,
   Participant,
   RemoteAudioTrack,
+  RemoteParticipant,
   RemoteTrack,
+  RemoteTrackPublication,
   Room,
   RoomEvent,
+  ScreenSharePresets,
   Track,
 } from 'livekit-client';
 import { ApiService, GatewayService, VoiceJoinInfo, VoiceState, errorText } from '@shared/api';
@@ -68,11 +72,43 @@ export function disconnectText(reason: DisconnectReason | undefined): string | n
 /** LiveKit's permission of a participant (livekit-client does not export the type). */
 type ParticipantPermission = NonNullable<Participant['permissions']>;
 
-/** Whether LiveKit's permission lets the participant publish the microphone. */
-export function micAllowed(p: Pick<ParticipantPermission, 'canPublish' | 'canPublishSources'> | undefined): boolean {
+/** Whether LiveKit's permission lets the participant publish a source. */
+export function sourceAllowed(
+  p: Pick<ParticipantPermission, 'canPublish' | 'canPublishSources'> | undefined,
+  source: Track.Source,
+): boolean {
   if (!p?.canPublish) return false;
   // An empty list allows every source.
-  return !p.canPublishSources.length || p.canPublishSources.some(s => Track.sourceFromProto(s) === Track.Source.Microphone);
+  return !p.canPublishSources.length || p.canPublishSources.some(s => Track.sourceFromProto(s) === source);
+}
+
+/** Whether LiveKit's permission lets the participant publish the microphone. */
+export function micAllowed(p: Pick<ParticipantPermission, 'canPublish' | 'canPublishSources'> | undefined): boolean {
+  return sourceAllowed(p, Track.Source.Microphone);
+}
+
+/**
+ * The screen capture quality: 720p by default, 1080p with STREAM_HQ. LiveKit
+ * cannot cap a resolution, so the client keeps to what the right allows.
+ */
+export function screenPreset(highQuality: boolean) {
+  return highQuality ? ScreenSharePresets.h1080fps30 : ScreenSharePresets.h720fps30;
+}
+
+/**
+ * What to say when the browser does not share the screen. Choosing «Cancel»
+ * is not an error; a system that forbids capture (macOS privacy settings)
+ * and a browser without screen capture are.
+ */
+export function shareErrorText(err: unknown): string | null {
+  const e = err as { name?: string; message?: string } | null;
+  if (e?.name === 'NotAllowedError') {
+    return /system/i.test(e.message ?? '') ? 'Система не разрешила браузеру показ экрана: проверьте настройки конфиденциальности' : null;
+  }
+  // DeviceUnsupportedError: livekit-client found no getDisplayMedia (phones).
+  if (e?.name === 'NotSupportedError' || e?.name === 'DeviceUnsupportedError') return 'Этот браузер не умеет показывать экран';
+  if (e?.name === 'AbortError') return null;
+  return 'Не удалось начать показ экрана';
 }
 
 /**
@@ -104,10 +140,24 @@ export class VoiceService {
   readonly input = signal(readDevice('audioinput'));
   readonly output = signal(readDevice('audiooutput'));
   readonly connected = computed(() => this.status() !== 'idle');
+  /** The token allows sharing the screen (STREAM). */
+  readonly canShare = signal(false);
+  /** Above 720p allowed (STREAM_HQ). */
+  readonly highQuality = signal(false);
+  /** The sound of the shared screen may go too (screen_share_audio). */
+  private shareAudio = false;
+  /** We share our screen now. */
+  readonly sharing = signal(false);
+  /** User ids sharing a screen in this room, us included. */
+  readonly sharers = signal<ReadonlySet<string>>(new Set());
+  /** Whose screen is open in the voice channel's centre. */
+  readonly watching = signal<string | null>(null);
 
   private room: Room | null = null;
   /** Elements playing remote audio, kept to deafen and to remove. */
   private readonly audio = new Map<string, HTMLMediaElement>();
+  /** Remote screen tracks by user id, subscribed while someone shares. */
+  private readonly screens = new Map<string, RemoteTrack>();
   private sink: HTMLElement | null = null;
 
   constructor() {
@@ -167,6 +217,9 @@ export class VoiceService {
     this.status.set('connected');
     if (this.output()) await room.switchActiveDevice('audiooutput', this.output()).catch(() => false);
     this.canSpeak.set(info.sources.includes('microphone'));
+    this.canShare.set(info.sources.includes('screen_share'));
+    this.shareAudio = info.sources.includes('screen_share_audio');
+    this.highQuality.set(!!info.high_quality);
     this.pushToTalk.set(info.push_to_talk);
     // Push-to-talk comes with the voice settings; until then such users listen.
     const talk = this.canSpeak() && !info.push_to_talk && !this.selfMute() && !this.selfDeaf();
@@ -196,6 +249,46 @@ export class VoiceService {
     this.applyDeaf(deaf);
     await this.setMic(!deaf && !this.selfMute());
     this.report();
+  }
+
+  /**
+   * Starts or stops sharing the screen. The browser asks which screen or
+   * window; with the right to share sound (screen_share_audio) the tab's or
+   * system sound goes too, where the browser offers it.
+   */
+  async toggleShare(): Promise<void> {
+    const room = this.room;
+    if (!room || !this.canShare()) return;
+    const on = !this.sharing();
+    try {
+      await room.localParticipant.setScreenShareEnabled(on, {
+        audio: this.shareAudio,
+        resolution: screenPreset(this.highQuality()).resolution,
+        contentHint: 'detail',
+        selfBrowserSurface: 'exclude',
+        surfaceSwitching: 'include',
+      }, { screenShareEncoding: screenPreset(this.highQuality()).encoding });
+    } catch (err) {
+      const text = shareErrorText(err);
+      if (text) this.error.set(text);
+      console.warn('voice: screen share', err);
+    }
+    this.syncSharing(room.localParticipant);
+  }
+
+  /**
+   * Shows a screen in the given video element; returns the cleanup. Our own
+   * screen plays from the local track, without its sound.
+   */
+  showScreen(userId: string, el: HTMLVideoElement): () => void {
+    const room = this.room;
+    const own = room && userId === room.localParticipant.identity
+      ? room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track
+      : undefined;
+    const track = own ?? this.screens.get(userId);
+    if (!track) return () => undefined;
+    track.attach(el);
+    return () => track.detach(el);
   }
 
   async setDevice(kind: AudioDeviceKind, id: string): Promise<void> {
@@ -242,6 +335,9 @@ export class VoiceService {
    * a microphone allowed again comes back unless we muted ourselves.
    */
   private async permissionsChanged(local: LocalParticipant): Promise<void> {
+    // Losing STREAM: LiveKit unpublishes the screen; the button goes too.
+    this.canShare.set(sourceAllowed(local.permissions, Track.Source.ScreenShare));
+    this.syncSharing(local);
     const allowed = micAllowed(local.permissions);
     if (allowed === this.canSpeak()) return;
     this.canSpeak.set(allowed);
@@ -265,8 +361,13 @@ export class VoiceService {
     // update the views either way, zone.run keeps change detection simple.
     const run = (fn: () => void) => this.zone.run(fn);
     room
-      .on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => run(() => this.attach(track)))
-      .on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => run(() => this.detach(track)))
+      .on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub: RemoteTrackPublication, p: RemoteParticipant) =>
+        run(() => this.attach(track, p.identity)))
+      .on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, _pub: RemoteTrackPublication, p: RemoteParticipant) =>
+        run(() => this.detach(track, p.identity)))
+      // Our screen ends from the browser's own «Stop sharing» too.
+      .on(RoomEvent.LocalTrackPublished, (_pub: LocalTrackPublication) => run(() => this.syncSharing(room.localParticipant)))
+      .on(RoomEvent.LocalTrackUnpublished, (_pub: LocalTrackPublication) => run(() => this.syncSharing(room.localParticipant)))
       .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) =>
         run(() => this.speaking.set(new Set(speakers.map(p => p.identity)))))
       .on(RoomEvent.Reconnecting, () => run(() => this.status.set('reconnecting')))
@@ -283,7 +384,12 @@ export class VoiceService {
         }));
   }
 
-  private attach(track: RemoteTrack): void {
+  private attach(track: RemoteTrack, userId: string): void {
+    if (track.source === Track.Source.ScreenShare) {
+      this.screens.set(userId, track);
+      this.updateSharers();
+      return;
+    }
     if (track.kind !== Track.Kind.Audio || !track.sid) return;
     const el = (track as RemoteAudioTrack).attach();
     el.muted = this.selfDeaf();
@@ -292,7 +398,12 @@ export class VoiceService {
     this.audio.set(track.sid, el);
   }
 
-  private detach(track: RemoteTrack): void {
+  private detach(track: RemoteTrack, userId: string): void {
+    if (track.source === Track.Source.ScreenShare) {
+      if (this.screens.get(userId) === track) this.screens.delete(userId);
+      this.updateSharers();
+      return;
+    }
     if (!track.sid) return;
     const el = this.audio.get(track.sid);
     if (el) {
@@ -300,6 +411,22 @@ export class VoiceService {
       el.remove();
       this.audio.delete(track.sid);
     }
+  }
+
+  /** Whether we publish a screen now, by LiveKit's own state. */
+  private syncSharing(local: LocalParticipant): void {
+    this.sharing.set(local.isScreenShareEnabled);
+    this.updateSharers();
+  }
+
+  private updateSharers(): void {
+    const ids = new Set(this.screens.keys());
+    const me = this.room?.localParticipant;
+    if (me && this.sharing()) ids.add(me.identity);
+    this.sharers.set(ids);
+    // Someone stopped: the centre stops showing their screen.
+    const w = this.watching();
+    if (w && !ids.has(w)) this.watching.set(null);
   }
 
   private makeSink(): HTMLElement {
@@ -313,6 +440,12 @@ export class VoiceService {
   private reset(error: string | null): void {
     for (const el of this.audio.values()) el.remove();
     this.audio.clear();
+    this.screens.clear();
+    this.sharing.set(false);
+    this.canShare.set(false);
+    this.highQuality.set(false);
+    this.sharers.set(new Set());
+    this.watching.set(null);
     this.status.set('idle');
     this.target.set(null);
     this.speaking.set(new Set());

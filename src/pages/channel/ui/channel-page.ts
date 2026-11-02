@@ -23,6 +23,7 @@ import { ServerMembersSidebar } from '@widgets/sidebar/ui/server-sidebar/server-
 import { GroupMembersSidebar } from '@widgets/sidebar/ui/group-members-sidebar';
 import { ApiService, GatewayService, Message, Perm, PublicUser, errorText, hasPerm, nameOf } from '@shared/api';
 import { AppStateStore, TypingStore } from '@entities/app-state';
+import { VoiceRoom } from '@widgets/voice';
 import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
 
@@ -45,7 +46,7 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
   selector: 'ChannelPage',
   standalone: true,
   host: { class: 'flex-1 min-h-0' },
-  imports: [CommonModule, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar, GroupMembersSidebar],
+  imports: [CommonModule, VoiceRoom, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar, GroupMembersSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .typing-indicator { display: inline-flex; align-items: center; }
@@ -60,7 +61,11 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
     @keyframes blink { 0% { opacity: .2; } 20% { opacity: 1; } 100% { opacity: .2; } }
   `,
   template: `
-    <div class="flex h-full" *ngIf="view() as v; else waiting">
+    <div class="flex h-full" *ngIf="voiceRoom() as r">
+      <VoiceRoom [guildId]="r.guildId" [channelId]="r.channelId" />
+      <ServerMembersSidebar [guildId]="r.guildId" class="w-[240px] shrink-0 hidden lg:block" />
+    </div>
+    <div class="flex h-full" *ngIf="!voiceRoom() && view() as v; else waiting">
         <div class="flex-1 min-w-0 flex flex-col overflow-hidden min-h-0">
           <ChatHeader [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
                       [title]="v.group?.name ?? null" [members]="v.group?.recipients?.length ?? 0"
@@ -113,7 +118,7 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
           class="w-[260px] shrink-0 hidden lg:flex" />
     </div>
     <ng-template #waiting>
-      <div class="h-full flex items-center justify-center text-ok-muted text-[13px]">
+      <div *ngIf="!voiceRoom()" class="h-full flex items-center justify-center text-ok-muted text-[13px]">
         {{ store.loaded() ? 'Канал не найден' : 'Загрузка…' }}
       </div>
     </ng-template>
@@ -131,6 +136,12 @@ export class ChannelPage {
   @ViewChild(MessageInput) private input?: MessageInput;
 
   protected readonly channelId = toSignal(this.route.paramMap.pipe(map(p => p.get('channelId'))), { initialValue: null });
+
+  /** A voice channel shows its room instead of the chat. */
+  protected readonly voiceRoom = computed(() => {
+    const inGuild = this.store.channel(this.channelId());
+    return inGuild?.channel.type === 2 ? { guildId: inGuild.guild.id, channelId: inGuild.channel.id } : null;
+  });
 
   /** Everything the page shows about the channel, from the live state. */
   protected readonly view = computed(() => {
@@ -224,7 +235,7 @@ export class ChannelPage {
       untracked(() => {
         if (!loaded) return;
         if (!v) {
-          this.leaveMissing();
+          if (!this.voiceRoom()) this.leaveMissing();
           return;
         }
         if (id !== this.loadedFor) this.load(id!, v.canRead);
