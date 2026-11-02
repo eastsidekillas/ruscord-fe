@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { CommonModule } from '@angular/common';
 import { HeadphoneOff, Headphones, LucideAngularModule, Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Video, VideoOff } from 'lucide-angular';
 import { AppStateStore } from '@entities/app-state';
+import { nameOf } from '@shared/api';
 import { DeviceKind, VoiceService } from '@entities/voice';
 
 /**
@@ -117,10 +118,15 @@ export class VoicePanel {
       default: return this.voice.sharing() ? 'Вы показываете экран' : 'Голос подключён';
     }
   });
-  /** "voice · Server". */
+  /** "voice · Server", or "Звонок · name" in a DM call. */
   protected readonly place = computed(() => {
     const t = this.voice.target();
-    const g = t ? this.store.guild(t.guildId) : null;
+    if (t && !t.guildId) {
+      const dm = this.store.dm(t.channelId);
+      const title = !dm ? '' : dm.type === 3 ? this.store.groupTitle(dm) : nameOf(this.store.dmPartner(dm));
+      return title ? `Звонок · ${title}` : 'Звонок';
+    }
+    const g = t?.guildId ? this.store.guild(t.guildId) : null;
     const ch = g?.channels.find(c => c.id === t?.channelId);
     return [ch?.name, g?.name].filter(Boolean).join(' · ');
   });

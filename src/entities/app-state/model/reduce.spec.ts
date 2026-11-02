@@ -27,6 +27,8 @@ const ready: Ready = {
   presences: [{ user_id: 'bob', status: 'idle' }],
 };
 
+const call = { id: 'c1', channel_id: 'dm1', started_by: 'me', started_at: '', ringing: ['bob'], ring_until: '', members: [] };
+
 const start = (): AppState => reduce(emptyState, { t: 'READY', d: ready });
 
 describe('reduce', () => {
@@ -37,6 +39,16 @@ describe('reduce', () => {
     expect(s.dms['dm1'].recipients.length).toBe(2);
     expect(s.relationships['bob'].type).toBe(1);
     expect(s.presences).toEqual({ bob: 'idle' });
+  });
+
+  it('keeps the call through channel events and drops it on its own end only', () => {
+    let s = reduce(start(), { t: 'CALL_CREATE', d: call });
+    s = reduce(s, { t: 'CHANNEL_UPDATE', d: { id: 'dm1', type: 1, created_at: '', recipients: [me, bob] } });
+    expect(s.dms['dm1'].call?.id).toBe('c1');
+    s = reduce(s, { t: 'CALL_DELETE', d: { id: 'older', channel_id: 'dm1' } });
+    expect(s.dms['dm1'].call?.id).toBe('c1');
+    s = reduce(s, { t: 'CALL_DELETE', d: { id: 'c1', channel_id: 'dm1' } });
+    expect(s.dms['dm1'].call).toBeUndefined();
   });
 
   it('a second READY replaces everything (new session after 4006)', () => {
@@ -99,6 +111,14 @@ describe('reduce', () => {
       name: 'recipient added replaces the DM', t: 'CHANNEL_RECIPIENT_ADD',
       d: { channel_id: 'dm1', user: cat, channel: { id: 'dm1', type: 3, created_at: '', recipients: [me, bob, cat] } },
       check: s => expect(s.dms['dm1'].recipients.map(r => r.id)).toEqual(['me', 'bob', 'cat']),
+    },
+    {
+      name: 'a call starts in a DM', t: 'CALL_CREATE', d: call,
+      check: s => expect(s.dms['dm1'].call).toEqual(call),
+    },
+    {
+      name: 'a call in an unknown DM is ignored', t: 'CALL_CREATE', d: { ...call, channel_id: 'nope' },
+      check: s => expect(s.dms['nope']).toBeUndefined(),
     },
     {
       name: 'permissions replaced as a whole', t: 'GUILD_PERMISSIONS_UPDATE',

@@ -1,4 +1,5 @@
 import {
+  DMCall,
   DMChannel,
   FullGuild,
   Guild,
@@ -154,7 +155,7 @@ export function reduce(s: AppState, ev: Dispatch): AppState {
           return { ...g, channels };
         });
       }
-      return d.id && (d.type === 1 || d.type === 3) ? { ...s, dms: { ...s.dms, [d.id]: d as DMChannel } } : s;
+      return d.id && (d.type === 1 || d.type === 3) ? { ...s, dms: { ...s.dms, [d.id]: keepCall(s, d as DMChannel) } } : s;
 
     case 'CHANNEL_DELETE':
       if (d.guild_id) {
@@ -178,7 +179,20 @@ export function reduce(s: AppState, ev: Dispatch): AppState {
 
     case 'CHANNEL_RECIPIENT_ADD':
     case 'CHANNEL_RECIPIENT_REMOVE':
-      return d.channel?.id ? { ...s, dms: { ...s.dms, [d.channel.id]: d.channel as DMChannel } } : s;
+      return d.channel?.id ? { ...s, dms: { ...s.dms, [d.channel.id]: keepCall(s, d.channel as DMChannel) } } : s;
+
+    case 'CALL_CREATE':
+    case 'CALL_UPDATE': {
+      const c = d as DMCall;
+      const dm = s.dms[c.channel_id];
+      return dm ? { ...s, dms: { ...s.dms, [dm.id]: { ...dm, call: c } } } : s;
+    }
+
+    case 'CALL_DELETE': {
+      const dm = s.dms[d.channel_id];
+      // An older call's end must not clear a newer one.
+      return dm?.call?.id === d.id ? { ...s, dms: { ...s.dms, [dm.id]: { ...dm, call: undefined } } } : s;
+    }
 
     case 'RELATIONSHIP_ADD': {
       const r = d as Relationship;
@@ -194,6 +208,11 @@ export function reduce(s: AppState, ev: Dispatch): AppState {
       return s.relationships[d.id]?.type === d.type ? { ...s, relationships: without(s.relationships, d.id) } : s;
   }
   return s;
+}
+
+/** Channel events do not carry the call: the one known stays. */
+function keepCall(s: AppState, dm: DMChannel): DMChannel {
+  return dm.call !== undefined ? dm : { ...dm, call: s.dms[dm.id]?.call };
 }
 
 /** The newest known public profile of a user. */

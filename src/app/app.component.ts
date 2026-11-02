@@ -16,15 +16,17 @@ import { AppStateStore, IdleService, TypingStore } from '@entities/app-state';
 
 import { GroupModal } from '@features/group/ui/group-modal';
 import { NickModal } from '@features/change-nick';
+import { IncomingCall } from '@widgets/voice';
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay, GroupModal, NickModal, ChannelSettingsModal],
+  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay, GroupModal, NickModal, ChannelSettingsModal, IncomingCall],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <router-outlet></router-outlet>
 
     <ConnectionOverlay></ConnectionOverlay>
+    <IncomingCall />
 
     <CreateServerModal *ngIf="modalService.modalType() === 'createServer'"></CreateServerModal>
     <ProfileViewModal *ngIf="modalService.modalType() === 'userProfile'"></ProfileViewModal>

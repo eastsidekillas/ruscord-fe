@@ -19,8 +19,9 @@ import { AuthService } from '@entities/session/api/auth.service';
 
 export type VoiceStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting';
 
+/** A guild's voice channel, or a DM channel's call (guildId null, ruscord-core ADR-0032). */
 export interface VoiceTarget {
-  guildId: string;
+  guildId: string | null;
   channelId: string;
 }
 
@@ -189,12 +190,20 @@ export class VoiceService {
   readonly lastMove = signal<{ from: string; to: string } | null>(null);
   /** Whose screen is open in the voice channel's centre. */
   readonly watching = signal<string | null>(null);
+  /** The screen shown: the one picked, else the first one shared. */
+  readonly screen = computed(() => {
+    const w = this.watching();
+    const all = this.sharers();
+    return w && all.has(w) ? w : ([...all][0] ?? null);
+  });
   /** The token allows the camera (VIDEO). */
   readonly canCamera = signal(false);
   /** Our camera is on. */
   readonly cameraOn = signal(false);
   /** User ids with the camera on in this room, us included. */
   readonly filming = signal<ReadonlySet<string>>(new Set());
+  /** Others in this room without a working microphone, by LiveKit's tracks (calls show it from here). */
+  readonly silent = signal<ReadonlySet<string>>(new Set());
 
   private room: Room | null = null;
   /**
@@ -244,9 +253,9 @@ export class VoiceService {
     this.status.set('connecting');
     let info: VoiceJoinInfo;
     try {
-      info = await firstValueFrom(this.api.joinVoice(target.channelId));
+      info = await firstValueFrom(target.guildId ? this.api.joinVoice(target.channelId) : this.api.joinCall(target.channelId));
     } catch (err) {
-      this.reset(errorText(err, 'Не удалось войти в голосовой канал'));
+      this.reset(errorText(err, target.guildId ? 'Не удалось войти в голосовой канал' : 'Не удалось позвонить'));
       return;
     }
     const room = new Room({
@@ -436,10 +445,10 @@ export class VoiceService {
     for (const el of this.audio.values()) el.muted = deaf;
   }
 
-  /** Tells the others in the guild about our mute and deafen. */
+  /** Tells the others in the guild about our mute and deafen; in a call they see our tracks. */
   private report(): void {
     const t = this.target();
-    if (!t || this.status() === 'idle') return;
+    if (!t?.guildId || this.status() === 'idle') return;
     this.api.setSelfVoice(t.channelId, this.selfMute(), this.selfDeaf()).subscribe({ error: () => undefined });
   }
 
@@ -455,6 +464,10 @@ export class VoiceService {
       // A camera turned off stays published, muted.
       .on(RoomEvent.TrackMuted, () => run(() => this.updateVideos()))
       .on(RoomEvent.TrackUnmuted, () => run(() => this.updateVideos()))
+      .on(RoomEvent.TrackPublished, () => run(() => this.updateMics()))
+      .on(RoomEvent.TrackUnpublished, () => run(() => this.updateMics()))
+      .on(RoomEvent.ParticipantConnected, () => run(() => this.updateMics()))
+      .on(RoomEvent.ParticipantDisconnected, () => run(() => this.updateMics()))
       // Our screen ends from the browser's own «Stop sharing» too.
       .on(RoomEvent.LocalTrackPublished, (_pub: LocalTrackPublication) => run(() => this.syncLocal(room.localParticipant)))
       .on(RoomEvent.LocalTrackUnpublished, (_pub: LocalTrackPublication) => run(() => this.syncLocal(room.localParticipant)))
@@ -514,8 +527,16 @@ export class VoiceService {
     this.updateVideos();
   }
 
+  /** Who of the others has no microphone on now. */
+  private updateMics(): void {
+    const room = this.room;
+    if (!room) return;
+    this.silent.set(new Set([...room.remoteParticipants.values()].filter(p => !p.isMicrophoneEnabled).map(p => p.identity)));
+  }
+
   /** Who shows a screen or a camera; a muted track shows nothing. */
   private updateVideos(): void {
+    this.updateMics();
     const me = this.room?.localParticipant;
     const live = (source: VideoSource, own: boolean) => {
       const ids = new Set([...this.videos.get(source)!].filter(([, t]) => !t.isMuted).map(([id]) => id));
@@ -546,6 +567,7 @@ export class VoiceService {
     this.canCamera.set(false);
     this.cameraOn.set(false);
     this.filming.set(new Set());
+    this.silent.set(new Set());
     this.canShare.set(false);
     this.highQuality.set(false);
     this.sharers.set(new Set());
