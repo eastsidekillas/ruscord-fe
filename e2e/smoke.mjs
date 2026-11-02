@@ -254,10 +254,10 @@ await step('server with an icon, invite link, join by link', async () => {
   await ann.locator('SidebarCreateServer button, SidebarCreateServer div').first().click();
   await ann.fill('#channelName', 'Тестовый');
   await ann.setInputFiles('#avatar', `${FIX}/alpha.png`);
-  await ann.getByRole('button', { name: 'Создать сервер' }).click();
+  await ann.getByRole('button', { name: 'Создать', exact: true }).click();
   await ann.waitForURL(/\/channels\/[0-9a-f-]{36}/);
   await ann.locator('ServerSidebar img[src*="/cdn/icons/"]').first().waitFor({ timeout: 8000 });
-  await menu(ann, 'Пригласить участников');
+  await menu(ann, 'Пригласить людей');
   const link = ann.locator('span.font-mono');
   await link.waitFor({ timeout: 8000 });
   invite = (await link.innerText()).trim();
@@ -272,9 +272,9 @@ await step('server with an icon, invite link, join by link', async () => {
 
 await step('create a channel from the menu; others see it live', async () => {
   await menu(ann, 'Создать канал');
-  await ann.fill('input[name=name]', 'новости');
+  await ann.fill('#cc-name', 'новости');
   const from = ann.url();
-  await ann.getByRole('button', { name: 'Создать', exact: true }).click();
+  await ann.getByRole('button', { name: 'Создать канал', exact: true }).click();
   // The new channel opens by itself (not just any channel URL: one was open already).
   await ann.waitForURL(u => u.href !== from && /\/channels\/[0-9a-f-]{36}\/[0-9a-f-]{36}/.test(u.pathname));
   await ann.locator('input[placeholder="Написать в #новости"]').waitFor({ timeout: 8000 });
@@ -282,6 +282,16 @@ await step('create a channel from the menu; others see it live', async () => {
   await say(ann, 'первая новость');
   await bob.getByText('новости').first().click();
   await sees(bob, 'первая новость');
+});
+
+await step('own nickname on the server: set, then reset', async () => {
+  await menu(ann, 'Сменить ник');
+  await ann.fill('#nk', 'Анюта');
+  await ann.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await sees(ann, 'Ник сохранён');
+  await menu(ann, 'Сменить ник');
+  await ann.getByRole('button', { name: 'Сбросить', exact: true }).click();
+  await sees(ann, 'Ник сброшен');
 });
 
 await step('voice: both enter the voice channel, hear who speaks, mute shows; the owner mutes and disconnects Bob', async () => {

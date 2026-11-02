@@ -1,85 +1,56 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { LucideAngularModule, Plus } from 'lucide-angular';
 import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
 import { ApiService, errorText } from '@shared/api';
+import { ModalFrame } from '@shared/ui/modal-frame';
 import { AppStateStore } from '@entities/app-state';
 
+/** «Создать сервер» by the mockup: icon, name, Cancel and Create. */
 @Component({
   selector: 'CreateServerModal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule, LucideAngularModule, ModalFrame],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="fixed inset-0 flex items-center justify-center z-50">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+    <ModalFrame title="Создать сервер" subtitle="Место для своей компании. Текстовый и голосовой канал появятся сразу." (closed)="closeModal()">
+      <form class="flex flex-col gap-5" (ngSubmit)="onCreateServer()">
+        <label for="avatar" class="self-center w-24 h-24 rounded-ok-lg overflow-hidden cursor-pointer flex flex-col items-center justify-center gap-1 text-[12px] text-ok-muted hover:text-ok-text"
+               [class]="avatarPreviewUrl() ? '' : 'border border-dashed border-ok-border-control'">
+          @if (avatarPreviewUrl(); as url) {
+            <img [src]="url" alt="Иконка сервера" class="w-full h-full object-cover" />
+          } @else {
+            <lucide-angular class="w-[22px] h-[22px]" [img]="Plus" aria-hidden="true"></lucide-angular>
+            Иконка
+          }
+          <input type="file" id="avatar" (change)="onFileSelected($event)" accept="image/png,image/jpeg,image/webp,image/gif" class="sr-only-ok" />
+        </label>
 
-      <div class="relative bg-main-surface-primary text-white w-full max-w-md p-6 rounded-2xl shadow-xl">
-        <button
-          (click)="closeModal()"
-          class="absolute top-4 right-4 text-gray-400 hover:text-white transition"
-          aria-label="Закрыть"
-        >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div class="flex flex-col gap-1.5">
+          <label for="channelName" class="text-[13px] font-medium text-ok-muted">Название</label>
+          <input id="channelName" name="channelName" required type="text" maxlength="100" [(ngModel)]="serverName"
+                 [attr.aria-invalid]="errorMessage() ? 'true' : null"
+                 class="h-12 box-border rounded-ok-md border border-ok-border-control bg-ok-sidebar text-ok-text px-4" />
+          @if (errorMessage()) { <span role="alert" class="text-[13px] text-ok-danger">{{ errorMessage() }}</span> }
+        </div>
 
-        <h2 class="text-xl font-semibold text-center mb-4">Персонализируйте свой сервер</h2>
-        <p class="text-sm font-light text-center mb-4">Персонализируйте свой новый сервер, выбрав ему название и аватар.</p>
-
-        <form (ngSubmit)="onCreateServer()">
-          <div class="mb-4 flex flex-col items-center gap-3">
-            <label
-              for="avatar"
-              class="relative w-24 h-24 rounded-full overflow-hidden bg-main-surface-secondary border border-gray-700 cursor-pointer group"
-            >
-              <img *ngIf="avatarPreviewUrl()" [src]="avatarPreviewUrl()" alt="Preview" class="w-full h-full object-cover" />
-
-              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-
-              <input type="file" id="avatar" (change)="onFileSelected($event)" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" />
-            </label>
-          </div>
-
-          <div class="mb-4">
-            <label for="channelName" class="block text-typo-secondary text-sm font-medium mb-1">
-              Название сервера
-            </label>
-            <input
-              id="channelName"
-              name="channelName"
-              required
-              type="text"
-              class="w-full px-3 py-2 rounded-xl bg-main-surface-secondary text-white placeholder-typo-secondary border border-gray-700 focus:outline-none focus:ring-green-500 transition"
-              placeholder="Название сервера"
-              [(ngModel)]="serverName"
-            />
-          </div>
-
-          <div class="flex justify-center gap-2 mt-6">
-            <button type="submit" [disabled]="creating()" class="disabled:opacity-50 px-4 py-2 bg-green-500 text-sm rounded-xl text-white hover:bg-green-600 transition">
-              Создать сервер
-            </button>
-          </div>
-          <div *ngIf="errorMessage()" class="text-red-500 mt-2">{{ errorMessage() }}</div>
-        </form>
-      </div>
-    </div>
+        <div class="flex gap-2 justify-end">
+          <button type="button" (click)="closeModal()" class="h-11 px-[18px] rounded-ok-md bg-ok-surface-2 text-ok-text font-semibold">Отмена</button>
+          <button type="submit" [disabled]="creating()" class="h-11 px-[18px] rounded-ok-md bg-ok-accent text-ok-on-accent font-semibold disabled:opacity-50">Создать</button>
+        </div>
+      </form>
+    </ModalFrame>
   `,
 })
 export class CreateServerModal {
-  serverName = 'Мой сервер';
+  serverName = '';
   readonly errorMessage = signal('');
   readonly avatarPreviewUrl = signal<string | null>(null);
   readonly creating = signal(false);
   private selectedFile: File | null = null;
+  protected readonly Plus = Plus;
 
   private readonly api = inject(ApiService);
   private readonly store = inject(AppStateStore);
@@ -109,7 +80,7 @@ export class CreateServerModal {
       },
       error: err => {
         this.creating.set(false);
-        this.errorMessage.set(errorText(err, 'Не удалось создать сервер. Попробуйте еще раз.'));
+        this.errorMessage.set(errorText(err, 'Не удалось создать сервер. Попробуйте ещё раз.'));
       },
     });
   }

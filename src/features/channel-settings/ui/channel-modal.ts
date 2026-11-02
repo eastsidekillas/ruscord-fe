@@ -1,77 +1,99 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Observable, filter, take, timeout } from 'rxjs';
+import { Hash, LucideAngularModule, LucideIconData, List, Volume2 } from 'lucide-angular';
 import { ModalService } from '@shared/model/modal.service';
-import { filter, take, timeout } from 'rxjs';
 import { ApiService, GatewayService, GuildChannelType, errorText } from '@shared/api';
+import { ModalFrame } from '@shared/ui/modal-frame';
 import { AppStateStore } from '@entities/app-state';
 
-const TYPES: { value: GuildChannelType; label: string }[] = [
-  { value: 0, label: 'Текстовый' },
-  { value: 2, label: 'Голосовой' },
-  { value: 4, label: 'Категория' },
+const TYPES: { value: GuildChannelType; label: string; icon: LucideIconData }[] = [
+  { value: 0, label: 'Текстовый', icon: Hash },
+  { value: 2, label: 'Голосовой', icon: Volume2 },
+  { value: 4, label: 'Категория', icon: List },
 ];
 
+/** user_limit of ruscord-core: 0 (no limit) to 99. */
+const MAX_LIMIT = 99;
+
+const FIELD = 'h-12 box-border rounded-ok-md border border-ok-border-control bg-ok-sidebar text-ok-text';
+
 /**
- * Creates a channel or category (modal data: serverId, parentId?) or edits
- * one (serverId, channelId). Needs MANAGE_CHANNELS; the server checks it too.
+ * «Создать канал» by the mockup (modal data: serverId, parentId?), or the
+ * same form for editing one (serverId, channelId). Needs MANAGE_CHANNELS;
+ * the server checks it too.
  */
 @Component({
   selector: 'ChannelModal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [NgClass, FormsModule, LucideAngularModule, ModalFrame],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="fixed inset-0 flex items-center justify-center z-50" (click)="close()">
-      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-      <form class="relative bg-main-surface-primary text-white w-full max-w-md p-6 rounded-2xl shadow-xl flex flex-col gap-4"
-            (click)="$event.stopPropagation()" (ngSubmit)="save()">
-        <h2 class="text-xl font-semibold text-center">{{ editing() ? 'Настройки канала' : 'Создать канал' }}</h2>
+    <ModalFrame [title]="editing() ? 'Настройки канала' : 'Создать канал'" (closed)="close()">
+      <form class="flex flex-col gap-[18px]" (ngSubmit)="save()">
+        @if (!editing()) {
+          <fieldset class="border-0 m-0 p-0 flex flex-col gap-2">
+            <legend class="text-[13px] font-medium text-ok-muted pb-2">Тип</legend>
+            @for (t of types; track t.value) {
+              <label class="flex items-center gap-3 px-3.5 py-3 rounded-ok-md cursor-pointer"
+                     [ngClass]="type === t.value ? 'bg-ok-surface-2 shadow-[inset_0_0_0_2px_var(--color-ok-accent)]' : 'bg-ok-sidebar'">
+                <input type="radio" name="type" class="accent-ok-accent" [value]="t.value" [checked]="type === t.value" (change)="type = t.value" />
+                <lucide-angular class="w-[18px] h-[18px] text-ok-muted" [img]="t.icon" aria-hidden="true"></lucide-angular>
+                <span class="flex-1">{{ t.label }}</span>
+              </label>
+            }
+          </fieldset>
+        }
 
-        <div *ngIf="!editing()" class="flex gap-2">
-          <button *ngFor="let t of types" type="button" (click)="type = t.value"
-                  class="flex-1 py-2 rounded-xl text-sm border transition"
-                  [ngClass]="type === t.value ? 'border-green-500 bg-green-500/10' : 'border-gray-700 hover:border-gray-500'">
-            {{ t.label }}
-          </button>
+        <div class="flex flex-col gap-1.5">
+          <label for="cc-name" class="text-[13px] font-medium text-ok-muted">Название</label>
+          <input id="cc-name" name="name" [(ngModel)]="name" maxlength="100" required class="${FIELD} px-4" />
         </div>
 
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-typo-secondary">Название</span>
-          <input name="name" [(ngModel)]="name" maxlength="100" required
-                 class="px-3 py-2 rounded-xl bg-main-surface-secondary border border-gray-700 focus:outline-none" />
-        </label>
+        @if (type === 0) {
+          <div class="flex flex-col gap-1.5">
+            <label for="cc-topic" class="text-[13px] font-medium text-ok-muted">Тема</label>
+            <input id="cc-topic" name="topic" [(ngModel)]="topic" maxlength="1024" class="${FIELD} px-4" />
+          </div>
+        }
 
-        <label *ngIf="type === 0" class="flex flex-col gap-1 text-sm">
-          <span class="text-typo-secondary">Тема</span>
-          <input name="topic" [(ngModel)]="topic" maxlength="1024"
-                 class="px-3 py-2 rounded-xl bg-main-surface-secondary border border-gray-700 focus:outline-none" />
-        </label>
+        @if (type !== 4) {
+          <div class="grid gap-3" [class.grid-cols-2]="type === 2">
+            <div class="flex flex-col gap-1.5">
+              <label for="cc-cat" class="text-[13px] font-medium text-ok-muted">Категория</label>
+              <select id="cc-cat" name="parent" [(ngModel)]="parentId" class="${FIELD} px-3">
+                <option [ngValue]="null">Без категории</option>
+                @for (c of categories(); track c.id) { <option [ngValue]="c.id">{{ c.name }}</option> }
+              </select>
+            </div>
+            @if (type === 2) {
+              <div class="flex flex-col gap-1.5">
+                <label for="cc-lim" class="text-[13px] font-medium text-ok-muted">Лимит участников</label>
+                <input id="cc-lim" name="limit" type="number" min="0" [max]="maxLimit" [(ngModel)]="limit" class="${FIELD} px-3.5" />
+              </div>
+            }
+          </div>
+          @if (type === 2) {
+            <span class="-mt-2 text-[12px] text-ok-muted">0 — без лимита. Лимит есть только у голосовых каналов.</span>
+          }
+        }
 
-        <label *ngIf="type !== 4" class="flex flex-col gap-1 text-sm">
-          <span class="text-typo-secondary">Категория</span>
-          <select name="parent" [(ngModel)]="parentId"
-                  class="px-3 py-2 rounded-xl bg-main-surface-secondary border border-gray-700 focus:outline-none">
-            <option [ngValue]="null">Без категории</option>
-            <option *ngFor="let c of categories()" [ngValue]="c.id">{{ c.name }}</option>
-          </select>
-        </label>
+        @if (error()) { <p role="alert" class="m-0 text-[13px] text-ok-danger">{{ error() }}</p> }
 
-        <p *ngIf="error()" class="text-red-400 text-sm">{{ error() }}</p>
-
-        <div class="flex items-center gap-2 mt-2">
-          <button *ngIf="editing()" type="button" (click)="remove()" [disabled]="busy()"
-                  class="text-sm text-red-400 hover:underline disabled:opacity-50">Удалить</button>
+        <div class="flex items-center gap-2">
+          @if (editing()) {
+            <button type="button" (click)="remove()" [disabled]="busy()" class="h-11 px-3 rounded-ok-md text-ok-danger font-semibold disabled:opacity-50">Удалить</button>
+          }
           <span class="flex-1"></span>
-          <button type="button" (click)="close()" class="px-4 py-2 text-sm text-gray-300 hover:text-white">Отмена</button>
-          <button type="submit" [disabled]="busy() || !name.trim()"
-                  class="px-4 py-2 bg-green-500 text-sm rounded-xl hover:bg-green-600 transition disabled:opacity-50">
-            {{ editing() ? 'Сохранить' : 'Создать' }}
+          <button type="button" (click)="close()" class="h-11 px-[18px] rounded-ok-md bg-ok-surface-2 text-ok-text font-semibold">Отмена</button>
+          <button type="submit" [disabled]="busy() || !name.trim()" class="h-11 px-[18px] rounded-ok-md bg-ok-accent text-ok-on-accent font-semibold disabled:opacity-50">
+            {{ editing() ? 'Сохранить' : 'Создать канал' }}
           </button>
         </div>
       </form>
-    </div>
+    </ModalFrame>
   `,
 })
 export class ChannelModal {
@@ -82,6 +104,7 @@ export class ChannelModal {
   private readonly gateway = inject(GatewayService);
 
   protected readonly types = TYPES;
+  protected readonly maxLimit = MAX_LIMIT;
   private readonly data = this.modal.modalData();
   protected readonly guild = computed(() => this.store.guild(this.data['serverId']));
   protected readonly editing = computed(() => this.guild()?.channels.find(c => c.id === this.data['channelId']) ?? null);
@@ -93,6 +116,7 @@ export class ChannelModal {
   protected type: GuildChannelType = 0;
   protected name = '';
   protected topic = '';
+  protected limit = 0;
   protected parentId: string | null = this.data['parentId'] ?? null;
 
   constructor() {
@@ -101,6 +125,7 @@ export class ChannelModal {
       this.type = ch.type;
       this.name = ch.name;
       this.topic = ch.topic ?? '';
+      this.limit = ch.user_limit ?? 0;
       this.parentId = ch.parent_id ?? null;
     }
   }
@@ -109,17 +134,24 @@ export class ChannelModal {
     const g = this.guild();
     const name = this.name.trim();
     if (!g || !name || this.busy()) return;
+    const limit = Math.trunc(Number(this.limit) || 0);
+    if (this.type === 2 && (limit < 0 || limit > MAX_LIMIT)) {
+      this.error.set(`Лимит — от 0 до ${MAX_LIMIT}.`);
+      return;
+    }
     const ch = this.editing();
     const req = ch
       ? this.api.updateChannel(ch.id, {
           name,
           ...(ch.type === 0 ? { topic: this.topic.trim() } : {}),
+          ...(ch.type === 2 ? { user_limit: limit } : {}),
           ...(ch.type !== 4 ? { parent_id: this.parentId } : {}),
         })
       : this.api.createChannel(g.id, {
           type: this.type,
           name,
           ...(this.type === 0 && this.topic.trim() ? { topic: this.topic.trim() } : {}),
+          ...(this.type === 2 && limit ? { user_limit: limit } : {}),
           ...(this.type !== 4 && this.parentId ? { parent_id: this.parentId } : {}),
         });
     this.run(req, created => {
@@ -157,7 +189,7 @@ export class ChannelModal {
   }
 
   /** The state changes through CHANNEL_* events; the answer only closes the form. */
-  private run<T>(req: import('rxjs').Observable<T>, done: (v: T) => void): void {
+  private run<T>(req: Observable<T>, done: (v: T) => void): void {
     this.busy.set(true);
     this.error.set(null);
     req.subscribe({

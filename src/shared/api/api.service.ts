@@ -171,6 +171,11 @@ export class ApiService {
     return this.http.delete<Guild>(this.url(`guilds/${guildId}/icon`));
   }
 
+  /** Own nickname on a server; null or "" resets it (CHANGE_NICKNAME). */
+  setNick(guildId: string, nick: string | null): Observable<void> {
+    return this.http.patch<void>(this.url(`guilds/${guildId}/members/@me`), { nick });
+  }
+
   leaveGuild(guildId: string): Observable<void> {
     return this.http.delete<void>(this.url(`guilds/${guildId}/members/@me`));
   }
@@ -186,12 +191,12 @@ export class ApiService {
     return this.http.get<Member[]>(this.url(`guilds/${guildId}/members`), { params });
   }
 
-  createChannel(guildId: string, body: { type: 0 | 2 | 4; name: string; topic?: string; parent_id?: string }): Observable<GuildChannel> {
+  createChannel(guildId: string, body: { type: 0 | 2 | 4; name: string; topic?: string; parent_id?: string; user_limit?: number }): Observable<GuildChannel> {
     return this.http.post<GuildChannel>(this.url(`guilds/${guildId}/channels`), body);
   }
 
   /** parent_id: null takes the channel out of its category. */
-  updateChannel(channelId: string, patch: { name?: string; topic?: string; parent_id?: string | null }): Observable<GuildChannel> {
+  updateChannel(channelId: string, patch: { name?: string; topic?: string; parent_id?: string | null; user_limit?: number }): Observable<GuildChannel> {
     return this.http.patch<GuildChannel>(this.url(`channels/${channelId}`), patch);
   }
 

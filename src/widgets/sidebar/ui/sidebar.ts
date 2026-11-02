@@ -73,10 +73,11 @@ export class Sidebar {
     const me = this.store.me()?.id;
     const items: DropdownMenuItem[] = [];
     if (Object.values(g.channel_permissions).some(p => hasPerm(p, Perm.CreateInvite))) {
-      items.push({ label: 'Пригласить участников', action: 'invite' });
+      items.push({ label: 'Пригласить людей', action: 'invite' });
     }
-    if (hasPerm(g.permissions, Perm.ManageChannels)) items.push({ label: 'Создать канал', action: 'createChannel' });
     if (settingsTabs(g).length) items.push({ label: 'Настройки сервера', action: 'editServer' });
+    if (hasPerm(g.permissions, Perm.ManageChannels)) items.push({ label: 'Создать канал', action: 'createChannel' });
+    if (hasPerm(g.permissions, Perm.ChangeNickname)) items.push({ label: 'Сменить ник', action: 'nick' });
     if (g.owner_id === me) {
       items.push({ label: 'Удалить сервер', action: 'deleteServer' });
     } else {
@@ -97,6 +98,9 @@ export class Sidebar {
         break;
       case 'editServer':
         this.modal.open('editServer', { serverId: g.id });
+        break;
+      case 'nick':
+        this.modal.open('nick', { serverId: g.id });
         break;
       case 'leaveServer':
         if (confirm(`Покинуть сервер «${g.name}»?`)) {
