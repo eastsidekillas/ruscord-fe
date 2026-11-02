@@ -355,6 +355,8 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
   await ann.locator('[data-voice-panel]').waitFor({ state: 'detached', timeout: 10000 });
   await room(ann).first().waitFor({ state: 'detached', timeout: 15000 });
   await bob.locator('[data-voice-panel] button[title="Скрыть"]').click();
+  // The voice channel took the centre; back to the chat with its member list.
+  for (const p of [ann, bob]) await p.locator('a', { hasText: 'новости' }).first().click();
 });
 
 await step('a role with kick rights, given to Bob, opens settings for him', async () => {
