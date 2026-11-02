@@ -378,9 +378,8 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
   await ann.fill('#cc-name', 'Вторая');
   await ann.getByRole('button', { name: 'Создать канал', exact: true }).click();
   await ann.locator('[data-voice-channel="Вторая"]').waitFor({ timeout: 8000 });
-  await bobRow.hover();
-  await bobRow.locator('button[title="Перенести в другой канал"]').click();
-  await ann.locator('[data-voice-move-menu]').getByRole('menuitem', { name: 'Вторая' }).click();
+  // Dragged with the mouse onto the other channel.
+  await bobRow.dragTo(ann.locator('[data-voice-channel="Вторая"]'));
   await bob.locator('[data-voice-panel]').getByText(/^Вторая/).waitFor({ timeout: 15000 });
   await sees(bob, 'Голос подключён', 15000);
   await bob.waitForURL(u => !u.pathname.endsWith('/' + bobVoiceFrom), { timeout: 10000 });
