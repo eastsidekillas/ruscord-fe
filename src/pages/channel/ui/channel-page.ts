@@ -63,7 +63,6 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
   template: `
     <div class="flex h-full" *ngIf="voiceRoom() as r">
       <VoiceRoom [guildId]="r.guildId" [channelId]="r.channelId" />
-      <ServerMembersSidebar [guildId]="r.guildId" class="w-[240px] shrink-0 hidden lg:block" />
     </div>
     <div class="flex h-full" *ngIf="!voiceRoom() && view() as v; else waiting">
         <div class="flex-1 min-w-0 flex flex-col overflow-hidden min-h-0">

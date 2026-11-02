@@ -326,7 +326,9 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
     return !!v && v.videoWidth > 0;
   }, null, { timeout: 15000 });
   await ann.locator('[data-voice-share]').click();
-  await bob.getByText('Никто не показывает экран').waitFor({ timeout: 15000 });
+  await bob.locator('[data-voice-stage]').waitFor({ state: 'detached', timeout: 15000 });
+  // Both see a tile for each participant in the centre.
+  for (const p of [ann, bob]) await p.locator('[data-voice-tile]').nth(1).waitFor({ timeout: 10000 });
 
   await bob.locator('[data-voice-panel] button[title="Выключить микрофон"]').click();
   await ann.locator('[data-voice-member="BOB"] [title="Микрофон выключен"]').waitFor({ timeout: 10000 });
@@ -353,6 +355,8 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
   await ann.locator('[data-voice-panel]').waitFor({ state: 'detached', timeout: 10000 });
   await room(ann).first().waitFor({ state: 'detached', timeout: 15000 });
   await bob.locator('[data-voice-panel] button[title="Скрыть"]').click();
+  // The voice channel took the centre; back to the chat with its member list.
+  for (const p of [ann, bob]) await p.locator('a', { hasText: 'новости' }).first().click();
 });
 
 await step('a role with kick rights, given to Bob, opens settings for him', async () => {
