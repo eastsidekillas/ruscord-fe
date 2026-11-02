@@ -333,9 +333,10 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
 await step('a role with kick rights, given to Bob, opens settings for him', async () => {
   await menu(ann, 'Настройки сервера');
   await ann.getByRole('button', { name: 'Роли' }).click();
-  await ann.fill('input[name=newRole]', 'Модератор');
-  await ann.locator('input[name=newRole]').press('Enter');
-  await ann.locator('input[name=roleName]').waitFor();
+  await ann.getByRole('button', { name: 'Создать роль' }).click();
+  // The new role opens in the editor once created.
+  await ann.waitForFunction(() => document.querySelector('#r-name')?.value === 'Новая роль', null, { timeout: 8000 });
+  await ann.fill('#r-name', 'Модератор');
   await ann.getByText('Выгонять участников').click();
   await ann.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await ann.waitForTimeout(500);

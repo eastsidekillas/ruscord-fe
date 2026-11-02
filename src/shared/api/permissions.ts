@@ -43,32 +43,52 @@ export function hasPerm(perms: string | null | undefined, need: bigint): boolean
   return (p & need) === need;
 }
 
-/** Names of the permissions for the role editor, in the order shown. */
-export const PermLabels: { bit: bigint; label: string }[] = [
-  { bit: Perm.Administrator, label: 'Администратор (все права, обходит запреты в каналах)' },
-  { bit: Perm.ManageGuild, label: 'Управлять сервером' },
-  { bit: Perm.ManageRoles, label: 'Управлять ролями' },
-  { bit: Perm.ManageChannels, label: 'Управлять каналами' },
-  { bit: Perm.KickMembers, label: 'Выгонять участников' },
-  { bit: Perm.BanMembers, label: 'Банить участников' },
-  { bit: Perm.CreateInvite, label: 'Создавать приглашения' },
-  { bit: Perm.ChangeNickname, label: 'Менять свой ник' },
-  { bit: Perm.ManageNicknames, label: 'Менять ники участников' },
-  { bit: Perm.ViewAuditLog, label: 'Просматривать журнал аудита' },
-  { bit: Perm.ViewChannel, label: 'Видеть каналы' },
-  { bit: Perm.SendMessages, label: 'Отправлять сообщения' },
-  { bit: Perm.ReadMessageHistory, label: 'Читать историю сообщений' },
-  { bit: Perm.ManageMessages, label: 'Удалять чужие сообщения' },
-  { bit: Perm.MentionEveryone, label: 'Упоминать @everyone и @here' },
-  { bit: Perm.AttachFiles, label: 'Прикреплять файлы' },
-  { bit: Perm.AddReactions, label: 'Добавлять реакции' },
-  { bit: Perm.Connect, label: 'Подключаться к голосовым каналам' },
-  { bit: Perm.Speak, label: 'Говорить' },
-  { bit: Perm.Video, label: 'Включать камеру' },
-  { bit: Perm.Stream, label: 'Демонстрировать экран' },
-  { bit: Perm.StreamHQ, label: 'Демонстрация экрана выше 720p' },
-  { bit: Perm.UseVoiceActivity, label: 'Активация по голосу (иначе — только по кнопке)' },
-  { bit: Perm.MuteMembers, label: 'Отключать микрофон участникам' },
-  { bit: Perm.DeafenMembers, label: 'Отключать звук участникам' },
-  { bit: Perm.MoveMembers, label: 'Перемещать участников' },
+export interface PermGroup {
+  title: string;
+  perms: { bit: bigint; label: string }[];
+}
+
+/**
+ * The role editor's permissions by group, in the order of the mockup.
+ * Bits with no method in the API yet (attachments, reactions, the audit log,
+ * other people's nicknames) are not shown; a role keeps them as they are.
+ */
+export const PermGroups: PermGroup[] = [
+  {
+    title: 'СЕРВЕР',
+    perms: [
+      { bit: Perm.Administrator, label: 'Администратор (все права, обходит запреты в каналах)' },
+      { bit: Perm.ManageGuild, label: 'Управлять сервером' },
+      { bit: Perm.ManageRoles, label: 'Управлять ролями' },
+      { bit: Perm.ManageChannels, label: 'Управлять каналами' },
+      { bit: Perm.KickMembers, label: 'Выгонять участников' },
+      { bit: Perm.BanMembers, label: 'Банить участников' },
+      { bit: Perm.CreateInvite, label: 'Создавать приглашения' },
+      { bit: Perm.ChangeNickname, label: 'Менять свой ник' },
+    ],
+  },
+  {
+    title: 'ТЕКСТ',
+    perms: [
+      { bit: Perm.ViewChannel, label: 'Видеть каналы' },
+      { bit: Perm.SendMessages, label: 'Отправлять сообщения' },
+      { bit: Perm.ReadMessageHistory, label: 'Читать историю сообщений' },
+      { bit: Perm.ManageMessages, label: 'Удалять чужие сообщения' },
+      { bit: Perm.MentionEveryone, label: 'Упоминать @everyone и @here' },
+    ],
+  },
+  {
+    title: 'ГОЛОС',
+    perms: [
+      { bit: Perm.Connect, label: 'Подключаться к голосовым каналам' },
+      { bit: Perm.Speak, label: 'Говорить' },
+      { bit: Perm.Video, label: 'Включать камеру' },
+      { bit: Perm.Stream, label: 'Демонстрировать экран' },
+      { bit: Perm.StreamHQ, label: 'Демонстрация экрана выше 720p' },
+      { bit: Perm.UseVoiceActivity, label: 'Активация по голосу (иначе — только по кнопке)' },
+      { bit: Perm.MuteMembers, label: 'Отключать микрофон участникам' },
+      { bit: Perm.DeafenMembers, label: 'Отключать звук участникам' },
+      { bit: Perm.MoveMembers, label: 'Перемещать участников (отключать от канала)' },
+    ],
+  },
 ];

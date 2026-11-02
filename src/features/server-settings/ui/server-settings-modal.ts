@@ -1,7 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { LucideAngularModule, X } from 'lucide-angular';
 import { ModalService } from '@shared/model/modal.service';
+import { NotificationService } from '@shared/model/notification.service';
 import { ApiService, FullGuild, Perm, errorText, hasPerm } from '@shared/api';
 import { AppStateStore } from '@entities/app-state';
 import { RolesTab } from './roles-tab';
@@ -27,72 +30,82 @@ export function settingsTabs(g: FullGuild | null): { id: Tab; label: string }[] 
 const MAX_UPLOAD = 8 << 20;
 
 /**
- * Server settings: overview (name, icon), roles, members, bans — each tab
- * only for the permission it needs; the server checks them too.
+ * Server settings over the whole window, like the user settings: the
+ * guild's sections on the left (each only for the permission it needs; the
+ * server checks them too), the section on the right, Esc or the cross closes.
  */
 @Component({
   selector: 'ServerSettingsModal',
   standalone: true,
-  imports: [CommonModule, FormsModule, RolesTab, MembersTab, BansTab],
+  imports: [CommonModule, FormsModule, LucideAngularModule, RolesTab, MembersTab, BansTab],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(document:keydown.escape)': 'close()' },
   template: `
-    <div class="fixed inset-0 flex items-center justify-center z-50" (click)="close()">
-      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-      <div class="relative bg-main-surface-primary text-white w-full max-w-2xl p-6 rounded-2xl shadow-xl"
-           (click)="$event.stopPropagation()">
-        <button (click)="close()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition" aria-label="Закрыть">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+    <div class="fixed inset-0 z-50 flex flex-wrap overflow-y-auto bg-ok-bg text-ok-text text-[15px] leading-normal">
+      @if (guild(); as g) {
+        <nav aria-label="Настройки сервера" class="flex-[1_1_240px] max-w-[280px] min-h-full box-border bg-ok-sidebar pt-12 pb-6 pl-6 pr-4 flex flex-col gap-0.5">
+          <div class="text-[12px] font-semibold tracking-[0.1em] text-ok-muted px-3 pb-2 truncate">{{ g.name.toUpperCase() }}</div>
+          @for (t of tabs(); track t.id) {
+            <button type="button" (click)="tab.set(t.id)" [attr.aria-current]="current() === t.id ? 'page' : null"
+                    class="text-left px-3 py-2.5 rounded-lg"
+                    [class]="current() === t.id ? 'bg-ok-surface-2 text-ok-text' : 'text-ok-muted hover:text-ok-text hover:bg-ok-surface-1'">{{ t.label }}</button>
+          }
+          @if (isOwner()) {
+            <div class="h-px bg-ok-border my-3"></div>
+            <button type="button" (click)="deleteGuild()" class="text-left px-3 py-2.5 rounded-lg text-ok-danger hover:bg-ok-surface-1">Удалить сервер</button>
+          }
+        </nav>
 
-        <ng-container *ngIf="guild() as g; else gone">
-          <h2 class="text-xl font-semibold text-center mb-4">Настройки сервера</h2>
-          <div class="flex gap-1 mb-5 border-b border-white/10">
-            <button *ngFor="let t of tabs()" type="button" (click)="tab.set(t.id)"
-                    class="px-3 py-2 text-sm -mb-px border-b-2 transition"
-                    [ngClass]="current() === t.id ? 'border-green-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'">
-              {{ t.label }}
-            </button>
-          </div>
-          <RolesTab *ngIf="current() === 'roles'" [guild]="g" />
-          <MembersTab *ngIf="current() === 'members'" [guild]="g" />
-          <BansTab *ngIf="current() === 'bans'" [guild]="g" />
-          <ng-container *ngIf="current() === 'overview'">
-
-          <div class="flex flex-col items-center gap-3 mb-6">
-            <label class="relative w-24 h-24 rounded-full overflow-hidden bg-main-surface-secondary border border-gray-700 cursor-pointer group"
-                   [class.pointer-events-none]="busy()">
-              <img *ngIf="g.icon" [src]="g.icon" alt="" class="w-full h-full object-cover" />
-              <span *ngIf="!g.icon" class="absolute inset-0 flex items-center justify-center text-2xl font-semibold">
-                {{ g.name.charAt(0).toUpperCase() }}
-              </span>
-              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-xs">
-                Сменить
-              </div>
-              <input type="file" class="hidden" accept="image/png,image/jpeg,image/webp,image/gif"
-                     data-testid="guild-icon-input" (change)="pickIcon($event)" />
-            </label>
-            <button *ngIf="g.icon" type="button" (click)="removeIcon()" [disabled]="busy()"
-                    class="text-xs text-red-400 hover:underline disabled:opacity-50">Удалить иконку</button>
-          </div>
-
-          <form (ngSubmit)="saveName()">
-            <label for="guildName" class="block text-typo-secondary text-sm font-medium mb-1">Название сервера</label>
-            <input id="guildName" name="guildName" type="text" maxlength="100" [(ngModel)]="name"
-                   class="w-full px-3 py-2 rounded-xl bg-main-surface-secondary text-white border border-gray-700 focus:outline-none" />
-            <div *ngIf="error()" class="text-red-400 text-sm mt-2">{{ error() }}</div>
-            <div class="flex justify-end mt-6">
-              <button type="submit" [disabled]="busy() || name.trim() === g.name"
-                      class="px-4 py-2 bg-green-500 text-sm rounded-xl hover:bg-green-600 transition disabled:opacity-50">
-                Сохранить
-              </button>
-            </div>
-          </form>
-          </ng-container>
-        </ng-container>
-        <ng-template #gone><p class="text-center text-sm text-typo-secondary">Сервер недоступен.</p></ng-template>
-      </div>
+        <div class="flex-[999_1_560px] min-w-0 relative">
+          <button type="button" (click)="close()" aria-label="Закрыть настройки" title="Закрыть (Esc)"
+                  class="absolute top-12 right-10 z-10 w-10 h-10 rounded-[10px] border border-ok-border-control bg-ok-bg text-ok-muted hover:text-ok-text flex items-center justify-center">
+            <lucide-angular class="w-4 h-4" [img]="X"></lucide-angular>
+          </button>
+          @switch (current()) {
+            @case ('roles') { <RolesTab [guild]="g" /> }
+            @case ('members') { <div class="px-10 py-12 pr-24 max-w-[860px] box-border"><MembersTab [guild]="g" /></div> }
+            @case ('bans') { <div class="px-10 py-12 pr-24 max-w-[860px] box-border"><BansTab [guild]="g" /></div> }
+            @case ('overview') {
+              <form class="px-10 py-12 pr-24 max-w-[760px] box-border flex flex-col gap-8" (ngSubmit)="saveName()">
+                <h1 class="m-0 text-[20px] leading-7 font-semibold">Обзор</h1>
+                <section aria-label="Иконка сервера" class="flex items-center gap-5 flex-wrap">
+                  <span class="w-24 h-24 rounded-ok-lg overflow-hidden bg-ok-avatar flex items-center justify-center text-[32px] font-semibold">
+                    @if (g.icon) { <img [src]="g.icon" alt="" class="w-full h-full object-cover" /> } @else { {{ g.name.charAt(0).toUpperCase() }} }
+                  </span>
+                  <div class="flex flex-col gap-2">
+                    <div class="flex gap-2 flex-wrap">
+                      <label class="h-10 px-4 rounded-[10px] bg-ok-accent text-ok-on-accent font-semibold flex items-center cursor-pointer" [class.opacity-50]="busy()">
+                        Загрузить иконку
+                        <input type="file" class="sr-only-ok" accept="image/png,image/jpeg,image/webp,image/gif"
+                               data-testid="guild-icon-input" [disabled]="busy()" (change)="pickIcon($event)" />
+                      </label>
+                      @if (g.icon) {
+                        <button type="button" (click)="removeIcon()" [disabled]="busy()" class="h-10 px-4 rounded-[10px] bg-ok-surface-2 text-ok-text font-semibold disabled:opacity-50">Удалить</button>
+                      }
+                    </div>
+                    <span class="text-[13px] text-ok-muted">PNG, JPEG, WebP или GIF, до 8 МиБ.</span>
+                  </div>
+                </section>
+                <div class="flex flex-col gap-1.5 max-w-[420px]">
+                  <label for="guildName" class="text-[13px] font-medium text-ok-muted">Название сервера</label>
+                  <input id="guildName" name="guildName" type="text" maxlength="100" [(ngModel)]="name"
+                         class="h-12 box-border rounded-ok-md border border-ok-border-control bg-ok-sidebar text-ok-text px-4" />
+                </div>
+                @if (error()) { <p role="alert" class="m-0 text-[13px] text-ok-danger">{{ error() }}</p> }
+                <div>
+                  <button type="submit" [disabled]="busy() || name.trim() === g.name"
+                          class="h-11 px-5 rounded-ok-md bg-ok-accent text-ok-on-accent font-semibold disabled:opacity-50">Сохранить</button>
+                </div>
+              </form>
+            }
+          }
+        </div>
+      } @else {
+        <div class="m-auto flex flex-col items-center gap-3">
+          <p class="m-0 text-ok-muted">Сервер недоступен.</p>
+          <button type="button" (click)="close()" class="h-10 px-4 rounded-[10px] bg-ok-surface-2 font-semibold">Закрыть</button>
+        </div>
+      }
     </div>
   `,
 })
@@ -100,6 +113,9 @@ export class ServerSettingsModal {
   private readonly modal = inject(ModalService);
   private readonly api = inject(ApiService);
   private readonly store = inject(AppStateStore);
+  private readonly router = inject(Router);
+  private readonly notify = inject(NotificationService);
+  protected readonly X = X;
 
   /** The live guild: GUILD_UPDATE from anyone shows here too. */
   protected readonly guild = computed(() => {
@@ -170,6 +186,23 @@ export class ServerSettingsModal {
         this.busy.set(false);
         this.error.set(errorText(err, fallback));
       },
+    });
+  }
+
+  protected readonly isOwner = computed(() => {
+    const g = this.guild();
+    return !!g && g.owner_id === this.store.me()?.id;
+  });
+
+  protected deleteGuild(): void {
+    const g = this.guild();
+    if (!g || !confirm(`Удалить сервер «${g.name}» со всеми каналами и сообщениями? Это нельзя отменить.`)) return;
+    this.api.deleteGuild(g.id).subscribe({
+      next: () => {
+        this.close();
+        this.router.navigate(['/channels/me']);
+      },
+      error: err => this.notify.show(errorText(err, 'Не удалось удалить сервер'), 'error'),
     });
   }
 

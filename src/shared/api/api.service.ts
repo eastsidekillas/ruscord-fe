@@ -209,7 +209,7 @@ export class ApiService {
     return this.http.post<Role>(this.url(`guilds/${guildId}/roles`), body);
   }
 
-  updateRole(guildId: string, roleId: string, patch: { name?: string; permissions?: string; color?: number }): Observable<Role> {
+  updateRole(guildId: string, roleId: string, patch: { name?: string; permissions?: string; color?: number; position?: number }): Observable<Role> {
     return this.http.patch<Role>(this.url(`guilds/${guildId}/roles/${roleId}`), patch);
   }
 
