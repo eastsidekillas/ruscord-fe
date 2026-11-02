@@ -117,6 +117,21 @@ export interface VoiceJoinInfo {
   push_to_talk: boolean;
   /** The screen may be shared above 720p (STREAM_HQ); older cores leave it out. */
   high_quality?: boolean;
+  /** The DM call joined (ruscord-core ADR-0032); absent for voice channels. */
+  call?: DMCall;
+}
+
+/** A call going on in a DM channel (ruscord-core ADR-0032). */
+export interface DMCall {
+  id: Snowflake;
+  channel_id: Snowflake;
+  started_by: Snowflake;
+  started_at: string;
+  /** Being called until ring_until; clients stop ringing then by themselves. */
+  ringing: Snowflake[];
+  ring_until: string;
+  /** Connected now, in the order they came. */
+  members: Snowflake[];
 }
 
 export interface DMChannel {
@@ -126,6 +141,8 @@ export interface DMChannel {
   owner_id?: Snowflake | null;
   created_at: string;
   recipients: PublicUser[];
+  /** The call going on there, if any. */
+  call?: DMCall;
 }
 
 export const RelType = {

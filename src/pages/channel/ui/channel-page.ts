@@ -23,7 +23,8 @@ import { ServerMembersSidebar } from '@widgets/sidebar/ui/server-sidebar/server-
 import { GroupMembersSidebar } from '@widgets/sidebar/ui/group-members-sidebar';
 import { ApiService, GatewayService, Message, Perm, PublicUser, errorText, hasPerm, nameOf } from '@shared/api';
 import { AppStateStore, TypingStore } from '@entities/app-state';
-import { VoiceRoom } from '@widgets/voice';
+import { CallStage, VoiceRoom } from '@widgets/voice';
+import { VoiceService } from '@entities/voice';
 import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
 
@@ -46,7 +47,7 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
   selector: 'ChannelPage',
   standalone: true,
   host: { class: 'flex-1 min-h-0' },
-  imports: [CommonModule, VoiceRoom, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar, GroupMembersSidebar],
+  imports: [CommonModule, VoiceRoom, CallStage, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar, GroupMembersSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .typing-indicator { display: inline-flex; align-items: center; }
@@ -68,7 +69,9 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
         <div class="flex-1 min-w-0 flex flex-col overflow-hidden min-h-0">
           <ChatHeader [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
                       [title]="v.group?.name ?? null" [members]="v.group?.recipients?.length ?? 0"
+                      [canCall]="!!v.dm && !v.blocked && voice.target()?.channelId !== v.dm.id" (call)="startCall()"
                       (profile)="openProfile($event)" (rename)="renameGroup($event)" (addMembers)="addToGroup()" />
+          <CallStage *ngIf="v.dm as d" [dm]="d" />
           <ChatMessages
             class="flex-1 min-h-0"
             [items]="items()"
@@ -125,6 +128,7 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
 })
 export class ChannelPage {
   protected readonly store = inject(AppStateStore);
+  protected readonly voice = inject(VoiceService);
   private readonly typing = inject(TypingStore);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
@@ -151,7 +155,7 @@ export class ChannelPage {
       if (channel.type !== 0) return null;
       const perms = guild.channel_permissions[channel.id];
       return {
-        kind: 'channel' as const, title: channel.name, topic: channel.topic || null, image: null, partnerId: null, group: null,
+        kind: 'channel' as const, title: channel.name, topic: channel.topic || null, image: null, partnerId: null, group: null, dm: null,
         guildId: guild.id, placeholder: `Написать в #${channel.name}`, blocked: false,
         canSend: hasPerm(perms, Perm.SendMessages),
         canRead: hasPerm(perms, Perm.ReadMessageHistory),
@@ -166,13 +170,13 @@ export class ChannelPage {
       // the other way round the client cannot know, the server refuses with cannot_dm.
       const blocked = !!other && this.store.relationship(other.id)?.type === 2;
       return {
-        kind: 'dm' as const, title: nameOf(other), topic: null, image: other?.avatar ?? null, partnerId: other?.id ?? null, group: null,
+        kind: 'dm' as const, title: nameOf(other), topic: null, image: other?.avatar ?? null, partnerId: other?.id ?? null, group: null, dm,
         guildId: null, placeholder: `Написать ${nameOf(other)}`, blocked, canSend: !blocked, canRead: true, canManage: false,
       };
     }
     const title = this.store.groupTitle(dm);
     return {
-      kind: 'group' as const, title, topic: null, image: null, partnerId: null, group: dm,
+      kind: 'group' as const, title, topic: null, image: null, partnerId: null, group: dm, dm,
       guildId: null, placeholder: `Написать в «${title}»`, blocked: false, canSend: true, canRead: true, canManage: false,
     };
   });
@@ -424,6 +428,12 @@ export class ChannelPage {
   }
 
   /** The channel is gone or hidden now: go where the user can be. */
+  /** Calls the DM open here; the others' clients ring (ruscord-core ADR-0032). */
+  protected startCall(): void {
+    const id = this.channelId();
+    if (id) void this.voice.join({ guildId: null, channelId: id });
+  }
+
   private leaveMissing(): void {
     const serverId = this.route.parent?.snapshot.paramMap.get('serverId');
     this.router.navigate(serverId ? ['/channels', serverId] : ['/channels/me'], { replaceUrl: true });

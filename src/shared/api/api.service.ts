@@ -60,6 +60,16 @@ export class ApiService {
     return this.http.post<VoiceJoinInfo>(this.url(`channels/${encodeURIComponent(channelId)}/voice`), null);
   }
 
+  /** Starts the call of a DM channel or answers it (ruscord-core ADR-0032). */
+  joinCall(channelId: string): Observable<VoiceJoinInfo> {
+    return this.http.post<VoiceJoinInfo>(this.url(`channels/${encodeURIComponent(channelId)}/call`), null);
+  }
+
+  /** Stops the ringing of a DM call for us. */
+  declineCall(channelId: string): Observable<void> {
+    return this.http.post<void>(this.url(`channels/${encodeURIComponent(channelId)}/call/decline`), null);
+  }
+
   /** A moderator mutes or deafens someone in voice (MUTE_MEMBERS, DEAFEN_MEMBERS). */
   setServerVoice(guildId: string, userId: string, change: { mute?: boolean; deaf?: boolean }): Observable<VoiceState> {
     return this.http.patch<VoiceState>(this.url(`guilds/${encodeURIComponent(guildId)}/voice-states/${encodeURIComponent(userId)}`), change);

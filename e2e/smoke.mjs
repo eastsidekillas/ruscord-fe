@@ -144,9 +144,11 @@ await step('friend request by username, live with the name, accepted', async () 
   await sees(ann, 'BOB');
 });
 
+let dmUrl = '';
 await step('direct message both ways and typing', async () => {
   await ann.getByRole('button', { name: 'Написать' }).first().click();
   await ann.waitForURL(/\/channels\/me\/[0-9a-f-]{36}/);
+  dmUrl = ann.url();
   await say(ann, 'привет');
   await bob.goto(ann.url());
   await sees(bob, 'привет');
@@ -473,6 +475,35 @@ await step('devices: a new sign-in is announced, signing it out works at once; p
   await sees(ann, 'Пароль изменён');
   await ann.keyboard.press('Escape');
   await ann2.context().close();
+});
+
+await step('a call in a DM: Bob declines, then accepts the next one; both connect; it ends when both leave', async () => {
+  const hangUp = p => p.locator('[data-voice-toolbar] button[aria-label="Отключиться"]').click();
+  const incoming = bob.locator('[data-incoming-call]');
+  await ann.goto(dmUrl);
+  await ann.locator('[data-call-start]').click();
+  await ann.locator('[data-call-ringing="BOB"]').waitFor({ timeout: 15000 });
+  await incoming.waitFor({ timeout: 10000 });
+  await incoming.getByRole('button', { name: 'Отклонить' }).click();
+  await incoming.waitFor({ state: 'detached', timeout: 5000 });
+  await ann.locator('[data-call-ringing="BOB"]').waitFor({ state: 'detached', timeout: 10000 });
+  // Ann alone hangs up: the call ends for everyone.
+  await hangUp(ann);
+  await ann.locator('[data-call-bar]').waitFor({ state: 'detached', timeout: 15000 });
+
+  await ann.locator('[data-call-start]').click();
+  await incoming.waitFor({ timeout: 10000 });
+  await incoming.getByRole('button', { name: 'Принять' }).click();
+  await bob.waitForURL(dmUrl);
+  // Both connected: each receives the other's sound.
+  for (const p of [ann, bob]) {
+    await p.locator('[data-call-stage]').waitFor({ timeout: 15000 });
+    await p.waitForFunction(() => document.querySelectorAll('[data-voice-audio] audio').length === 1, null, { timeout: 15000 });
+  }
+  await hangUp(bob);
+  await bob.locator('[data-call-bar]').waitFor({ timeout: 10000 }); // the call goes on with Ann
+  await hangUp(ann);
+  for (const p of [ann, bob]) await p.locator('[data-call-bar]').waitFor({ state: 'detached', timeout: 15000 });
 });
 
 await step('block from the friends page: the friend is gone on both sides; unblock', async () => {

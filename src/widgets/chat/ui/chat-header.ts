@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Ou
 import { CommonModule } from '@angular/common';
 import { AvatarUI } from '@shared/ui/avatar';
 import { StatusUi } from '@entities/user-status';
-import { Hash, LucideAngularModule, Pencil } from 'lucide-angular';
+import { Hash, LucideAngularModule, Pencil, Phone } from 'lucide-angular';
 
 @Component({
   selector: 'ChatHeader',
@@ -43,9 +43,14 @@ import { Hash, LucideAngularModule, Pencil } from 'lucide-angular';
           <span *ngIf="topic" class="text-[13px] text-ok-muted truncate border-l border-ok-border pl-3 ml-1">{{ topic }}</span>
         </ng-template>
       </div>
-      <ng-container *ngIf="type === 'group'">
+      <ng-container *ngIf="type !== 'channel'">
         <span class="flex-1"></span>
-        <button type="button" class="h-9 px-3.5 rounded-lg bg-ok-surface-2 text-ok-text text-[13px] font-semibold hover:bg-ok-border shrink-0"
+        <button *ngIf="canCall" type="button" (click)="call.emit()" data-call-start
+                [title]="type === 'group' ? 'Позвонить группе' : 'Позвонить'" [attr.aria-label]="type === 'group' ? 'Позвонить группе' : 'Позвонить'"
+                class="w-9 h-9 rounded-lg text-ok-muted hover:text-ok-text hover:bg-ok-surface-2 inline-flex items-center justify-center shrink-0">
+          <lucide-angular class="w-[18px] h-[18px]" [img]="Phone" aria-hidden="true"></lucide-angular>
+        </button>
+        <button *ngIf="type === 'group'" type="button" class="h-9 px-3.5 rounded-lg bg-ok-surface-2 text-ok-text text-[13px] font-semibold hover:bg-ok-border shrink-0"
                 (click)="addMembers.emit()">Добавить друзей</button>
       </ng-container>
     </header>
@@ -65,11 +70,15 @@ export class ChatHeader {
   /** A group's new name; empty resets it to the members' names. */
   @Output() rename = new EventEmitter<string>();
   @Output() addMembers = new EventEmitter<void>();
+  /** A DM or group: the call button shows (not while in its call, not with a block). */
+  @Input() canCall = false;
+  @Output() call = new EventEmitter<void>();
   @ViewChild('nameField') private nameField?: ElementRef<HTMLInputElement>;
 
   protected readonly renaming = signal(false);
   protected readonly Hash = Hash;
   protected readonly Pencil = Pencil;
+  protected readonly Phone = Phone;
 
   protected startRename(): void {
     this.renaming.set(true);
