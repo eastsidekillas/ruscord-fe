@@ -15,6 +15,7 @@ import { AvatarUI } from '@shared/ui/avatar';
   imports: [CommonModule, RouterLink, RouterLinkActive, LucideAngularModule, AvatarUI],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block overflow-y-auto' },
+  styles: `.drop-target { background: var(--color-ok-surface-2); box-shadow: inset 0 0 0 2px var(--color-ok-accent); color: var(--color-ok-text); }`,
   template: `
     <div class="flex flex-col gap-0.5 px-2 py-3">
       <ng-container *ngFor="let group of groups(); trackBy: byGroup; let first = first">
@@ -46,7 +47,9 @@ import { AvatarUI } from '@shared/ui/avatar';
           <ng-container *ngIf="channel.type === 2">
             <div (click)="join(channel.id)" [attr.data-voice-channel]="channel.name" [attr.aria-current]="here(channel.id) ? 'true' : null"
                  [title]="!canConnect(channel.id) ? 'Нет права подключаться' : full(channel) ? 'В голосовом канале нет мест' : 'Войти в голосовой канал'"
+                 (dragover)="dragOver(channel.id, $event)" (dragleave)="dropTarget.set(null)" (drop)="drop(channel.id, $event)"
                  class="flex items-center gap-2 p-2 rounded-lg group"
+                 [class.drop-target]="dropTarget() === channel.id"
                  [ngClass]="[
                    here(channel.id) || inVoice(channel.id).length ? 'text-ok-text' : 'text-ok-muted',
                    canConnect(channel.id) ? 'cursor-pointer hover:bg-ok-surface-1 hover:text-ok-text' : 'cursor-not-allowed'
@@ -62,6 +65,9 @@ import { AvatarUI } from '@shared/ui/avatar';
             <ng-container *ngFor="let v of inVoice(channel.id); trackBy: byUser">
             <div
                  class="flex items-center gap-2 py-1 pl-8 pr-2 rounded-md text-[13px] font-medium group/member hover:bg-ok-surface-1"
+                 [class.cursor-grab]="canDrag(channel.id)" [class.opacity-50]="dragging()?.user_id === v.user_id"
+                 [attr.draggable]="canDrag(channel.id) ? 'true' : null"
+                 (dragstart)="dragStart(v, $event)" (dragend)="dragEnd()"
                  [attr.data-voice-member]="nameOf(v)">
               <span class="w-6 h-6 rounded-ok-sm overflow-hidden shrink-0 transition-shadow"
                     [ngClass]="speaking(channel.id, v.user_id) ? 'shadow-[0_0_0_2px_var(--color-ok-accent)]' : ''"
@@ -170,6 +176,53 @@ export class ServerChannelsItems {
     this.api.setServerVoice(v.guild_id, v.user_id, change).subscribe({
       error: err => this.notify.show(errorText(err, 'Не получилось'), 'error'),
     });
+  }
+
+  /** Someone being dragged to another voice channel (MOVE_MEMBERS). */
+  protected readonly dragging = signal<VoiceState | null>(null);
+  /** The voice channel under the pointer that accepts the drop. */
+  protected readonly dropTarget = signal<string | null>(null);
+
+  /** A member may be dragged out of a channel where we have MOVE_MEMBERS and somewhere to drop them. */
+  protected canDrag(channelId: string): boolean {
+    return this.can(channelId, Perm.MoveMembers) && this.moveTargets(channelId).length > 0;
+  }
+
+  protected dragStart(v: VoiceState, ev: DragEvent): void {
+    if (!v.channel_id || !this.canDrag(v.channel_id)) return;
+    this.dragging.set(v);
+    this.moving.set(null);
+    if (ev.dataTransfer) {
+      ev.dataTransfer.effectAllowed = 'move';
+      // Some browsers start a drag only with data set.
+      ev.dataTransfer.setData('text/plain', this.nameOf(v));
+    }
+  }
+
+  protected dragEnd(): void {
+    this.dragging.set(null);
+    this.dropTarget.set(null);
+  }
+
+  private dropAllowed(channelId: string): VoiceState | null {
+    const v = this.dragging();
+    return v?.channel_id && this.moveTargets(v.channel_id).some(c => c.id === channelId) ? v : null;
+  }
+
+  /** Accepting dragover is what lets the browser drop there. */
+  protected dragOver(channelId: string, ev: DragEvent): void {
+    if (!this.dropAllowed(channelId)) return;
+    ev.preventDefault();
+    if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
+    this.dropTarget.set(channelId);
+  }
+
+  protected drop(channelId: string, ev: DragEvent): void {
+    const v = this.dropAllowed(channelId);
+    this.dragEnd();
+    if (!v) return;
+    ev.preventDefault();
+    this.move(v, channelId);
   }
 
   /** Whose «move to» list is open. */
