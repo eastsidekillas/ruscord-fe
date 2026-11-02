@@ -66,7 +66,8 @@ export class UserSettingsModal {
     { key: 'profile', label: 'Профиль' },
     { key: 'security', label: 'Устройства и безопасность' },
   ];
-  protected readonly section = signal<Section>('profile');
+  /** Opens on the section asked for (modal data: section), else the profile. */
+  protected readonly section = signal<Section>(this.modal.modalData()['section'] === 'security' ? 'security' : 'profile');
   protected readonly X = X;
 
   @HostListener('document:keydown.escape')

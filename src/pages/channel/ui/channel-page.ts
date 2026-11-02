@@ -91,15 +91,20 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
             </span>
           </div>
 
-          <MessageInput
-            class="flex flex-col px-6 pb-6 pt-1"
-            [placeholder]="v.placeholder"
-            [disabled]="!v.canSend"
-            [replyTo]="replyTo()"
-            (cancelReply)="replyTo.set(null)"
-            (sendMessage)="send($event)"
-            (typing)="onTyping()"
-          />
+          <div *ngIf="v.blocked; else composer" class="px-6 pb-6 pt-1">
+            <div class="rounded-ok-md bg-ok-sidebar border border-ok-border px-4 py-3.5 text-[13px] text-ok-muted text-center">Нельзя написать этому пользователю</div>
+          </div>
+          <ng-template #composer>
+            <MessageInput
+              class="flex flex-col px-6 pb-6 pt-1"
+              [placeholder]="v.placeholder"
+              [disabled]="!v.canSend"
+              [replyTo]="replyTo()"
+              (cancelReply)="replyTo.set(null)"
+              (sendMessage)="send($event)"
+              (typing)="onTyping()"
+            />
+          </ng-template>
         </div>
 
         <ServerMembersSidebar *ngIf="v.guildId" [guildId]="v.guildId"
@@ -137,7 +142,7 @@ export class ChannelPage {
       const perms = guild.channel_permissions[channel.id];
       return {
         kind: 'channel' as const, title: channel.name, topic: channel.topic || null, image: null, partnerId: null, group: null,
-        guildId: guild.id, placeholder: `Написать в #${channel.name}`,
+        guildId: guild.id, placeholder: `Написать в #${channel.name}`, blocked: false,
         canSend: hasPerm(perms, Perm.SendMessages),
         canRead: hasPerm(perms, Perm.ReadMessageHistory),
         canManage: hasPerm(perms, Perm.ManageMessages),
@@ -147,15 +152,18 @@ export class ChannelPage {
     if (!dm) return null;
     if (dm.type === 1) {
       const other = this.store.dmPartner(dm);
+      // «Нельзя написать этому пользователю» when you blocked them (relationship type 2);
+      // the other way round the client cannot know, the server refuses with cannot_dm.
+      const blocked = !!other && this.store.relationship(other.id)?.type === 2;
       return {
         kind: 'dm' as const, title: nameOf(other), topic: null, image: other?.avatar ?? null, partnerId: other?.id ?? null, group: null,
-        guildId: null, placeholder: `Написать ${nameOf(other)}`, canSend: true, canRead: true, canManage: false,
+        guildId: null, placeholder: `Написать ${nameOf(other)}`, blocked, canSend: !blocked, canRead: true, canManage: false,
       };
     }
     const title = this.store.groupTitle(dm);
     return {
       kind: 'group' as const, title, topic: null, image: null, partnerId: null, group: dm,
-      guildId: null, placeholder: `Написать в «${title}»`, canSend: true, canRead: true, canManage: false,
+      guildId: null, placeholder: `Написать в «${title}»`, blocked: false, canSend: true, canRead: true, canManage: false,
     };
   });
 

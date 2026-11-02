@@ -27,6 +27,11 @@ import { APP_MARK, WORDMARK } from '@shared/config/brand';
           <p *ngIf="isLoginMode" class="text-ok-muted">Войдите, чтобы зайти к своим.</p>
         </div>
 
+        <div *ngIf="ended() && isLoginMode && !errorMessage()" role="status" class="rounded-ok-md bg-ok-surface-2 px-3.5 py-3 flex flex-col gap-1">
+          <span class="font-semibold">Сессия завершена, войдите снова</span>
+          <span class="text-[13px] text-ok-muted">Устройство завершили в настройках или сменили пароль.</span>
+        </div>
+
         <div *ngIf="errorMessage() as err" role="alert" class="rounded-ok-md bg-ok-surface-2 px-3.5 py-3 text-[13px] leading-[18px] text-ok-danger">{{ err }}</div>
 
         <div class="flex flex-col gap-1.5">
@@ -83,6 +88,8 @@ export class SignIn implements OnInit {
   /** Signals: the page sits under OnPush parents, plain fields would not redraw it. */
   protected readonly errorMessage = signal('');
   protected readonly wordmark = WORDMARK;
+  /** Came here because the session ended elsewhere (the gateway's ended=1). */
+  protected readonly ended = signal(false);
   protected readonly mark = APP_MARK;
 
   constructor(
@@ -93,6 +100,7 @@ export class SignIn implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.ended.set(this.route.snapshot.queryParamMap.get('ended') === '1');
     this.initForm();
   }
 
