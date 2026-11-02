@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HeadphoneOff, Headphones, LucideAngularModule, Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2 } from 'lucide-angular';
+import { HeadphoneOff, Headphones, LucideAngularModule, Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Video, VideoOff } from 'lucide-angular';
 import { AppStateStore } from '@entities/app-state';
-import { AudioDeviceKind, VoiceService } from '@entities/voice';
+import { DeviceKind, VoiceService } from '@entities/voice';
 
 /**
  * The voice connection bar above the user panel: where you are, mute,
@@ -29,7 +29,7 @@ import { AudioDeviceKind, VoiceService } from '@entities/voice';
             <lucide-angular class="w-4 h-4" [img]="PhoneOff"></lucide-angular>
           </button>
         </div>
-        <div class="grid gap-1" [ngClass]="voice.canShare() ? 'grid-cols-4' : 'grid-cols-3'">
+        <div class="grid gap-1" [style.grid-template-columns]="'repeat(' + buttons() + ', minmax(0, 1fr))'">
           <button type="button" (click)="voice.toggleMute()" [disabled]="!voice.canSpeak()"
                   [title]="voice.serverMute() ? 'Микрофон выключил модератор' : voice.selfMute() ? 'Включить микрофон' : 'Выключить микрофон'"
                   [attr.aria-pressed]="voice.selfMute()"
@@ -42,6 +42,13 @@ import { AudioDeviceKind, VoiceService } from '@entities/voice';
                   class="h-9 rounded-lg flex items-center justify-center"
                   [ngClass]="voice.selfDeaf() ? 'bg-ok-text text-ok-bg' : 'text-ok-text hover:bg-ok-surface-1'">
             <lucide-angular class="w-4 h-4" [img]="voice.selfDeaf() ? HeadphoneOff : Headphones"></lucide-angular>
+          </button>
+          <button *ngIf="voice.canCamera()" type="button" (click)="voice.toggleCamera()" data-voice-camera-button
+                  [title]="voice.cameraOn() ? 'Выключить камеру' : 'Включить камеру'"
+                  [attr.aria-pressed]="voice.cameraOn()"
+                  class="h-9 rounded-lg flex items-center justify-center"
+                  [ngClass]="voice.cameraOn() ? 'bg-ok-accent text-ok-on-accent' : 'text-ok-text hover:bg-ok-surface-1'">
+            <lucide-angular class="w-4 h-4" [img]="voice.cameraOn() ? Video : VideoOff"></lucide-angular>
           </button>
           <button *ngIf="voice.canShare()" type="button" (click)="voice.toggleShare()" data-voice-share
                   [attr.aria-label]="voice.sharing() ? 'Остановить показ экрана' : 'Показать экран'"
@@ -76,6 +83,14 @@ import { AudioDeviceKind, VoiceService } from '@entities/voice';
             </select>
           </label>
           <p *ngIf="!voice.outputs().length" class="text-ok-muted">Этот браузер не даёт выбрать динамики.</p>
+          <label *ngIf="voice.canCamera() && voice.cameras().length" class="flex flex-col gap-1">
+            <span class="text-ok-muted">Камера</span>
+            <select [value]="voice.camera()" (change)="pick('videoinput', $event)"
+                    class="h-9 bg-ok-sidebar border border-ok-border-control rounded-lg px-2 text-ok-text">
+              <option value="">По умолчанию</option>
+              <option *ngFor="let d of voice.cameras()" [value]="d.deviceId">{{ d.label || 'Камера' }}</option>
+            </select>
+          </label>
         </div>
 
         <p *ngIf="voice.pushToTalk()" class="text-[12px] text-ok-warning">
@@ -116,7 +131,10 @@ export class VoicePanel {
     if (open) void this.voice.refreshDevices();
   }
 
-  protected pick(kind: AudioDeviceKind, ev: Event): void {
+  /** Mute, deafen and devices always; camera and screen when allowed. */
+  protected readonly buttons = computed(() => 3 + Number(this.voice.canCamera()) + Number(this.voice.canShare()));
+
+  protected pick(kind: DeviceKind, ev: Event): void {
     void this.voice.setDevice(kind, (ev.target as HTMLSelectElement).value);
   }
 
@@ -128,4 +146,6 @@ export class VoicePanel {
   protected readonly Settings2 = Settings2;
   protected readonly Monitor = Monitor;
   protected readonly MonitorOff = MonitorOff;
+  protected readonly Video = Video;
+  protected readonly VideoOff = VideoOff;
 }

@@ -1,24 +1,25 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, viewChild } from '@angular/core';
 import { NgClass } from '@angular/common';
-import { HeadphoneOff, Headphones, LucideAngularModule, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff } from 'lucide-angular';
+import { HeadphoneOff, Headphones, LucideAngularModule, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, Video, VideoOff } from 'lucide-angular';
+import { Track } from 'livekit-client';
 import { Perm, VoiceState, hasPerm, nameOf } from '@shared/api';
 import { AppStateStore } from '@entities/app-state';
 import { VoiceService } from '@entities/voice';
 import { Dolobeb } from '@shared/ui/dolobeb';
 import { AvatarUI } from '@shared/ui/avatar';
 import { members } from '@shared/lib/plural';
-import { ScreenView } from './screen-view';
+import { VideoView } from './video-view';
 
 /**
  * The voice channel in the centre, by the mockup «Голосовой канал: показ
  * экрана»: the shared screen (the one picked in the channel list, else the
- * first), a tile per participant with who speaks, the call controls; a way
- * in for those outside.
+ * first), a tile per participant with their camera or avatar and who speaks,
+ * the call controls; a way in for those outside.
  */
 @Component({
   selector: 'VoiceRoom',
   standalone: true,
-  imports: [NgClass, LucideAngularModule, Dolobeb, AvatarUI, ScreenView],
+  imports: [NgClass, LucideAngularModule, Dolobeb, AvatarUI, VideoView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex-1 min-h-0 flex flex-col gap-4 p-4 bg-ok-bg text-ok-text text-[15px]' },
   template: `
@@ -49,7 +50,7 @@ import { ScreenView } from './screen-view';
       }
       <section #stage [attr.aria-label]="screenLabel(uid)" data-voice-stage
                class="flex-1 min-h-[320px] relative rounded-ok-lg bg-ok-surface-1 border border-ok-border overflow-hidden">
-        <ScreenView class="absolute inset-0" [userId]="uid" [label]="screenLabel(uid)" />
+        <VideoView class="absolute inset-0" [source]="Screen" [userId]="uid" [label]="screenLabel(uid)" />
         <span class="absolute left-4 bottom-4 flex items-center gap-2 h-8 px-3 rounded-lg bg-ok-bg text-[13px] font-semibold">
           <lucide-angular class="w-3.5 h-3.5 text-ok-accent" [img]="Monitor" aria-hidden="true"></lucide-angular>{{ screenLabel(uid) }}
         </span>
@@ -67,10 +68,17 @@ import { ScreenView } from './screen-view';
           <div [attr.data-voice-tile]="who(v.user_id)" [attr.data-speaking]="voice.speaking().has(v.user_id) ? '' : null"
                class="relative rounded-xl bg-ok-surface-1 flex items-center justify-center transition-shadow"
                [ngClass]="[shown() ? 'h-[120px]' : 'h-[180px]', voice.speaking().has(v.user_id) ? 'shadow-[0_0_0_2px_var(--color-ok-accent)]' : '']">
-            <span class="rounded-xl overflow-hidden" [ngClass]="shown() ? 'w-14 h-14' : 'w-20 h-20'">
-              <AvatarUI [src]="store.user(v.user ?? null)?.avatar ?? null" [name]="nameOf(store.user(v.user ?? null))" />
-            </span>
-            <span class="absolute left-2.5 bottom-2.5 right-2.5 flex items-center gap-1.5 text-[13px] font-semibold">
+            @if (voice.filming().has(v.user_id)) {
+              <!-- Our own camera is mirrored, as people expect to see themselves. -->
+              <VideoView class="absolute inset-0 rounded-xl overflow-hidden" data-voice-camera [source]="Camera" [userId]="v.user_id"
+                         fit="object-cover" [class.-scale-x-100]="v.user_id === store.me()?.id" [label]="'Камера: ' + who(v.user_id)" />
+            } @else {
+              <span class="rounded-xl overflow-hidden" [ngClass]="shown() ? 'w-14 h-14' : 'w-20 h-20'">
+                <AvatarUI [src]="store.user(v.user ?? null)?.avatar ?? null" [name]="nameOf(store.user(v.user ?? null))" />
+              </span>
+            }
+            <span class="absolute left-2.5 bottom-2.5 max-w-[calc(100%-20px)] flex items-center gap-1.5 text-[13px] font-semibold"
+                  [ngClass]="voice.filming().has(v.user_id) ? 'h-6 px-2 rounded-md bg-ok-bg' : ''">
               <span class="truncate">{{ who(v.user_id) }}</span>
               @if (v.mute) {
                 <lucide-angular class="w-3.5 h-3.5 shrink-0 text-ok-danger" [img]="MicOff" title="Микрофон выключил модератор"></lucide-angular>
@@ -102,6 +110,13 @@ import { ScreenView } from './screen-view';
                 [ngClass]="voice.selfDeaf() ? 'bg-ok-text text-ok-bg' : 'bg-ok-surface-2 text-ok-text'">
           <lucide-angular class="w-5 h-5" [img]="voice.selfDeaf() ? HeadphoneOff : Headphones" aria-hidden="true"></lucide-angular>
         </button>
+        @if (voice.canCamera()) {
+          <button type="button" (click)="voice.toggleCamera()" [attr.aria-label]="cameraLabel()" [title]="cameraLabel()"
+                  [attr.aria-pressed]="voice.cameraOn()" data-voice-camera-toggle class="w-12 h-12 rounded-xl flex items-center justify-center"
+                  [ngClass]="voice.cameraOn() ? 'bg-ok-accent text-ok-on-accent' : 'bg-ok-surface-2 text-ok-text'">
+            <lucide-angular class="w-5 h-5" [img]="voice.cameraOn() ? Video : VideoOff" aria-hidden="true"></lucide-angular>
+          </button>
+        }
         @if (voice.canShare()) {
           <button type="button" (click)="voice.toggleShare()" [attr.aria-label]="shareLabel()" [title]="shareLabel()"
                   [attr.aria-pressed]="voice.sharing()" class="w-12 h-12 rounded-xl flex items-center justify-center"
@@ -165,6 +180,7 @@ export class VoiceRoom {
   protected readonly micLabel = computed(() =>
     this.voice.serverMute() ? 'Микрофон выключил модератор' : this.voice.selfMute() ? 'Включить микрофон' : 'Выключить микрофон');
   protected readonly deafLabel = computed(() => (this.voice.selfDeaf() ? 'Включить звук' : 'Выключить звук'));
+  protected readonly cameraLabel = computed(() => (this.voice.cameraOn() ? 'Выключить камеру' : 'Включить камеру'));
   protected readonly shareLabel = computed(() => (this.voice.sharing() ? 'Остановить показ экрана' : 'Показать экран'));
 
   protected join(): void {
@@ -183,4 +199,8 @@ export class VoiceRoom {
   protected readonly Headphones = Headphones;
   protected readonly HeadphoneOff = HeadphoneOff;
   protected readonly PhoneOff = PhoneOff;
+  protected readonly Video = Video;
+  protected readonly VideoOff = VideoOff;
+  protected readonly Camera = Track.Source.Camera as const;
+  protected readonly Screen = Track.Source.ScreenShare as const;
 }
