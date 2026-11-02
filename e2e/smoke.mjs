@@ -330,6 +330,15 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
   // Both see a tile for each participant in the centre.
   for (const p of [ann, bob]) await p.locator('[data-voice-tile]').nth(1).waitFor({ timeout: 10000 });
 
+  // Ann turns on the (fake) camera; Bob gets frames in her tile, then it goes.
+  await ann.locator('[data-voice-camera-toggle]').click();
+  await bob.waitForFunction(() => {
+    const v = document.querySelector('[data-voice-tile="ANN"] [data-voice-camera] video');
+    return !!v && v.videoWidth > 0;
+  }, null, { timeout: 15000 });
+  await ann.locator('[data-voice-camera-toggle]').click();
+  await bob.locator('[data-voice-tile="ANN"] [data-voice-camera]').waitFor({ state: 'detached', timeout: 15000 });
+
   await bob.locator('[data-voice-panel] button[title="Выключить микрофон"]').click();
   await ann.locator('[data-voice-member="BOB"] [title="Микрофон выключен"]').waitFor({ timeout: 10000 });
   await bob.locator('[data-voice-panel] button[title="Включить микрофон"]').click();

@@ -1,5 +1,5 @@
 import { DisconnectReason, Track } from 'livekit-client';
-import { disconnectText, liveKitUrl, micAllowed, screenPreset, shareErrorText, sourceAllowed } from './voice.service';
+import { cameraErrorText, disconnectText, liveKitUrl, micAllowed, screenPreset, shareErrorText, sourceAllowed } from './voice.service';
 
 describe('voice helpers', () => {
   it('connects to LiveKit on this site unless the core names another address', () => {
@@ -44,5 +44,17 @@ describe('voice helpers', () => {
     expect(shareErrorText({ name: 'NotAllowedError', message: 'Permission denied by system' })).toContain('Система');
     expect(shareErrorText({ name: 'DeviceUnsupportedError' })).toContain('не умеет');
     expect(shareErrorText(new Error('boom'))).toBe('Не удалось начать показ экрана');
+  });
+
+  it('names why the camera did not start', () => {
+    expect(cameraErrorText({ name: 'NotAllowedError' })).toContain('разрешите');
+    expect(cameraErrorText({ name: 'NotFoundError' })).toBe('Камера не найдена');
+    expect(cameraErrorText({ name: 'NotReadableError' })).toContain('занята');
+    expect(cameraErrorText(new Error('boom'))).toBe('Не удалось включить камеру');
+  });
+
+  it('allows the camera only when LiveKit lists it', () => {
+    expect(sourceAllowed({ canPublish: true, canPublishSources: [1] }, Track.Source.Camera)).toBeTrue();
+    expect(sourceAllowed({ canPublish: true, canPublishSources: [2] }, Track.Source.Camera)).toBeFalse();
   });
 });

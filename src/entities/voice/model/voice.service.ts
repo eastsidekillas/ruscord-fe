@@ -25,10 +25,15 @@ export interface VoiceTarget {
 }
 
 /** Remembered device choices; per browser, a convenience only. */
-const DEVICE_KEYS = { audioinput: 'ruscord.voice.audioinput', audiooutput: 'ruscord.voice.audiooutput' } as const;
-export type AudioDeviceKind = keyof typeof DEVICE_KEYS;
+const DEVICE_KEYS = {
+  audioinput: 'ruscord.voice.audioinput',
+  audiooutput: 'ruscord.voice.audiooutput',
+  videoinput: 'ruscord.voice.videoinput',
+} as const;
+export type DeviceKind = keyof typeof DEVICE_KEYS;
+export type AudioDeviceKind = Exclude<DeviceKind, 'videoinput'>;
 
-function readDevice(kind: AudioDeviceKind): string {
+function readDevice(kind: DeviceKind): string {
   try {
     return localStorage.getItem(DEVICE_KEYS[kind]) ?? '';
   } catch {
@@ -36,7 +41,7 @@ function readDevice(kind: AudioDeviceKind): string {
   }
 }
 
-function saveDevice(kind: AudioDeviceKind, id: string): void {
+function saveDevice(kind: DeviceKind, id: string): void {
   try {
     localStorage.setItem(DEVICE_KEYS[kind], id);
   } catch {
@@ -111,6 +116,24 @@ export function shareErrorText(err: unknown): string | null {
   return 'Не удалось начать показ экрана';
 }
 
+/** What to say when the camera does not start. */
+export function cameraErrorText(err: unknown): string {
+  switch ((err as { name?: string } | null)?.name) {
+    case 'NotAllowedError':
+      return 'Нет доступа к камере: разрешите её в браузере';
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'Камера не найдена';
+    case 'NotReadableError':
+      return 'Камера занята другой программой';
+    default:
+      return 'Не удалось включить камеру';
+  }
+}
+
+/** The video a user publishes: a camera or a screen. */
+export type VideoSource = Track.Source.Camera | Track.Source.ScreenShare;
+
 /**
  * The voice connection of this tab (ruscord-core ADR-0025): one LiveKit room
  * at a time. Components read its signals and call its methods; nothing else
@@ -137,8 +160,10 @@ export class VoiceService {
   readonly serverDeaf = signal(false);
   readonly inputs = signal<MediaDeviceInfo[]>([]);
   readonly outputs = signal<MediaDeviceInfo[]>([]);
+  readonly cameras = signal<MediaDeviceInfo[]>([]);
   readonly input = signal(readDevice('audioinput'));
   readonly output = signal(readDevice('audiooutput'));
+  readonly camera = signal(readDevice('videoinput'));
   readonly connected = computed(() => this.status() !== 'idle');
   /** The token allows sharing the screen (STREAM). */
   readonly canShare = signal(false);
@@ -152,12 +177,21 @@ export class VoiceService {
   readonly sharers = signal<ReadonlySet<string>>(new Set());
   /** Whose screen is open in the voice channel's centre. */
   readonly watching = signal<string | null>(null);
+  /** The token allows the camera (VIDEO). */
+  readonly canCamera = signal(false);
+  /** Our camera is on. */
+  readonly cameraOn = signal(false);
+  /** User ids with the camera on in this room, us included. */
+  readonly filming = signal<ReadonlySet<string>>(new Set());
 
   private room: Room | null = null;
   /** Elements playing remote audio, kept to deafen and to remove. */
   private readonly audio = new Map<string, HTMLMediaElement>();
-  /** Remote screen tracks by user id, subscribed while someone shares. */
-  private readonly screens = new Map<string, RemoteTrack>();
+  /** Remote video tracks by source, then user id, while subscribed. */
+  private readonly videos = new Map<VideoSource, Map<string, RemoteTrack>>([
+    [Track.Source.ScreenShare, new Map()],
+    [Track.Source.Camera, new Map()],
+  ]);
   private sink: HTMLElement | null = null;
 
   constructor() {
@@ -197,6 +231,7 @@ export class VoiceService {
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
+      videoCaptureDefaults: { deviceId: this.camera() || undefined },
       audioCaptureDefaults: {
         echoCancellation: true,
         noiseSuppression: true,
@@ -218,6 +253,7 @@ export class VoiceService {
     if (this.output()) await room.switchActiveDevice('audiooutput', this.output()).catch(() => false);
     this.canSpeak.set(info.sources.includes('microphone'));
     this.canShare.set(info.sources.includes('screen_share'));
+    this.canCamera.set(info.sources.includes('camera'));
     this.shareAudio = info.sources.includes('screen_share_audio');
     this.highQuality.set(!!info.high_quality);
     this.pushToTalk.set(info.push_to_talk);
@@ -273,39 +309,54 @@ export class VoiceService {
       if (text) this.error.set(text);
       console.warn('voice: screen share', err);
     }
-    this.syncSharing(room.localParticipant);
+    this.syncLocal(room.localParticipant);
+  }
+
+  /** Turns the camera on or off; the browser asks for it the first time. */
+  async toggleCamera(): Promise<void> {
+    const room = this.room;
+    if (!room || !this.canCamera()) return;
+    try {
+      await room.localParticipant.setCameraEnabled(!this.cameraOn(), { deviceId: this.camera() || undefined });
+    } catch (err) {
+      this.error.set(cameraErrorText(err));
+      console.warn('voice: camera', err);
+    }
+    this.syncLocal(room.localParticipant);
   }
 
   /**
-   * Shows a screen in the given video element; returns the cleanup. Our own
-   * screen plays from the local track, without its sound.
+   * Shows a user's camera or screen in the given video element; returns the
+   * cleanup. Our own plays from the local track, without sound.
    */
-  showScreen(userId: string, el: HTMLVideoElement): () => void {
+  showVideo(source: VideoSource, userId: string, el: HTMLVideoElement): () => void {
     const room = this.room;
     const own = room && userId === room.localParticipant.identity
-      ? room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track
+      ? room.localParticipant.getTrackPublication(source)?.track
       : undefined;
-    const track = own ?? this.screens.get(userId);
+    const track = own ?? this.videos.get(source)!.get(userId);
     if (!track) return () => undefined;
     track.attach(el);
     return () => track.detach(el);
   }
 
-  async setDevice(kind: AudioDeviceKind, id: string): Promise<void> {
-    (kind === 'audioinput' ? this.input : this.output).set(id);
+  async setDevice(kind: DeviceKind, id: string): Promise<void> {
+    ({ audioinput: this.input, audiooutput: this.output, videoinput: this.camera })[kind].set(id);
     saveDevice(kind, id);
     await this.room?.switchActiveDevice(kind, id).catch(() => false);
   }
 
-  /** Lists microphones and speakers; labels appear once the microphone is allowed. */
+  /** Lists microphones, speakers and cameras; labels appear once the microphone is allowed. */
   async refreshDevices(): Promise<void> {
     try {
       const all = await navigator.mediaDevices.enumerateDevices();
       this.inputs.set(all.filter(d => d.kind === 'audioinput'));
       this.outputs.set(all.filter(d => d.kind === 'audiooutput'));
+      this.cameras.set(all.filter(d => d.kind === 'videoinput'));
     } catch {
       this.inputs.set([]);
       this.outputs.set([]);
+      this.cameras.set([]);
     }
   }
 
@@ -335,9 +386,10 @@ export class VoiceService {
    * a microphone allowed again comes back unless we muted ourselves.
    */
   private async permissionsChanged(local: LocalParticipant): Promise<void> {
-    // Losing STREAM: LiveKit unpublishes the screen; the button goes too.
+    // Losing STREAM or VIDEO: LiveKit unpublishes the track; the button goes too.
     this.canShare.set(sourceAllowed(local.permissions, Track.Source.ScreenShare));
-    this.syncSharing(local);
+    this.canCamera.set(sourceAllowed(local.permissions, Track.Source.Camera));
+    this.syncLocal(local);
     const allowed = micAllowed(local.permissions);
     if (allowed === this.canSpeak()) return;
     this.canSpeak.set(allowed);
@@ -365,9 +417,12 @@ export class VoiceService {
         run(() => this.attach(track, p.identity)))
       .on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, _pub: RemoteTrackPublication, p: RemoteParticipant) =>
         run(() => this.detach(track, p.identity)))
+      // A camera turned off stays published, muted.
+      .on(RoomEvent.TrackMuted, () => run(() => this.updateVideos()))
+      .on(RoomEvent.TrackUnmuted, () => run(() => this.updateVideos()))
       // Our screen ends from the browser's own «Stop sharing» too.
-      .on(RoomEvent.LocalTrackPublished, (_pub: LocalTrackPublication) => run(() => this.syncSharing(room.localParticipant)))
-      .on(RoomEvent.LocalTrackUnpublished, (_pub: LocalTrackPublication) => run(() => this.syncSharing(room.localParticipant)))
+      .on(RoomEvent.LocalTrackPublished, (_pub: LocalTrackPublication) => run(() => this.syncLocal(room.localParticipant)))
+      .on(RoomEvent.LocalTrackUnpublished, (_pub: LocalTrackPublication) => run(() => this.syncLocal(room.localParticipant)))
       .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) =>
         run(() => this.speaking.set(new Set(speakers.map(p => p.identity)))))
       .on(RoomEvent.Reconnecting, () => run(() => this.status.set('reconnecting')))
@@ -385,9 +440,10 @@ export class VoiceService {
   }
 
   private attach(track: RemoteTrack, userId: string): void {
-    if (track.source === Track.Source.ScreenShare) {
-      this.screens.set(userId, track);
-      this.updateSharers();
+    const videos = this.videos.get(track.source as VideoSource);
+    if (videos) {
+      videos.set(userId, track);
+      this.updateVideos();
       return;
     }
     if (track.kind !== Track.Kind.Audio || !track.sid) return;
@@ -399,9 +455,10 @@ export class VoiceService {
   }
 
   private detach(track: RemoteTrack, userId: string): void {
-    if (track.source === Track.Source.ScreenShare) {
-      if (this.screens.get(userId) === track) this.screens.delete(userId);
-      this.updateSharers();
+    const videos = this.videos.get(track.source as VideoSource);
+    if (videos) {
+      if (videos.get(userId) === track) videos.delete(userId);
+      this.updateVideos();
       return;
     }
     if (!track.sid) return;
@@ -413,16 +470,23 @@ export class VoiceService {
     }
   }
 
-  /** Whether we publish a screen now, by LiveKit's own state. */
-  private syncSharing(local: LocalParticipant): void {
+  /** Whether we publish a screen and the camera now, by LiveKit's own state. */
+  private syncLocal(local: LocalParticipant): void {
     this.sharing.set(local.isScreenShareEnabled);
-    this.updateSharers();
+    this.cameraOn.set(local.isCameraEnabled);
+    this.updateVideos();
   }
 
-  private updateSharers(): void {
-    const ids = new Set(this.screens.keys());
+  /** Who shows a screen or a camera; a muted track shows nothing. */
+  private updateVideos(): void {
     const me = this.room?.localParticipant;
-    if (me && this.sharing()) ids.add(me.identity);
+    const live = (source: VideoSource, own: boolean) => {
+      const ids = new Set([...this.videos.get(source)!].filter(([, t]) => !t.isMuted).map(([id]) => id));
+      if (me && own) ids.add(me.identity);
+      return ids;
+    };
+    this.filming.set(live(Track.Source.Camera, this.cameraOn()));
+    const ids = live(Track.Source.ScreenShare, this.sharing());
     this.sharers.set(ids);
     // Someone stopped: the centre stops showing their screen.
     const w = this.watching();
@@ -440,8 +504,11 @@ export class VoiceService {
   private reset(error: string | null): void {
     for (const el of this.audio.values()) el.remove();
     this.audio.clear();
-    this.screens.clear();
+    for (const v of this.videos.values()) v.clear();
     this.sharing.set(false);
+    this.canCamera.set(false);
+    this.cameraOn.set(false);
+    this.filming.set(new Set());
     this.canShare.set(false);
     this.highQuality.set(false);
     this.sharers.set(new Set());
