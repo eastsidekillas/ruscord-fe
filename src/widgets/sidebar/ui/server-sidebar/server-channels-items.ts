@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, Input, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { Hash, HeadphoneOff, Headphones, Lock, LucideAngularModule, Mic, MicOff, Monitor, PhoneOff, Plus, Settings, Volume2 } from 'lucide-angular';
+import { ArrowRightLeft, Hash, HeadphoneOff, Headphones, Lock, LucideAngularModule, Mic, MicOff, Monitor, PhoneOff, Plus, Settings, Volume2 } from 'lucide-angular';
 import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
-import { ApiService, FullGuild, Perm, VoiceState, errorText, hasPerm, nameOf } from '@shared/api';
+import { ApiService, FullGuild, GuildChannel, Perm, VoiceState, errorText, hasPerm, nameOf } from '@shared/api';
 import { AppStateStore, channelGroups } from '@entities/app-state';
 import { VoiceService } from '@entities/voice';
 import { AvatarUI } from '@shared/ui/avatar';
@@ -59,7 +59,8 @@ import { AvatarUI } from '@shared/ui/avatar';
                 <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
               </button>
             </div>
-            <div *ngFor="let v of inVoice(channel.id); trackBy: byUser"
+            <ng-container *ngFor="let v of inVoice(channel.id); trackBy: byUser">
+            <div
                  class="flex items-center gap-2 py-1 pl-8 pr-2 rounded-md text-[13px] font-medium group/member hover:bg-ok-surface-1"
                  [attr.data-voice-member]="nameOf(v)">
               <span class="w-6 h-6 rounded-ok-sm overflow-hidden shrink-0 transition-shadow"
@@ -88,12 +89,28 @@ import { AvatarUI } from '@shared/ui/avatar';
                         class="w-6 h-6 rounded-md text-ok-muted hover:text-ok-text hover:bg-ok-surface-2 flex items-center justify-center">
                   <lucide-angular class="w-3.5 h-3.5" [img]="v.deaf ? Headphones : HeadphoneOff"></lucide-angular>
                 </button>
+                <button *ngIf="can(channel.id, Perm.MoveMembers) && moveTargets(channel.id).length" type="button"
+                        (click)="toggleMove(v.user_id)" title="Перенести в другой канал" [attr.aria-expanded]="moving() === v.user_id"
+                        class="w-6 h-6 rounded-md text-ok-muted hover:text-ok-text hover:bg-ok-surface-2 flex items-center justify-center">
+                  <lucide-angular class="w-3.5 h-3.5" [img]="ArrowRightLeft"></lucide-angular>
+                </button>
                 <button *ngIf="can(channel.id, Perm.MoveMembers)" type="button" (click)="disconnect(v)" title="Отключить от канала"
                         class="w-6 h-6 rounded-md text-ok-danger hover:bg-ok-surface-2 flex items-center justify-center">
                   <lucide-angular class="w-3.5 h-3.5" [img]="PhoneOff"></lucide-angular>
                 </button>
               </span>
             </div>
+            <ul *ngIf="moving() === v.user_id" role="menu" [attr.aria-label]="'Перенести ' + nameOf(v)" data-voice-move-menu
+                class="ml-8 mr-2 mb-1 rounded-ok-md bg-ok-surface-2 border border-ok-border py-1 text-[13px]">
+              <li *ngFor="let to of moveTargets(channel.id); trackBy: byId" role="none">
+                <button type="button" role="menuitem" (click)="move(v, to.id)"
+                        class="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-ok-surface-1">
+                  <lucide-angular class="w-3.5 h-3.5 text-ok-muted" [img]="Volume2" aria-hidden="true"></lucide-angular>
+                  <span class="truncate">{{ to.name }}</span>
+                </button>
+              </li>
+            </ul>
+            </ng-container>
           </ng-container>
         </ng-container>
       </ng-container>
@@ -139,6 +156,7 @@ export class ServerChannelsItems {
   protected readonly Mic = Mic;
   protected readonly Headphones = Headphones;
   protected readonly PhoneOff = PhoneOff;
+  protected readonly ArrowRightLeft = ArrowRightLeft;
   private readonly api = inject(ApiService);
   private readonly notify = inject(NotificationService);
 
@@ -151,6 +169,30 @@ export class ServerChannelsItems {
   protected moderate(v: VoiceState, change: { mute?: boolean; deaf?: boolean }): void {
     this.api.setServerVoice(v.guild_id, v.user_id, change).subscribe({
       error: err => this.notify.show(errorText(err, 'Не получилось'), 'error'),
+    });
+  }
+
+  /** Whose «move to» list is open. */
+  protected readonly moving = signal<string | null>(null);
+
+  protected toggleMove(userId: string): void {
+    this.moving.update(cur => (cur === userId ? null : userId));
+  }
+
+  /**
+   * Voice channels to move someone to from this one: MOVE_MEMBERS and
+   * CONNECT there. Whether the member may enter, the server checks.
+   */
+  protected moveTargets(fromId: string): GuildChannel[] {
+    return (this.current()?.channels ?? []).filter(c =>
+      c.type === 2 && c.id !== fromId && this.can(c.id, Perm.MoveMembers) && this.can(c.id, Perm.Connect));
+  }
+
+  /** The member's client goes there itself (VOICE_MOVE); the list updates through the gateway. */
+  protected move(v: VoiceState, channelId: string): void {
+    this.moving.set(null);
+    this.api.moveVoice(v.guild_id, v.user_id, channelId).subscribe({
+      error: err => this.notify.show(errorText(err, 'Не получилось перенести'), 'error'),
     });
   }
 

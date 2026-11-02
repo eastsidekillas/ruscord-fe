@@ -88,7 +88,7 @@ export const PermGroups: PermGroup[] = [
       { bit: Perm.UseVoiceActivity, label: 'Активация по голосу (иначе — только по кнопке)' },
       { bit: Perm.MuteMembers, label: 'Отключать микрофон участникам' },
       { bit: Perm.DeafenMembers, label: 'Отключать звук участникам' },
-      { bit: Perm.MoveMembers, label: 'Перемещать участников (отключать от канала)' },
+      { bit: Perm.MoveMembers, label: 'Перемещать участников (переносить в другой канал и отключать)' },
     ],
   },
 ];

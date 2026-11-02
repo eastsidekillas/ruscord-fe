@@ -310,6 +310,8 @@ await step('own nickname on the server: set, then reset', async () => {
 await step('voice: both enter the voice channel, hear who speaks, mute shows; the owner mutes and disconnects Bob', async () => {
   const room = p => p.locator('[data-voice-member]');
   for (const p of [ann, bob]) await p.locator('[data-voice-channel="General"]').click();
+  await bob.waitForURL(/\/channels\/[0-9a-f-]{36}\/[0-9a-f-]{36}/);
+  const bobVoiceFrom = bob.url().split('/').pop();
   for (const p of [ann, bob]) {
     await sees(p, 'Голос подключён', 15000);
     await room(p).nth(1).waitFor({ timeout: 15000 }); // both are listed
@@ -344,15 +346,44 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
   await bob.locator('[data-voice-panel] button[title="Включить микрофон"]').click();
 
   // The owner mutes Bob: LiveKit takes his microphone away, his button goes grey.
+  // Assumption A25: the real LiveKit unpublishes his track itself, so Ann
+  // stops receiving it; given back, his client publishes it again.
+  const audioTracks = (p, n) => p.waitForFunction(k => document.querySelectorAll('[data-voice-audio] audio').length === k, n, { timeout: 15000 });
+  await audioTracks(ann, 1);
   const bobRow = ann.locator('[data-voice-member="BOB"]');
   await bobRow.hover();
   await bobRow.locator('button[title="Выключить микрофон участнику"]').click();
   await bobRow.locator('[title="Микрофон выключил модератор"]').waitFor({ timeout: 10000 });
   await sees(bob, 'Модератор выключил вам микрофон', 10000);
   await bob.locator('[data-voice-panel] button[title="Микрофон выключил модератор"]:disabled').waitFor({ timeout: 10000 });
+  await audioTracks(ann, 0);
   await bobRow.hover();
   await bobRow.locator('button[title="Вернуть микрофон"]').click();
   await bob.locator('[data-voice-panel] button[title="Выключить микрофон"]:enabled').waitFor({ timeout: 10000 });
+  await audioTracks(ann, 1);
+
+  // A25: deafened by the owner, Bob receives no sound (canSubscribe=false).
+  await audioTracks(bob, 1);
+  await bobRow.hover();
+  await bobRow.locator('button[title="Выключить звук участнику"]').click();
+  await sees(bob, 'Модератор выключил вам звук', 10000);
+  await audioTracks(bob, 0);
+  await bobRow.hover();
+  await bobRow.locator('button[title="Вернуть звук"]').click();
+  await audioTracks(bob, 1);
+
+  // The owner moves Bob to a second voice channel: his client goes there itself.
+  await menu(ann, 'Создать канал');
+  await ann.getByText('Голосовой', { exact: true }).click();
+  await ann.fill('#cc-name', 'Вторая');
+  await ann.getByRole('button', { name: 'Создать канал', exact: true }).click();
+  await ann.locator('[data-voice-channel="Вторая"]').waitFor({ timeout: 8000 });
+  await bobRow.hover();
+  await bobRow.locator('button[title="Перенести в другой канал"]').click();
+  await ann.locator('[data-voice-move-menu]').getByRole('menuitem', { name: 'Вторая' }).click();
+  await bob.locator('[data-voice-panel]').getByText(/^Вторая/).waitFor({ timeout: 15000 });
+  await sees(bob, 'Голос подключён', 15000);
+  await bob.waitForURL(u => !u.pathname.endsWith('/' + bobVoiceFrom), { timeout: 10000 });
 
   // And disconnects him.
   await bobRow.hover();

@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, untracked, viewChild } from '@angular/core';
+import { Router } from '@angular/router';
 import { NgClass } from '@angular/common';
 import { HeadphoneOff, Headphones, LucideAngularModule, Maximize, Mic, MicOff, Monitor, MonitorOff, PhoneOff, Video, VideoOff } from 'lucide-angular';
 import { Track } from 'livekit-client';
@@ -139,6 +140,15 @@ export class VoiceRoom {
   protected readonly voice = inject(VoiceService);
   protected readonly store = inject(AppStateStore);
   private readonly stage = viewChild<ElementRef<HTMLElement>>('stage');
+
+  constructor() {
+    // A moderator moved us out of the channel on screen: the view follows.
+    const router = inject(Router);
+    effect(() => {
+      const m = this.voice.lastMove();
+      if (m && m.from === untracked(this.channelId)) void router.navigate(['/channels', untracked(this.guildId), m.to]);
+    });
+  }
 
   protected readonly guild = computed(() => this.store.guild(this.guildId()));
   protected readonly channel = computed(() => this.guild()?.channels.find(c => c.id === this.channelId()) ?? null);
