@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HeadphoneOff, Headphones, LucideAngularModule, Mic, MicOff, PhoneOff, Settings2 } from 'lucide-angular';
+import { HeadphoneOff, Headphones, LucideAngularModule, Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2 } from 'lucide-angular';
 import { AppStateStore } from '@entities/app-state';
 import { AudioDeviceKind, VoiceService } from '@entities/voice';
 
@@ -29,7 +29,7 @@ import { AudioDeviceKind, VoiceService } from '@entities/voice';
             <lucide-angular class="w-4 h-4" [img]="PhoneOff"></lucide-angular>
           </button>
         </div>
-        <div class="grid grid-cols-3 gap-1">
+        <div class="grid gap-1" [ngClass]="voice.canShare() ? 'grid-cols-4' : 'grid-cols-3'">
           <button type="button" (click)="voice.toggleMute()" [disabled]="!voice.canSpeak()"
                   [title]="voice.serverMute() ? 'Микрофон выключил модератор' : voice.selfMute() ? 'Включить микрофон' : 'Выключить микрофон'"
                   [attr.aria-pressed]="voice.selfMute()"
@@ -42,6 +42,14 @@ import { AudioDeviceKind, VoiceService } from '@entities/voice';
                   class="h-9 rounded-lg flex items-center justify-center"
                   [ngClass]="voice.selfDeaf() ? 'bg-ok-text text-ok-bg' : 'text-ok-text hover:bg-ok-surface-1'">
             <lucide-angular class="w-4 h-4" [img]="voice.selfDeaf() ? HeadphoneOff : Headphones"></lucide-angular>
+          </button>
+          <button *ngIf="voice.canShare()" type="button" (click)="voice.toggleShare()" data-voice-share
+                  [attr.aria-label]="voice.sharing() ? 'Остановить показ экрана' : 'Показать экран'"
+                  [title]="voice.sharing() ? 'Остановить показ экрана' : 'Показать экран'"
+                  [attr.aria-pressed]="voice.sharing()"
+                  class="h-9 rounded-lg flex items-center justify-center"
+                  [ngClass]="voice.sharing() ? 'bg-ok-accent text-ok-on-accent' : 'text-ok-text hover:bg-ok-surface-1'">
+            <lucide-angular class="w-4 h-4" [img]="voice.sharing() ? MonitorOff : Monitor"></lucide-angular>
           </button>
           <button type="button" (click)="toggleDevices()" title="Устройства" [attr.aria-expanded]="devicesOpen()"
                   class="h-9 rounded-lg flex items-center justify-center text-ok-text hover:bg-ok-surface-1"
@@ -91,7 +99,7 @@ export class VoicePanel {
     switch (this.voice.status()) {
       case 'connecting': return 'Подключение…';
       case 'reconnecting': return 'Переподключение…';
-      default: return 'Голос подключён';
+      default: return this.voice.sharing() ? 'Вы показываете экран' : 'Голос подключён';
     }
   });
   /** "voice · Server". */
@@ -118,4 +126,6 @@ export class VoicePanel {
   protected readonly HeadphoneOff = HeadphoneOff;
   protected readonly PhoneOff = PhoneOff;
   protected readonly Settings2 = Settings2;
+  protected readonly Monitor = Monitor;
+  protected readonly MonitorOff = MonitorOff;
 }

@@ -115,6 +115,8 @@ export interface VoiceJoinInfo {
   room: string;
   sources: ('microphone' | 'camera' | 'screen_share' | 'screen_share_audio')[];
   push_to_talk: boolean;
+  /** The screen may be shared above 720p (STREAM_HQ); older cores leave it out. */
+  high_quality?: boolean;
 }
 
 export interface DMChannel {

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, Input, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterLinkActive } from '@angular/router';
-import { Hash, HeadphoneOff, Headphones, Lock, LucideAngularModule, Mic, MicOff, PhoneOff, Plus, Settings, Volume2 } from 'lucide-angular';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Hash, HeadphoneOff, Headphones, Lock, LucideAngularModule, Mic, MicOff, Monitor, PhoneOff, Plus, Settings, Volume2 } from 'lucide-angular';
 import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
 import { ApiService, FullGuild, Perm, VoiceState, errorText, hasPerm, nameOf } from '@shared/api';
@@ -68,6 +68,11 @@ import { AvatarUI } from '@shared/ui/avatar';
                 <AvatarUI [src]="store.user(v.user ?? null)?.avatar ?? null" [name]="nameOf(v)" />
               </span>
               <span class="truncate flex-1">{{ nameOf(v) }}</span>
+              <button *ngIf="sharing(channel.id, v.user_id)" type="button" (click)="watch(channel.id, v.user_id)"
+                      [attr.aria-label]="'Смотреть экран: ' + nameOf(v)" title="Смотреть экран" data-voice-screen
+                      class="h-5 px-1.5 rounded-md bg-ok-accent text-ok-on-accent text-[11px] font-semibold flex items-center gap-1">
+                <lucide-angular class="w-3 h-3" [img]="Monitor" aria-hidden="true"></lucide-angular>экран
+              </button>
               <lucide-angular *ngIf="v.mute" class="w-3.5 h-3.5 text-ok-danger" [img]="MicOff" title="Микрофон выключил модератор"></lucide-angular>
               <lucide-angular *ngIf="v.self_mute && !v.mute" class="w-3.5 h-3.5 text-ok-muted" [img]="MicOff" title="Микрофон выключен"></lucide-angular>
               <lucide-angular *ngIf="v.deaf" class="w-3.5 h-3.5 text-ok-danger" [img]="HeadphoneOff" title="Звук выключил модератор"></lucide-angular>
@@ -159,10 +164,27 @@ export class ServerChannelsItems {
     return hasPerm(this.current()?.channel_permissions[channelId], Perm.Connect);
   }
 
+  /** Opens the voice channel in the centre and enters it, when allowed and not full. */
   protected join(channelId: string): void {
     const g = this.guildId();
-    if (g && this.canConnect(channelId)) void this.voice.join({ guildId: g, channelId });
+    if (!g) return;
+    void this.router.navigate(['/channels', g, channelId]);
+    const ch = this.current()?.channels.find(c => c.id === channelId);
+    if (this.canConnect(channelId) && !(ch && this.full(ch))) void this.voice.join({ guildId: g, channelId });
   }
+
+  /** LiveKit tells who shares a screen only in the room we are in. */
+  protected sharing(channelId: string, userId: string): boolean {
+    return this.here(channelId) && this.voice.sharers().has(userId);
+  }
+
+  protected watch(channelId: string, userId: string): void {
+    this.voice.watching.set(userId);
+    void this.router.navigate(['/channels', this.guildId(), channelId]);
+  }
+
+  private readonly router = inject(Router);
+  protected readonly Monitor = Monitor;
   protected byGroup = (_: number, gr: { category: { id: string } | null }) => gr.category?.id ?? '-';
   protected readonly Volume2 = Volume2;
   protected readonly Hash = Hash;

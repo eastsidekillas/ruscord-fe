@@ -316,6 +316,18 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
   }
   // The fake microphone beeps: LiveKit reports a speaker.
   await ann.locator('[data-speaking]').first().waitFor({ timeout: 15000 });
+
+  // Ann shares her screen (the fake one); Bob picks it in the list and sees frames.
+  await ann.locator('[data-voice-share]').click();
+  await sees(ann, 'Вы показываете экран', 15000);
+  await bob.locator('[data-voice-member="ANN"] [data-voice-screen]').click();
+  await bob.waitForFunction(() => {
+    const v = document.querySelector('[data-voice-stage] video');
+    return !!v && v.videoWidth > 0;
+  }, null, { timeout: 15000 });
+  await ann.locator('[data-voice-share]').click();
+  await bob.getByText('Никто не показывает экран').waitFor({ timeout: 15000 });
+
   await bob.locator('[data-voice-panel] button[title="Выключить микрофон"]').click();
   await ann.locator('[data-voice-member="BOB"] [title="Микрофон выключен"]').waitFor({ timeout: 10000 });
   await bob.locator('[data-voice-panel] button[title="Включить микрофон"]').click();
