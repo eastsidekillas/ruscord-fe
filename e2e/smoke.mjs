@@ -362,8 +362,8 @@ await step('ban Cat: she loses the server and cannot come back; unban', async ()
 await step('profile: name, about me and avatar reach others live', async () => {
   await ann.locator('[title="Настройки"]').click();
   await ann.setInputFiles('input[type=file]', `${FIX}/photo.jpg`);
-  await ann.fill('input[placeholder="Ваше имя..."]', 'Аня');
-  await ann.fill('textarea[placeholder="Расскажи о себе..."]', 'Люблю Go');
+  await ann.fill('#p-name', 'Аня');
+  await ann.fill('#p-bio', 'Люблю Go');
   await ann.getByRole('button', { name: 'Сохранить' }).click();
   await sees(ann, 'Профиль обновлён');
   await ann.keyboard.press('Escape');
@@ -380,15 +380,13 @@ await step('devices: a new sign-in is announced, signing it out works at once; p
   await ann2.waitForURL(/\/channels\/me/, { timeout: 10000 });
   await sees(ann, 'Вход с нового устройства');
   await ann.locator('[title="Настройки"]').click();
-  await ann.getByRole('button', { name: 'Устройства' }).click();
+  await ann.getByRole('button', { name: 'Устройства и безопасность' }).click();
   await ann.locator('[data-session]').nth(1).waitFor({ timeout: 8000 });
   await ann.locator('[data-session]', { hasNotText: 'это устройство' }).getByRole('button', { name: 'Завершить' }).click();
   // Signed out at once: the socket closes and the session cannot be renewed.
   await ann2.waitForURL(/\/login/, { timeout: 10000 });
-  await ann.getByRole('button', { name: 'Безопасность' }).click();
-  await ann.fill('input[name=current]', 'password-ann');
-  await ann.fill('input[name=next]', 'password-ann-2');
-  await ann.fill('input[name=repeat]', 'password-ann-2');
+  await ann.fill('#pw-cur', 'password-ann');
+  await ann.fill('#pw-new', 'password-ann-2');
   await ann.getByRole('button', { name: 'Сменить пароль' }).click();
   await sees(ann, 'Пароль изменён');
   await ann.keyboard.press('Escape');
@@ -416,8 +414,8 @@ await step('block from the friends page: the friend is gone on both sides; unblo
 await step('Cat deletes her account; it cannot sign in again', async () => {
   await cat.goto(BASE + '/channels/me');
   await cat.locator('[title="Настройки"]').click();
-  await cat.getByRole('button', { name: 'Удалить учётную запись' }).click();
-  await cat.fill('input[placeholder="Пароль"]', 'password-cat');
+  await cat.getByRole('button', { name: 'Устройства и безопасность' }).click();
+  await cat.fill('#del-pw', 'password-cat');
   await cat.getByRole('button', { name: 'Удалить навсегда' }).click();
   await cat.waitForURL(/\/login/, { timeout: 8000 });
   await cat.fill('#email', `${name('cat')}@example.com`);

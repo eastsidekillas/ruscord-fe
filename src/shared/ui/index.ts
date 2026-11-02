@@ -5,3 +5,5 @@ export { InputComponent } from './input';
 export { TextareaComponent } from './textarea';
 export { DropdownMenu } from './dropdown-menu';
 export type { DropdownMenuItem } from './dropdown-menu';
+export { Dolobeb, DOLOBEB_STATES, DOLOBEB_LABELS } from './dolobeb';
+export type { DolobebState } from './dolobeb';

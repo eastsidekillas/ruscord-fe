@@ -6,6 +6,7 @@ import { FriendsHeader, FriendsTab } from '@widgets/friends';
 import { NotificationService } from '@shared/model/notification.service';
 import { ModalService } from '@shared/model/modal.service';
 import { AvatarUI } from '@shared/ui/avatar';
+import { Dolobeb, DolobebState } from '@shared/ui/dolobeb';
 import { StatusUi, StatusUIText } from '@entities/user-status';
 import { AppStateStore } from '@entities/app-state';
 import { ApiService, PublicUser, RelType, RelTypeValue, Relationship, apiError, errorText, nameOf } from '@shared/api';
@@ -35,7 +36,7 @@ const BTN = 'h-9 px-3.5 rounded-lg text-[13px] font-semibold';
   selector: 'RelationshipsPage',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, FriendsHeader, AvatarUI, StatusUi, StatusUIText],
+  imports: [CommonModule, FormsModule, FriendsHeader, AvatarUI, StatusUi, StatusUIText, Dolobeb],
   template: `
     <FriendsHeader [active]="tab()" [pendingCount]="store.incoming().length + store.outgoing().length" (tabChange)="setTab($event)" />
 
@@ -90,7 +91,10 @@ const BTN = 'h-9 px-3.5 rounded-lg text-[13px] font-semibold';
           </div>
         </section>
 
-        <p *ngIf="store.loaded() && !groups().length" class="m-0 text-center text-ok-muted text-[13px]">{{ empty() }}</p>
+        <div *ngIf="store.loaded() && !groups().length" class="flex flex-col items-center gap-3 pt-6">
+          <Dolobeb [state]="emptyMood()" [size]="64" />
+          <p class="m-0 text-center text-ok-muted text-[13px]">{{ empty() }}</p>
+        </div>
       </div>
     </div>
   `,
@@ -135,6 +139,12 @@ export class RelationshipsPage {
       default:
         return keep([{ title: 'ЗАБЛОКИРОВАННЫЕ', rows: rows(this.store.blocked()) }]);
     }
+  });
+
+  /** Dolobeb next to the empty list: asleep when nobody is online, puzzled on a search miss. */
+  protected readonly emptyMood = computed<DolobebState>(() => {
+    if (this.q().trim() && (this.tab() === 'online' || this.tab() === 'all')) return 'confused';
+    return this.tab() === 'online' ? 'sleeping' : 'idle';
   });
 
   protected readonly empty = computed(() => {

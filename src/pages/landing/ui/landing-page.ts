@@ -1,6 +1,6 @@
 import {Component} from '@angular/core';
 import {RouterLink} from '@angular/router';
-import { APP_NAME } from '@shared/config/brand';
+import { APP_MARK, APP_NAME } from '@shared/config/brand';
 
 @Component({
   selector: 'LandingLayout',
@@ -16,11 +16,7 @@ import { APP_NAME } from '@shared/config/brand';
         <nav class="bg-green-500 font-sans px-10 ">
           <div class=" flex justify-between items-center mx-auto max-w-[1200px] xl:px-0 py-5 " >
             <a href="#" class="flex items-center gap-2 text-white">
-              <svg class="w-7 h-7 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
-                   viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M4 4h16v16H4zM8 8h8v8H8z"/>
-              </svg>
+              <img [src]="mark" alt="" class="w-8 h-8" />
               <span class="text-xl font-bold tracking-wide">{{ appName }}</span>
             </a>
 
@@ -133,4 +129,5 @@ import { APP_NAME } from '@shared/config/brand';
 
 export class LandingLayout {
   protected readonly appName = APP_NAME;
+  protected readonly mark = APP_MARK;
 }
