@@ -4,6 +4,7 @@ import { filter } from 'rxjs';
 import { AuthService } from '@entities/session/api/auth.service';
 import { GatewayService } from '@shared/api/gateway/gateway.service';
 import { NotificationService } from '@shared/model/notification.service';
+import { ModalService } from '@shared/model/modal.service';
 import {
   DMChannel,
   FullGuild,
@@ -53,13 +54,16 @@ export class AppStateStore {
     });
     // Someone signed in to this account elsewhere (ruscord-core ADR-0023).
     const notify = inject(NotificationService);
+    const modal = inject(ModalService);
     this.gateway.dispatches.pipe(filter(ev => ev.t === 'SESSION_CREATE' && !!ev.d)).subscribe(ev => {
       const s = ev.d as Session;
-      notify.show(`Вход с нового устройства: ${deviceLabel(s.device)}${s.ip ? ', ' + s.ip : ''}`, 'info', 8000);
+      notify.show(`Вход с нового устройства: ${deviceLabel(s.device)}${s.ip ? ', ' + s.ip : ''}`, 'info', 8000,
+        { label: 'Открыть устройства', run: () => modal.open('userSettings', { section: 'security' }) });
     });
+    // «Сессия завершена»: the sign-in page explains why (ended=1).
     this.gateway.sessionEnded.subscribe(() => {
       this.auth.forget();
-      this.router.navigate(['/login']);
+      this.router.navigate(['/login'], { queryParams: { ended: 1 } });
     });
     // One connection while signed in.
     effect(() => {

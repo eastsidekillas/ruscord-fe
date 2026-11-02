@@ -45,7 +45,7 @@ import { AvatarUI } from '@shared/ui/avatar';
           </a>
           <ng-container *ngIf="channel.type === 2">
             <div (click)="join(channel.id)" [attr.data-voice-channel]="channel.name" [attr.aria-current]="here(channel.id) ? 'true' : null"
-                 [title]="canConnect(channel.id) ? 'Войти в голосовой канал' : 'Нет права подключаться'"
+                 [title]="!canConnect(channel.id) ? 'Нет права подключаться' : full(channel) ? 'В голосовом канале нет мест' : 'Войти в голосовой канал'"
                  class="flex items-center gap-2 p-2 rounded-lg group"
                  [ngClass]="[
                    here(channel.id) || inVoice(channel.id).length ? 'text-ok-text' : 'text-ok-muted',
@@ -175,6 +175,11 @@ export class ServerChannelsItems {
   protected canManage(channelId: string): boolean {
     const p = this.current()?.channel_permissions[channelId];
     return hasPerm(p, Perm.ManageChannels) || hasPerm(p, Perm.ManageRoles);
+  }
+
+  /** Every place taken and the user is not one of them («2/2»); the server refuses the join too. */
+  protected full(channel: { id: string; user_limit?: number }): boolean {
+    return !!channel.user_limit && !this.here(channel.id) && this.inVoice(channel.id).length >= channel.user_limit;
   }
 
   protected edit(channelId: string, ev?: Event): void {
