@@ -9,6 +9,7 @@ import { ModalService } from '@shared/model/modal.service';
 import { InviteServerModal } from '@features/invite-server/ui/invite-server-modal';
 import { ServerSettingsModal } from '@features/server-settings/ui/server-settings-modal';
 import { ChannelModal } from '@features/channel-settings/ui/channel-modal';
+import { ChannelSettingsModal } from '@features/channel-settings/ui/channel-settings-modal';
 import { UserSettingsModal } from '@widgets/user/ui/UserSettingsModal';
 import { ConnectionOverlay } from '@shared/ui/connection-overlay';
 import { AppStateStore, IdleService, TypingStore } from '@entities/app-state';
@@ -17,7 +18,7 @@ import { GroupModal } from '@features/group/ui/group-modal';
 import { NickModal } from '@features/change-nick';
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay, GroupModal, NickModal],
+  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay, GroupModal, NickModal, ChannelSettingsModal],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -33,6 +34,7 @@ import { NickModal } from '@features/change-nick';
     <UserSettingsModal *ngIf="modalService.modalType() === 'userSettings'"></UserSettingsModal>
     <GroupModal *ngIf="modalService.modalType() === 'group'" />
     <NickModal *ngIf="modalService.modalType() === 'nick'" />
+    <ChannelSettingsModal *ngIf="modalService.modalType() === 'channelSettings'" />
     <Notification *ngIf="notificationService.state().visible"></Notification>
   `,
 })

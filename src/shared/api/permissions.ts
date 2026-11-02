@@ -92,3 +92,20 @@ export const PermGroups: PermGroup[] = [
     ],
   },
 ];
+
+const label = (bit: bigint): { bit: bigint; label: string } =>
+  PermGroups.flatMap(g => g.perms).find(p => p.bit === bit)!;
+
+const TEXT_CHANNEL = [Perm.ViewChannel, Perm.SendMessages, Perm.ReadMessageHistory, Perm.ManageMessages, Perm.MentionEveryone, Perm.CreateInvite];
+const VOICE_CHANNEL = [Perm.ViewChannel, Perm.Connect, Perm.Speak, Perm.Video, Perm.Stream, Perm.StreamHQ, Perm.UseVoiceActivity,
+  Perm.MuteMembers, Perm.DeafenMembers, Perm.MoveMembers, Perm.CreateInvite];
+
+/**
+ * Permissions a channel overwrite can set, by channel type (0 text, 2 voice,
+ * 4 category: both). ADMINISTRATOR cannot be set in a channel (the core
+ * answers 422).
+ */
+export function channelPermLabels(type: 0 | 2 | 4): { bit: bigint; label: string }[] {
+  const bits = type === 0 ? TEXT_CHANNEL : type === 2 ? VOICE_CHANNEL : [...new Set([...TEXT_CHANNEL, ...VOICE_CHANNEL])];
+  return bits.map(label);
+}

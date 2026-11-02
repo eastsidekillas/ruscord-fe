@@ -245,6 +245,15 @@ export class ApiService {
     return this.http.post<Invite>(this.url(`channels/${channelId}/invites`), { max_age: maxAge, max_uses: maxUses });
   }
 
+  /** Sets a channel permission overwrite for a role (type 1) or a member (type 2). */
+  putOverwrite(channelId: string, targetId: string, body: { type: 1 | 2; allow: string; deny: string }): Observable<GuildChannel> {
+    return this.http.put<GuildChannel>(this.url(`channels/${channelId}/permissions/${targetId}`), body);
+  }
+
+  deleteOverwrite(channelId: string, targetId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`channels/${channelId}/permissions/${targetId}`));
+  }
+
   /** Every invite of the guild (MANAGE_GUILD). */
   guildInvites(guildId: string): Observable<Invite[]> {
     return this.http.get<Invite[]>(this.url(`guilds/${guildId}/invites`));
