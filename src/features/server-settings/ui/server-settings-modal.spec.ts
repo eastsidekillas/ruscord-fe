@@ -9,18 +9,22 @@ const guild = (perms: bigint): FullGuild => ({
 describe('settingsTabs', () => {
   const cases: { name: string; perms: bigint; tabs: string[] }[] = [
     { name: 'a plain member sees no settings', perms: Perm.ViewChannel | Perm.SendMessages, tabs: [] },
-    { name: 'MANAGE_GUILD: overview', perms: Perm.ManageGuild, tabs: ['overview'] },
+    { name: 'MANAGE_GUILD: overview and invites', perms: Perm.ManageGuild, tabs: ['overview', 'invites'] },
     { name: 'MANAGE_ROLES: roles and members (to give roles)', perms: Perm.ManageRoles, tabs: ['roles', 'members'] },
     { name: 'KICK_MEMBERS: members only', perms: Perm.KickMembers, tabs: ['members'] },
     { name: 'BAN_MEMBERS: members and bans', perms: Perm.BanMembers, tabs: ['members', 'bans'] },
     {
       name: 'administrator (the server sends every bit)',
       perms: Perm.Administrator | Perm.ManageGuild | Perm.ManageRoles | Perm.KickMembers | Perm.BanMembers,
-      tabs: ['overview', 'roles', 'members', 'bans'],
+      tabs: ['overview', 'roles', 'members', 'bans', 'invites'],
     },
   ];
   for (const c of cases) {
     it(c.name, () => expect(settingsTabs(guild(c.perms)).map(t => t.id)).toEqual(c.tabs as never));
   }
+  it('CREATE_INVITE in a channel: invites only', () => {
+    const g = { ...guild(Perm.ViewChannel), channel_permissions: { c: Perm.CreateInvite.toString() } };
+    expect(settingsTabs(g).map(t => t.id)).toEqual(['invites'] as never);
+  });
   it('no guild, no tabs', () => expect(settingsTabs(null)).toEqual([]));
 });

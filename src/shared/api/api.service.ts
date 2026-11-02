@@ -245,6 +245,15 @@ export class ApiService {
     return this.http.post<Invite>(this.url(`channels/${channelId}/invites`), { max_age: maxAge, max_uses: maxUses });
   }
 
+  /** Every invite of the guild (MANAGE_GUILD). */
+  guildInvites(guildId: string): Observable<Invite[]> {
+    return this.http.get<Invite[]>(this.url(`guilds/${guildId}/invites`));
+  }
+
+  deleteInvite(code: string): Observable<void> {
+    return this.http.delete<void>(this.url(`invites/${encodeURIComponent(code)}`));
+  }
+
   invite(code: string): Observable<InvitePreview> {
     return this.http.get<InvitePreview>(this.url(`invites/${encodeURIComponent(code)}`));
   }
