@@ -16,9 +16,21 @@ set -euo pipefail
 core=$(cd "$1" && pwd)
 fe=$(cd "${2:-$(dirname "$0")/..}" && pwd)
 compose=(docker compose --env-file "$core/.env" -f "$core/deploy/docker-compose.yml")
+livekit_mode=$(sed -n 's/^RUSCORD_LIVEKIT_MODE=//p' "$core/.env" 2>/dev/null | tail -1)
+livekit_mode="${livekit_mode:-local}"
+if [ "$livekit_mode" != local ]; then
+  echo "e2e/ci.sh requires RUSCORD_LIVEKIT_MODE=local (got $livekit_mode)" >&2
+  exit 2
+fi
+if [ -f "$core/deploy/local-livekit.yml" ]; then
+  compose+=(-f "$core/deploy/local-livekit.yml" --profile local)
+fi
 base=http://localhost:8081
 if [ -n "${E2E_STAGING:-}" ]; then
   compose+=(-f "$core/deploy/staging/compose.yml" --profile staging)
+  if [ -f "$core/deploy/staging/local-livekit.yml" ]; then
+    compose+=(-f "$core/deploy/staging/local-livekit.yml")
+  fi
   base=https://localhost
   [ -f "$core/.env" ] || { "$core/scripts/gen-env.sh" "$core/deploy/staging/env.example" \
     | sed -e 's/^RUSCORD_DOMAIN=$/RUSCORD_DOMAIN=localhost/' -e 's/^RUSCORD_LIVEKIT_EXTERNAL_IP=.*/RUSCORD_LIVEKIT_EXTERNAL_IP=false/' > "$core/.env"; }
