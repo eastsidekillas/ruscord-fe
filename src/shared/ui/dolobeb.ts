@@ -110,7 +110,7 @@ const SIZES = { sm: 32, md: 48, lg: 96 } as const;
     .ink { fill: var(--color-ok-bg); }
     .white { fill: var(--color-ok-text); }
     .line { fill: none; stroke: var(--color-ok-bg); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
-    .outline { stroke: var(--color-ok-bg); stroke-width: 9; stroke-linejoin: round; }
+    .edge { stroke: var(--color-ok-bg); stroke-width: 9; stroke-linejoin: round; }
     .mark { fill: none; stroke: var(--color-ok-accent); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
     .mark-fill { fill: var(--color-ok-accent); }
     .danger { fill: var(--color-ok-danger); }
@@ -155,11 +155,11 @@ const SIZES = { sm: 32, md: 48, lg: 96 } as const;
          [attr.aria-hidden]="decorative() ? 'true' : null"
          [attr.aria-label]="decorative() ? null : ariaLabel()">
       <g class="head">
-        <path class="body outline" d="M40 150 C38 95 85 62 140 64 C195 66 228 105 224 155 C220 205 180 236 128 234 C76 232 42 200 40 150 Z" />
+        <path class="body edge" d="M40 150 C38 95 85 62 140 64 C195 66 228 105 224 155 C220 205 180 236 128 234 C76 232 42 200 40 150 Z" />
 
         @if (openMouth(); as d) {
           <g class="mouth" [style.transform]="mouthScale()">
-            <path class="ink outline" [attr.d]="d" />
+            <path class="ink edge" [attr.d]="d" />
             <rect class="white" x="100" [attr.y]="150 + teethDy()" width="25" height="31" rx="5"
                   [attr.transform]="'rotate(-3 114 ' + (164 + teethDy()) + ')'" />
             <rect class="white" x="129" [attr.y]="148 + teethDy()" width="24" height="29" rx="5"
@@ -171,9 +171,9 @@ const SIZES = { sm: 32, md: 48, lg: 96 } as const;
           <path class="line" [attr.d]="d" />
         }
 
-        <ellipse class="white outline" cx="84" cy="74" rx="50" [attr.ry]="state() === 'surprised' ? 42 : 41"
+        <ellipse class="white edge" cx="84" cy="74" rx="50" [attr.ry]="state() === 'surprised' ? 42 : 41"
                  transform="rotate(-30 84 74)" />
-        <circle class="white outline" cx="166" cy="104" r="30" />
+        <circle class="white edge" cx="166" cy="104" r="30" />
 
         @if (pupils(); as p) {
           <ellipse class="ink" [attr.cx]="p.b[0]" [attr.cy]="p.b[1]" [attr.rx]="p.b[2]" [attr.ry]="p.b[3]" />

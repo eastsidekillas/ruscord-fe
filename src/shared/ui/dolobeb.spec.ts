@@ -33,6 +33,13 @@ describe('Dolobeb', () => {
     expect(render('error', 32).querySelector('.danger')).toBeNull();
   });
 
+  it('uses no class that Tailwind turns into a utility (outline drew boxes)', () => {
+    for (const state of DOLOBEB_STATES) {
+      const el = render(state);
+      expect(el.querySelectorAll('.outline, .border, .ring, .shadow').length).withContext(state).toBe(0);
+    }
+  });
+
   it('never recolours the body for error', () => {
     const el = render('error');
     expect(el.querySelector('.body')!.classList).not.toContain('danger');
