@@ -1,4 +1,4 @@
-# Zvonilka — клиент
+# placemood — клиент
 
 Angular-клиент для [ruscord-core](https://github.com/eastsidekillas/ruscord-core).
 Протокол и пути описаны в `docs/api.md` ядра.
@@ -38,9 +38,13 @@ CI (`.github/workflows/ci.yml`) на каждом PR собирает прода
 
 ## Дизайн
 
-Дизайн-система Zvonilka (ruscord-core ADR-0027, ADR-0028): токены — в `src/styles.css`
+Дизайн-система placemood (ruscord-core ADR-0027, ADR-0030): токены — в `src/styles.css`
 (`bg-ok-bg`, `text-ok-muted`, `rounded-ok-md`…), иконки — lucide, название и
-знак — `src/shared/config/brand.ts` (Zvonilka, ADR-0028). Экраны
+знак — `src/shared/config/brand.ts` (placemood, ADR-0030). Знак и маскот —
+долобеб: `public/mark.svg`, `public/app-icon.svg` и компонент состояний
+`<Dolobeb state="idle|happy|…|speaking" size="sm|md|lg|px">` в
+`src/shared/ui/dolobeb.ts` (13 состояний, reduced-motion, внешние знаки
+скрыты меньше 48px). Экраны
 первого сценария сверены с макетами попиксельно на 1440×900. Старые имена
 цветов (`main-surface-*`, `typo-secondary`) пока указывают на цвета системы, до
 переделки остальных экранов.

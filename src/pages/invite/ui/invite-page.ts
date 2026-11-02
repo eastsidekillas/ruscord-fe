@@ -12,6 +12,7 @@ import { ApiService, InvitePreview, apiError, nameOf } from '@shared/api';
 import { AuthService } from '@entities/session/api/auth.service';
 import { AppStateStore, firstTextChannel } from '@entities/app-state';
 import { AvatarUI } from '@shared/ui/avatar';
+import { Dolobeb } from '@shared/ui/dolobeb';
 import { members } from '@shared/lib/plural';
 import { APP_MARK, WORDMARK } from '@shared/config/brand';
 
@@ -29,7 +30,7 @@ interface InviteDetails {
 @Component({
   selector: 'app-invite-page',
   standalone: true,
-  imports: [CommonModule, AvatarUI],
+  imports: [CommonModule, AvatarUI, Dolobeb],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="min-h-screen flex flex-col items-center justify-center gap-8 px-4 py-12 bg-ok-bg text-ok-text text-[15px]">
@@ -46,7 +47,7 @@ interface InviteDetails {
 
       <section *ngIf="!loading() && error()" role="alert"
                class="w-full max-w-[440px] rounded-ok-lg bg-ok-surface-1 border border-ok-border p-8 flex flex-col items-center gap-3 text-center">
-        <img [src]="mark" alt="" class="w-10 h-10 opacity-60" />
+        <Dolobeb state="confused" [size]="64" />
         <h1 class="text-xl font-semibold">Приглашение недействительно</h1>
         <p class="text-[13px] text-ok-muted">{{ error() }}</p>
         <button type="button" (click)="goHome()" class="mt-1 h-10 px-4 rounded-[10px] bg-ok-surface-2 font-semibold">На главную</button>

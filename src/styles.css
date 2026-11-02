@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 /*
- * Zvonilka design system tokens (ruscord-core ADR-0027, ADR-0028), dark theme.
+ * placemood design system tokens (ruscord-core ADR-0027, ADR-0030), dark theme.
  * The ok- prefix is from its first, temporary name; names follow
  * the system's tokens.json: bg, sidebar, surface-1, surface-2, border,
- * border-control, text, text-muted, accent, on-accent, danger, success,
+ * border-control, text, text-muted, accent, on-accent, danger, on-danger, success,
  * warning. Utilities: bg-ok-bg, text-ok-muted, border-ok-border...
  */
 @theme {
@@ -20,6 +20,7 @@
   --color-ok-accent: #7FB2E5;
   --color-ok-on-accent: #0F1112;
   --color-ok-danger: #F08A80;
+  --color-ok-on-danger: #0F1112;
   --color-ok-success: #7FD1A8;
   --color-ok-warning: #E6C27A;
 

@@ -10,11 +10,12 @@ import {
 import { CommonModule } from '@angular/common';
 import { AuthService } from '@entities/session/api/auth.service';
 import { GatewayService } from '@shared/api';
+import { Dolobeb } from './dolobeb';
 
 @Component({
   selector: 'ConnectionOverlay',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, Dolobeb],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .overlay {
@@ -34,23 +35,11 @@ import { GatewayService } from '@shared/api';
       to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    .dots { display: flex; gap: 6px; }
-    .dots span {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--color-ok-accent);
-      animation: co-dot 1.2s ease-in-out infinite;
-    }
-    .dots span:nth-child(2) { animation-delay: .2s; }
-    .dots span:nth-child(3) { animation-delay: .4s; }
-    @keyframes co-dot {
-      0%, 80%, 100% { opacity: .25; transform: scale(.8); }
-      40%           { opacity: 1;   transform: scale(1); }
-    }
   `,
   template: `
     <div class="overlay" [class.hidden]="!visible()">
       <div class="inner">
-        <img src="app-icon.svg" alt="" width="80" height="80">
+        <Dolobeb [state]="stopped() ? 'error' : 'loading'" [size]="96" />
         <div style="text-align:center;display:flex;flex-direction:column;gap:6px">
           <span style="color:var(--color-ok-text);font-size:18px;font-weight:600">
             {{ stopped() ? 'Соединение закрыто' : 'Нет соединения' }}
@@ -59,7 +48,6 @@ import { GatewayService } from '@shared/api';
             {{ stopped() ? 'Открыто слишком много вкладок или версия устарела. Обновите страницу.' : 'Переподключение к серверу...' }}
           </span>
         </div>
-        <div class="dots" *ngIf="!stopped()"><span></span><span></span><span></span></div>
       </div>
     </div>
   `,
