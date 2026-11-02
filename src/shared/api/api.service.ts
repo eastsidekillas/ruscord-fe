@@ -65,6 +65,11 @@ export class ApiService {
     return this.http.patch<VoiceState>(this.url(`guilds/${encodeURIComponent(guildId)}/voice-states/${encodeURIComponent(userId)}`), change);
   }
 
+  /** A moderator moves someone to another voice channel (ruscord-core ADR-0031). */
+  moveVoice(guildId: string, userId: string, channelId: string): Observable<void> {
+    return this.http.post<void>(this.url(`guilds/${encodeURIComponent(guildId)}/voice-states/${encodeURIComponent(userId)}/move`), { channel_id: channelId });
+  }
+
   /** A moderator disconnects someone from voice (MOVE_MEMBERS). */
   disconnectVoice(guildId: string, userId: string): Observable<void> {
     return this.http.delete<void>(this.url(`guilds/${encodeURIComponent(guildId)}/voice-states/${encodeURIComponent(userId)}`));

@@ -131,6 +131,16 @@ export function cameraErrorText(err: unknown): string {
   }
 }
 
+/** VOICE_MOVE: a moderator moved us to another voice channel (ruscord-core ADR-0031). */
+interface VoiceMove {
+  guild_id: string;
+  channel_id: string;
+  from_channel_id: string;
+}
+
+/** How long after LiveKit removed us a VOICE_MOVE still applies to this tab. */
+const MOVE_WINDOW_MS = 15_000;
+
 /** The video a user publishes: a camera or a screen. */
 export type VideoSource = Track.Source.Camera | Track.Source.ScreenShare;
 
@@ -175,6 +185,8 @@ export class VoiceService {
   readonly sharing = signal(false);
   /** User ids sharing a screen in this room, us included. */
   readonly sharers = signal<ReadonlySet<string>>(new Set());
+  /** The last move by a moderator, for the view to follow (ruscord-core ADR-0031). */
+  readonly lastMove = signal<{ from: string; to: string } | null>(null);
   /** Whose screen is open in the voice channel's centre. */
   readonly watching = signal<string | null>(null);
   /** The token allows the camera (VIDEO). */
@@ -185,6 +197,11 @@ export class VoiceService {
   readonly filming = signal<ReadonlySet<string>>(new Set());
 
   private room: Room | null = null;
+  /**
+   * The channel a moderator just took us out of: LiveKit's removal may come
+   * before VOICE_MOVE, and the move must still find this tab.
+   */
+  private removedFrom: { channelId: string; at: number } | null = null;
   /** Elements playing remote audio, kept to deafen and to remove. */
   private readonly audio = new Map<string, HTMLMediaElement>();
   /** Remote video tracks by source, then user id, while subscribed. */
@@ -204,6 +221,10 @@ export class VoiceService {
     // The core records us in the channel when LiveKit reports the connection,
     // after we connected; our mute and deafen are sent once that state comes.
     inject(GatewayService).dispatches.subscribe(ev => {
+      if (ev.t === 'VOICE_MOVE') {
+        this.moved(ev.d as VoiceMove);
+        return;
+      }
       if (ev.t !== 'VOICE_STATE_UPDATE') return;
       const v = ev.d as VoiceState;
       const t = this.target();
@@ -372,6 +393,20 @@ export class VoiceService {
     }
   }
 
+  /**
+   * A moderator moved us: the tab that is (or just was) in the old channel
+   * enters the new one with a token of its own; other tabs ignore it.
+   */
+  private moved(m: VoiceMove): void {
+    const removed = this.removedFrom;
+    const here = this.target()?.channelId === m.from_channel_id
+      || (removed?.channelId === m.from_channel_id && Date.now() - removed.at < MOVE_WINDOW_MS);
+    if (!here) return;
+    this.removedFrom = null;
+    this.lastMove.set({ from: m.from_channel_id, to: m.channel_id });
+    void this.join({ guildId: m.guild_id, channelId: m.channel_id });
+  }
+
   /** Tells about a moderator's mute or deafen once, when it changes. */
   private moderated(mute: boolean, deaf: boolean): void {
     if (mute && !this.serverMute()) this.error.set('Модератор выключил вам микрофон');
@@ -435,6 +470,8 @@ export class VoiceService {
         run(() => {
           if (this.room !== room) return; // we left or moved on
           this.room = null;
+          const from = this.target()?.channelId;
+          if (reason === DisconnectReason.PARTICIPANT_REMOVED && from) this.removedFrom = { channelId: from, at: Date.now() };
           this.reset(disconnectText(reason));
         }));
   }
