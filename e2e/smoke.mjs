@@ -26,7 +26,8 @@ let failed = 0;
 const pages = {};
 
 async function user(browser) {
-  const ctx = await browser.newContext({ viewport: { width: 1400, height: 850 } });
+  // E2E_INSECURE: the test server's stack in CI has a local certificate.
+  const ctx = await browser.newContext({ viewport: { width: 1400, height: 850 }, ignoreHTTPSErrors: !!process.env.E2E_INSECURE });
   const page = await ctx.newPage();
   page.errors = [];
   page.frames_ = [];
