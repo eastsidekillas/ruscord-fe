@@ -258,9 +258,8 @@ await step('server with an icon, invite link, join by link', async () => {
   await ann.waitForURL(/\/channels\/[0-9a-f-]{36}/);
   await ann.locator('ServerSidebar img[src*="/cdn/icons/"]').first().waitFor({ timeout: 8000 });
   await menu(ann, 'Пригласить людей');
-  const link = ann.locator('span.font-mono');
-  await link.waitFor({ timeout: 8000 });
-  invite = (await link.innerText()).trim();
+  await ann.waitForFunction(() => /\/invite\//.test(document.querySelector('#i-link')?.value ?? ''), null, { timeout: 8000 });
+  invite = (await ann.locator('#i-link').inputValue()).trim();
   await ann.keyboard.press('Escape');
   await ann.mouse.click(5, 5);
   for (const p of [bob, cat]) {
@@ -341,8 +340,9 @@ await step('a role with kick rights, given to Bob, opens settings for him', asyn
   await ann.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await ann.waitForTimeout(500);
   await ann.getByRole('button', { name: 'Участники' }).click();
-  const row = ann.locator('div.flex.items-center.gap-2.py-1\\.5', { hasText: 'BOB' });
-  await row.locator('select').selectOption({ label: 'Модератор' });
+  const row = ann.locator('[data-member]', { hasText: 'BOB' });
+  await row.getByRole('button', { name: /^Выдать роль/ }).click();
+  await row.getByRole('menuitem', { name: 'Модератор' }).click();
   await row.getByText('Модератор').waitFor({ timeout: 5000 });
   await ann.keyboard.press('Escape');
   await ann.mouse.click(5, 5);
@@ -354,8 +354,10 @@ await step('a role with kick rights, given to Bob, opens settings for him', asyn
 await step('ban Cat: she loses the server and cannot come back; unban', async () => {
   await menu(ann, 'Настройки сервера');
   await ann.getByRole('button', { name: 'Участники' }).click();
-  const row = ann.locator('div.flex.items-center.gap-2.py-1\\.5', { hasText: 'CAT' });
+  const row = ann.locator('[data-member]', { hasText: 'CAT' });
   await row.getByRole('button', { name: 'Забанить' }).click();
+  await ann.fill('#ban-r', 'нарушение правил');
+  await ann.getByRole('dialog').getByRole('button', { name: 'Забанить' }).click();
   await row.waitFor({ state: 'detached', timeout: 5000 });
   for (let i = 0; i < 40 && !cat.frames_.some(f => f.t === 'GUILD_DELETE'); i++) await cat.waitForTimeout(200);
   if (!cat.frames_.some(f => f.t === 'GUILD_DELETE')) throw new Error('no GUILD_DELETE for Cat');

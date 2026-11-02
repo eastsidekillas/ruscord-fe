@@ -10,8 +10,9 @@ import { AppStateStore } from '@entities/app-state';
 import { RolesTab } from './roles-tab';
 import { MembersTab } from './members-tab';
 import { BansTab } from './bans-tab';
+import { InvitesTab } from './invites-tab';
 
-type Tab = 'overview' | 'roles' | 'members' | 'bans';
+type Tab = 'overview' | 'roles' | 'members' | 'bans' | 'invites';
 
 /** The settings tabs a guild offers the caller, by their permissions. */
 export function settingsTabs(g: FullGuild | null): { id: Tab; label: string }[] {
@@ -24,6 +25,10 @@ export function settingsTabs(g: FullGuild | null): { id: Tab; label: string }[] 
     tabs.push({ id: 'members', label: 'Участники' });
   }
   if (hasPerm(p, Perm.BanMembers)) tabs.push({ id: 'bans', label: 'Баны' });
+  // Making links needs CREATE_INVITE in some channel; the list, MANAGE_GUILD.
+  if (hasPerm(p, Perm.ManageGuild) || Object.values(g.channel_permissions).some(c => hasPerm(c, Perm.CreateInvite))) {
+    tabs.push({ id: 'invites', label: 'Приглашения' });
+  }
   return tabs;
 }
 
@@ -37,7 +42,7 @@ const MAX_UPLOAD = 8 << 20;
 @Component({
   selector: 'ServerSettingsModal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, RolesTab, MembersTab, BansTab],
+  imports: [CommonModule, FormsModule, LucideAngularModule, RolesTab, MembersTab, BansTab, InvitesTab],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'close()' },
   template: `
@@ -63,8 +68,9 @@ const MAX_UPLOAD = 8 << 20;
           </button>
           @switch (current()) {
             @case ('roles') { <RolesTab [guild]="g" /> }
-            @case ('members') { <div class="px-10 py-12 pr-24 max-w-[860px] box-border"><MembersTab [guild]="g" /></div> }
-            @case ('bans') { <div class="px-10 py-12 pr-24 max-w-[860px] box-border"><BansTab [guild]="g" /></div> }
+            @case ('members') { <div class="px-10 py-12 pr-24 max-w-[960px] box-border"><MembersTab [guild]="g" /></div> }
+            @case ('bans') { <div class="px-10 py-12 pr-24 max-w-[960px] box-border"><BansTab [guild]="g" /></div> }
+            @case ('invites') { <div class="px-10 py-12 pr-24 max-w-[960px] box-border"><InvitesTab [guild]="g" /></div> }
             @case ('overview') {
               <form class="px-10 py-12 pr-24 max-w-[760px] box-border flex flex-col gap-8" (ngSubmit)="saveName()">
                 <h1 class="m-0 text-[20px] leading-7 font-semibold">Обзор</h1>
