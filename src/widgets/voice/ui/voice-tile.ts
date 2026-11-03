@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { NgClass } from '@angular/common';
 import { HeadphoneOff, LucideAngularModule, MicOff, Monitor } from 'lucide-angular';
 import { Track } from 'livekit-client';
-import { VoiceService } from '@entities/voice';
+import { VideoFocus, VoiceService, sameVideo } from '@entities/voice';
 import { AvatarUI } from '@shared/ui/avatar';
 import { VideoView } from './video-view';
 
@@ -22,11 +22,16 @@ export type Off = 'self' | 'server' | null;
   template: `
     <div [attr.data-voice-tile]="label()" [attr.data-speaking]="speaking() ? '' : null"
          class="relative rounded-xl bg-ok-surface-1 flex items-center justify-center transition-shadow"
-         [ngClass]="[compact() ? 'h-[120px]' : 'h-[180px]', speaking() ? 'shadow-[0_0_0_2px_var(--color-ok-accent)]' : '']">
+         [ngClass]="[compact() ? 'h-[120px]' : 'h-[180px]', speaking() ? 'shadow-[0_0_0_2px_var(--color-ok-accent)]' : '', filming() ? 'cursor-pointer' : '']"
+         [class.outline]="onStage()" [class.outline-2]="onStage()" [class.outline-ok-accent]="onStage()"
+         [attr.role]="filming() ? 'button' : null" [attr.tabindex]="filming() ? 0 : null"
+         [attr.aria-pressed]="filming() ? onStage() : null"
+         [attr.aria-label]="filming() ? (onStage() ? 'Убрать камеру со сцены: ' : 'Смотреть камеру: ') + label() : null"
+         (click)="toggleStage()" (keydown.enter)="toggleStage()" (keydown.space)="$event.preventDefault(); toggleStage()">
       @if (filming()) {
-        <!-- Our own camera is mirrored, as people expect to see themselves. -->
+        <!-- The whole picture, not cropped; our own camera is mirrored, as people expect to see themselves. -->
         <VideoView class="absolute inset-0 rounded-xl overflow-hidden" data-voice-camera [source]="Camera" [userId]="userId()"
-                   fit="object-cover" [class.-scale-x-100]="me()" [label]="'Камера: ' + label()" />
+                   [class.-scale-x-100]="me()" [label]="'Камера: ' + label()" />
       } @else {
         <span class="rounded-xl overflow-hidden" [ngClass]="compact() ? 'w-14 h-14' : 'w-20 h-20'">
           <AvatarUI [src]="avatar()" [name]="name()" />
@@ -69,6 +74,15 @@ export class VoiceTile {
   protected readonly speaking = computed(() => this.voice.speaking().has(this.userId()));
   protected readonly filming = computed(() => this.voice.filming().has(this.userId()));
   protected readonly sharing = computed(() => this.voice.sharers().has(this.userId()));
+  private readonly camera = computed<VideoFocus>(() => ({ userId: this.userId(), source: Track.Source.Camera }));
+  /** This camera is on the stage now. */
+  protected readonly onStage = computed(() => sameVideo(this.voice.shown(), this.camera()));
+
+  /** A click on a camera puts it on the stage (where it can go fullscreen), again takes it off. */
+  protected toggleStage(): void {
+    if (!this.filming()) return;
+    this.voice.focus.set(this.onStage() ? null : this.camera());
+  }
 
   protected readonly Camera = Track.Source.Camera as const;
   protected readonly MicOff = MicOff;

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { CommonModule } from '@angular/common';
 import { HeadphoneOff, Headphones, LucideAngularModule, Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Video, VideoOff } from 'lucide-angular';
 import { AppStateStore } from '@entities/app-state';
+import { VoiceStats } from './voice-stats';
 import { nameOf } from '@shared/api';
 import { DeviceKind, VoiceService } from '@entities/voice';
 
@@ -13,7 +14,7 @@ import { DeviceKind, VoiceService } from '@entities/voice';
 @Component({
   selector: 'VoicePanel',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, LucideAngularModule, VoiceStats],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div *ngIf="voice.connected() || voice.error()" class="flex flex-col gap-2" data-voice-panel>
@@ -92,6 +93,9 @@ import { DeviceKind, VoiceService } from '@entities/voice';
               <option *ngFor="let d of voice.cameras()" [value]="d.deviceId">{{ d.label || 'Камера' }}</option>
             </select>
           </label>
+          <button type="button" (click)="statsOpen.set(!statsOpen())" [attr.aria-expanded]="statsOpen()" data-voice-stats-toggle
+                  class="self-start text-ok-accent hover:underline">{{ statsOpen() ? 'Скрыть статистику соединения' : 'Статистика соединения' }}</button>
+          <VoiceStats *ngIf="statsOpen()" />
         </div>
 
         <p *ngIf="voice.pushToTalk()" class="text-[12px] text-ok-warning">
@@ -111,6 +115,7 @@ export class VoicePanel {
   private readonly store = inject(AppStateStore);
 
   protected readonly devicesOpen = signal(false);
+  protected readonly statsOpen = signal(false);
   protected readonly statusText = computed(() => {
     switch (this.voice.status()) {
       case 'connecting': return 'Подключение…';

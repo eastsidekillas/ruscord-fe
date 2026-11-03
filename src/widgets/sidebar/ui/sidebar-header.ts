@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, Output, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ChevronDown, LucideAngularModule } from 'lucide-angular';
 import { DropdownMenuItem } from '@shared/ui/dropdown-menu';
+import { dismissOnOutside } from '@shared/lib/dismiss';
 
 /** Actions that read as dangerous in the server menu. */
 const DANGER = new Set(['leaveServer', 'deleteServer']);
@@ -50,15 +51,7 @@ export class SidebarHeader {
     this.menuAction.emit(item.action);
   }
 
-  private readonly host = inject(ElementRef<HTMLElement>);
-
-  @HostListener('document:keydown.escape')
-  protected close(): void {
-    this.open.set(false);
-  }
-
-  @HostListener('document:click', ['$event'])
-  protected outside(ev: MouseEvent): void {
-    if (this.open() && !this.host.nativeElement.contains(ev.target as Node)) this.open.set(false);
+  constructor() {
+    dismissOnOutside(this.open, () => this.open.set(false));
   }
 }

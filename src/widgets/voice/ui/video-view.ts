@@ -12,14 +12,12 @@ import { VoiceService, VideoSource } from '@entities/voice';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
-  template: `<video #video class="w-full h-full" [class]="fit()" autoplay playsinline muted [attr.aria-label]="label()"></video>`,
+  template: `<video #video class="w-full h-full object-contain" autoplay playsinline muted [attr.aria-label]="label()"></video>`,
 })
 export class VideoView {
   readonly source = input.required<VideoSource>();
   readonly userId = input.required<string>();
   readonly label = input('');
-  /** Screens fit whole; cameras fill their tile. */
-  readonly fit = input<'object-contain' | 'object-cover'>('object-contain');
   private readonly voice = inject(VoiceService);
   private readonly video = viewChild.required<ElementRef<HTMLVideoElement>>('video');
   private cleanup: () => void = () => undefined;
