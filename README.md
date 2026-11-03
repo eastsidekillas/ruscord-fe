@@ -54,10 +54,15 @@ Origin по списку `RUSCORD_ALLOWED_ORIGINS` (по умолчанию `htt
 
 ## Сборка и деплой
 
-`Dockerfile` собирает статику и кладёт её в nginx. `nginx/default.conf`
+`Dockerfile` собирает статику и кладёт её в nginx. `nginx/default.conf.template`
 проксирует `/api/`, `/gateway` и `/cdn/` на сервис `core:8080` на том же домене:
 cookie и проверка Origin требуют одного источника. В ядре
 `RUSCORD_ALLOWED_ORIGINS` должен содержать адрес сайта.
+
+Конфиг nginx — шаблон: при старте контейнера в него подставляются переменные
+`RUSCORD_*`. `RUSCORD_CSP_CONNECT` добавляет адреса, к которым странице можно
+подключаться (для LiveKit Cloud — `https://*.livekit.cloud wss://*.livekit.cloud`,
+ruscord-core ADR-0034); по умолчанию пусто.
 
 ## Управление сервером
 

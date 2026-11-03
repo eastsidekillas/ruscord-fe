@@ -1,3 +1,8 @@
+# A template: nginx fills ${RUSCORD_*} from the environment when the
+# container starts (only those, NGINX_ENVSUBST_FILTER in the Dockerfile).
+# RUSCORD_CSP_CONNECT adds hosts the page may connect to: LiveKit Cloud
+# (ruscord-core docs/adr/0034-livekit-cloud.md); empty by default.
+#
 # The client and ruscord-core on one origin: cookies (SameSite) and the
 # gateway's Origin check need it. "core" is the ruscord-core service
 # (RUSCORD_HTTP_ADDR=0.0.0.0:8080); its RUSCORD_ALLOWED_ORIGINS must list
@@ -22,7 +27,7 @@ server {
         # The page may run only its own scripts and talk only to its own
         # origin; nobody may frame it (clickjacking). Component styles are
         # inline <style> elements, hence 'unsafe-inline' for styles only.
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self'; connect-src 'self' ws://$http_host wss://$http_host; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self'; connect-src 'self' ws://$http_host wss://$http_host ${RUSCORD_CSP_CONNECT}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
         add_header X-Frame-Options "DENY" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
