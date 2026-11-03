@@ -330,6 +330,11 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
     const v = document.querySelector('[data-voice-stage] video');
     return !!v && v.videoWidth > 0;
   }, null, { timeout: 15000 });
+  // Fullscreen on and off by the same button (Esc was the only way out).
+  await bob.locator('[data-voice-fullscreen]').click();
+  await bob.waitForFunction(() => !!document.fullscreenElement, null, { timeout: 5000 });
+  await bob.locator('[data-voice-fullscreen]').click();
+  await bob.waitForFunction(() => !document.fullscreenElement, null, { timeout: 5000 });
   await ann.locator('[data-voice-share]').click();
   await bob.locator('[data-voice-stage]').waitFor({ state: 'detached', timeout: 15000 });
   // Both see a tile for each participant in the centre.
@@ -341,8 +346,23 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
     const v = document.querySelector('[data-voice-tile="ANN"] [data-voice-camera] video');
     return !!v && v.videoWidth > 0;
   }, null, { timeout: 15000 });
+  // A click on her tile puts her camera on the stage, with frames there too.
+  await bob.locator('[data-voice-tile="ANN"]').click();
+  await bob.waitForFunction(() => {
+    const v = document.querySelector('[data-voice-stage][data-voice-stage-source="camera"] video');
+    return !!v && v.videoWidth > 0;
+  }, null, { timeout: 15000 });
+  // The statistics show what Bob receives from Ann; logged for the record.
+  await bob.locator('[data-voice-panel] button[title="Устройства"]').click();
+  await bob.locator('[data-voice-stats-toggle]').click();
+  await bob.locator('[data-voice-stats]').getByText('Камера:').waitFor({ timeout: 15000 });
+  await bob.waitForTimeout(4500); // two samples: rates and buffers since the last one
+  console.log('     stats on Bob\'s side: ' + (await bob.locator('[data-voice-stats]').innerText()).replace(/\s*\n\s*/g, ' | '));
+  await bob.locator('[data-voice-stats-toggle]').click();
+  await bob.locator('[data-voice-panel] button[title="Устройства"]').click();
   await ann.locator('[data-voice-camera-toggle]').click();
   await bob.locator('[data-voice-tile="ANN"] [data-voice-camera]').waitFor({ state: 'detached', timeout: 15000 });
+  await bob.locator('[data-voice-stage]').waitFor({ state: 'detached', timeout: 15000 });
 
   await bob.locator('[data-voice-panel] button[title="Выключить микрофон"]').click();
   await ann.locator('[data-voice-member="BOB"] [title="Микрофон выключен"]').waitFor({ timeout: 10000 });

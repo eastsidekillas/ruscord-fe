@@ -8,7 +8,7 @@ import { Dolobeb } from '@shared/ui/dolobeb';
 import { members } from '@shared/lib/plural';
 import { Off, VoiceTile } from './voice-tile';
 import { CallToolbar } from './call-toolbar';
-import { ScreenStage } from './screen-stage';
+import { VideoStage } from './video-stage';
 
 /**
  * The voice channel in the centre, by the mockup «Голосовой канал: показ
@@ -18,7 +18,7 @@ import { ScreenStage } from './screen-stage';
 @Component({
   selector: 'VoiceRoom',
   standalone: true,
-  imports: [NgClass, Dolobeb, VoiceTile, CallToolbar, ScreenStage],
+  imports: [NgClass, Dolobeb, VoiceTile, CallToolbar, VideoStage],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex-1 min-h-0 flex flex-col gap-4 p-4 bg-ok-bg text-ok-text text-[15px]' },
   template: `
@@ -36,14 +36,14 @@ import { ScreenStage } from './screen-stage';
         }
       </section>
     } @else {
-      @if (voice.screen()) {
-        <ScreenStage [who]="who" [me]="store.me()?.id ?? null" />
+      @if (voice.shown()) {
+        <VideoStage [who]="who" [me]="store.me()?.id ?? null" />
       }
       <section aria-label="Участники" data-voice-tiles class="grid gap-3"
-               [ngClass]="voice.screen() ? 'grid-cols-[repeat(auto-fit,minmax(180px,1fr))]' : 'flex-1 content-center grid-cols-[repeat(auto-fit,minmax(240px,1fr))]'">
+               [ngClass]="voice.shown() ? 'grid-cols-[repeat(auto-fit,minmax(180px,1fr))]' : 'flex-1 content-center grid-cols-[repeat(auto-fit,minmax(240px,1fr))]'">
         @for (v of inVoice(); track v.user_id) {
           <VoiceTile [userId]="v.user_id" [name]="nameOf(store.user(v.user ?? null))" [avatar]="store.user(v.user ?? null)?.avatar ?? null"
-                     [me]="v.user_id === store.me()?.id" [compact]="!!voice.screen()" [mute]="off(v.mute, v.self_mute)" [deaf]="off(v.deaf, v.self_deaf)" />
+                     [me]="v.user_id === store.me()?.id" [compact]="!!voice.shown()" [mute]="off(v.mute, v.self_mute)" [deaf]="off(v.deaf, v.self_deaf)" />
         }
       </section>
       <CallToolbar />

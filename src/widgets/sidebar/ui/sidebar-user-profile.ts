@@ -7,6 +7,7 @@ import { AvatarUI } from '@shared/ui/avatar';
 import { LucideAngularModule, SlidersHorizontal } from 'lucide-angular';
 import { AuthService } from '@entities/session';
 import { ApiService, ChosenStatus, errorText, nameOf } from '@shared/api';
+import { dismissOnOutside } from '@shared/lib/dismiss';
 
 const CHOICES: { value: ChosenStatus; label: string; dot: string }[] = [
   { value: 'online', label: 'В сети', dot: 'bg-ok-success' },
@@ -60,6 +61,10 @@ export class SidebarUserProfile {
   protected readonly menuOpen = signal(false);
   protected readonly choices = CHOICES;
   protected readonly SlidersHorizontal = SlidersHorizontal;
+
+  constructor() {
+    dismissOnOutside(this.menuOpen, () => this.menuOpen.set(false));
+  }
 
   protected choose(status: ChosenStatus): void {
     this.menuOpen.set(false);

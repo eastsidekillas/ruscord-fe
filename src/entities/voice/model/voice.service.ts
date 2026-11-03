@@ -16,6 +16,7 @@ import {
 } from 'livekit-client';
 import { ApiService, GatewayService, VoiceJoinInfo, VoiceState, errorText } from '@shared/api';
 import { AuthService } from '@entities/session/api/auth.service';
+import { ConnectionStats, StreamStats, avOffset, connection, received, sent } from './media-stats';
 
 export type VoiceStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -145,6 +146,36 @@ const MOVE_WINDOW_MS = 15_000;
 /** The video a user publishes: a camera or a screen. */
 export type VideoSource = Track.Source.Camera | Track.Source.ScreenShare;
 
+/** The numbers of a call, for «Статистика соединения». */
+export interface MediaStats {
+  connection: ConnectionStats;
+  camera: StreamStats | null;
+  screen: StreamStats | null;
+  peers: {
+    userId: string;
+    /** The display name the core put in the token. */
+    name: string;
+    audio: StreamStats | null;
+    camera: StreamStats | null;
+    screen: StreamStats | null;
+    /** How far their sound lags their camera, ms. */
+    avOffsetMs?: number;
+  }[];
+}
+
+/** How often the statistics refresh while shown. */
+const STATS_EVERY_MS = 2000;
+
+/** One user's camera or screen. */
+export interface VideoFocus {
+  userId: string;
+  source: VideoSource;
+}
+
+export function sameVideo(a: VideoFocus | null, b: VideoFocus | null): boolean {
+  return !!a && !!b && a.userId === b.userId && a.source === b.source;
+}
+
 /**
  * The voice connection of this tab (ruscord-core ADR-0025): one LiveKit room
  * at a time. Components read its signals and call its methods; nothing else
@@ -188,13 +219,19 @@ export class VoiceService {
   readonly sharers = signal<ReadonlySet<string>>(new Set());
   /** The last move by a moderator, for the view to follow (ruscord-core ADR-0031). */
   readonly lastMove = signal<{ from: string; to: string } | null>(null);
-  /** Whose screen is open in the voice channel's centre. */
-  readonly watching = signal<string | null>(null);
-  /** The screen shown: the one picked, else the first one shared. */
-  readonly screen = computed(() => {
-    const w = this.watching();
-    const all = this.sharers();
-    return w && all.has(w) ? w : ([...all][0] ?? null);
+  /** The video picked for the stage: someone's screen or camera. */
+  readonly focus = signal<VideoFocus | null>(null);
+  /** Every video there is to watch: screens first, then cameras. */
+  readonly videoList = computed<VideoFocus[]>(() => [
+    ...[...this.sharers()].map(userId => ({ userId, source: Track.Source.ScreenShare as VideoSource })),
+    ...[...this.filming()].map(userId => ({ userId, source: Track.Source.Camera as VideoSource })),
+  ]);
+  /** On the stage: the video picked while it is on, else the first screen shared; cameras stay in the tiles until picked. */
+  readonly shown = computed<VideoFocus | null>(() => {
+    const f = this.focus();
+    if (f && this.videoList().some(v => sameVideo(v, f))) return f;
+    const screen = [...this.sharers()][0];
+    return screen ? { userId: screen, source: Track.Source.ScreenShare } : null;
   });
   /** The token allows the camera (VIDEO). */
   readonly canCamera = signal(false);
@@ -204,6 +241,12 @@ export class VoiceService {
   readonly filming = signal<ReadonlySet<string>>(new Set());
   /** Others in this room without a working microphone, by LiveKit's tracks (calls show it from here). */
   readonly silent = signal<ReadonlySet<string>>(new Set());
+
+  /** Filled every two seconds while someone looks at it (watchStats). */
+  readonly stats = signal<MediaStats | null>(null);
+  private statsTimer: ReturnType<typeof setInterval> | null = null;
+  /** The previous report of each track, for rates since then. */
+  private statsPrev = new Map<Track, RTCStatsReport>();
 
   private room: Room | null = null;
   /**
@@ -376,6 +419,55 @@ export class VoiceService {
     await this.room?.switchActiveDevice(kind, id).catch(() => false);
   }
 
+  /** Starts or stops refreshing the statistics. */
+  watchStats(on: boolean): void {
+    if (this.statsTimer) clearInterval(this.statsTimer);
+    this.statsTimer = null;
+    this.statsPrev.clear();
+    this.stats.set(null);
+    if (!on) return;
+    void this.collectStats();
+    this.statsTimer = setInterval(() => void this.collectStats(), STATS_EVERY_MS);
+  }
+
+  private async collectStats(): Promise<void> {
+    const room = this.room;
+    if (!room) return;
+    const reports = new Map<Track, RTCStatsReport | undefined>();
+    const read = async (t: Track | undefined) => {
+      if (t && !reports.has(t)) reports.set(t, await t.getRTCStatsReport().catch(() => undefined));
+      return t ? reports.get(t) : undefined;
+    };
+    const one = async (t: Track | undefined, how: typeof sent) => (t ? how(await read(t), this.statsPrev.get(t)) : null);
+    const local = room.localParticipant;
+    const stats: MediaStats = {
+      connection: {},
+      camera: await one(local.getTrackPublication(Track.Source.Camera)?.track, sent),
+      screen: await one(local.getTrackPublication(Track.Source.ScreenShare)?.track, sent),
+      peers: [],
+    };
+    for (const p of room.remoteParticipants.values()) {
+      const track = (s: Track.Source) => p.getTrackPublication(s)?.track;
+      const audio = await one(track(Track.Source.Microphone), received);
+      const camera = await one(track(Track.Source.Camera), received);
+      stats.peers.push({
+        userId: p.identity, name: p.name || p.identity, audio, camera, screen: await one(track(Track.Source.ScreenShare), received),
+        avOffsetMs: avOffset(audio, camera),
+      });
+    }
+    // Any report carries the transport its track uses; publishing and
+    // subscribing may differ, the first one found is shown.
+    for (const r of reports.values()) {
+      const c = connection(r);
+      if (c.route) {
+        stats.connection = c;
+        break;
+      }
+    }
+    this.statsPrev = new Map([...reports].filter((e): e is [Track, RTCStatsReport] => !!e[1]));
+    if (this.room === room && this.statsTimer) this.stats.set(stats);
+  }
+
   /** Lists microphones, speakers and cameras; labels appear once the microphone is allowed. */
   async refreshDevices(): Promise<void> {
     try {
@@ -544,11 +636,10 @@ export class VoiceService {
       return ids;
     };
     this.filming.set(live(Track.Source.Camera, this.cameraOn()));
-    const ids = live(Track.Source.ScreenShare, this.sharing());
-    this.sharers.set(ids);
-    // Someone stopped: the centre stops showing their screen.
-    const w = this.watching();
-    if (w && !ids.has(w)) this.watching.set(null);
+    this.sharers.set(live(Track.Source.ScreenShare, this.sharing()));
+    // The picked video stopped: the stage falls back to a screen, or goes.
+    const f = this.focus();
+    if (f && !this.videoList().some(v => sameVideo(v, f))) this.focus.set(null);
   }
 
   private makeSink(): HTMLElement {
@@ -571,7 +662,8 @@ export class VoiceService {
     this.canShare.set(false);
     this.highQuality.set(false);
     this.sharers.set(new Set());
-    this.watching.set(null);
+    this.focus.set(null);
+    this.watchStats(false);
     this.status.set('idle');
     this.target.set(null);
     this.speaking.set(new Set());

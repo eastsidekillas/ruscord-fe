@@ -4,7 +4,7 @@ import { AppStateStore } from '@entities/app-state';
 import { VoiceService } from '@entities/voice';
 import { Off, VoiceTile } from './voice-tile';
 import { CallToolbar } from './call-toolbar';
-import { ScreenStage } from './screen-stage';
+import { VideoStage } from './video-stage';
 
 /** Whether a call still rings at time now. */
 export function ringsAt(call: DMCall | undefined, userId: string | undefined, now: number): boolean {
@@ -19,15 +19,15 @@ export function ringsAt(call: DMCall | undefined, userId: string | undefined, no
 @Component({
   selector: 'CallStage',
   standalone: true,
-  imports: [VoiceTile, CallToolbar, ScreenStage],
+  imports: [VoiceTile, CallToolbar, VideoStage],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
     @if (here()) {
       <section aria-label="Звонок" data-call-stage class="flex flex-col gap-3 p-4 border-b border-ok-border bg-ok-sidebar"
-               [class.h-[60vh]]="!!voice.screen()">
-        @if (voice.screen()) {
-          <ScreenStage [who]="who" [me]="me() ?? null" />
+               [class.h-[60vh]]="!!voice.shown()">
+        @if (voice.shown()) {
+          <VideoStage [who]="who" [me]="me() ?? null" />
         }
         <div class="grid gap-3 grid-cols-[repeat(auto-fit,minmax(180px,240px))] justify-center">
           @for (u of people(); track u.id) {

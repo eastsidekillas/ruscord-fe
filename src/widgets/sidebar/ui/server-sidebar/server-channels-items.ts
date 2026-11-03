@@ -7,6 +7,7 @@ import { NotificationService } from '@shared/model/notification.service';
 import { ApiService, FullGuild, GuildChannel, Perm, VoiceState, errorText, hasPerm, nameOf } from '@shared/api';
 import { AppStateStore, channelGroups } from '@entities/app-state';
 import { VoiceService } from '@entities/voice';
+import { Track } from 'livekit-client';
 import { AvatarUI } from '@shared/ui/avatar';
 
 @Component({
@@ -274,7 +275,7 @@ export class ServerChannelsItems {
   }
 
   protected watch(channelId: string, userId: string): void {
-    this.voice.watching.set(userId);
+    this.voice.focus.set({ userId, source: Track.Source.ScreenShare });
     void this.router.navigate(['/channels', this.guildId(), channelId]);
   }
 
