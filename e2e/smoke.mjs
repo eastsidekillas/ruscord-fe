@@ -92,6 +92,9 @@ async function step(title, fn) {
   } catch (e) {
     failed++;
     console.log('FAIL', title, '—', e.message.split('\n')[0]);
+    // What it was waiting for: the first lines of Playwright's call log.
+    const log = e.message.split('\n').filter(l => /^\s+- /.test(l)).slice(0, 3);
+    for (const l of log) console.log('     ', l.trim());
     const slug = title.replace(/\W+/g, '_').slice(0, 40);
     for (const [n, p] of Object.entries(pages)) {
       await p.screenshot({ path: `${SHOTS}/${slug}-${n}.png` }).catch(() => {});
