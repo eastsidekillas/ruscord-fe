@@ -59,13 +59,13 @@ export class ReadStateStore {
         case 'MESSAGE_CREATE': {
           const m = ev.d as Message;
           const me = this.app.me()?.id;
-          if (m.author?.id === me) this.set(m.channel_id, s => noteRead(s, m.id));
-          else this.set(m.channel_id, s => noteMessage(s, m.id, mentionsMe(m, me, this.rolesIn(m.guild_id))));
+          if (m.author?.id === me) this.change(m.channel_id, s => noteRead(s, m.id));
+          else this.change(m.channel_id, s => noteMessage(s, m.id, mentionsMe(m, me, this.rolesIn(m.guild_id))));
           break;
         }
         case 'MESSAGE_ACK': {
           const a = ev.d as { channel_id: string; message_id: string };
-          this.set(a.channel_id, s => noteRead(s, a.message_id));
+          this.change(a.channel_id, s => noteRead(s, a.message_id));
           break;
         }
       }
@@ -108,7 +108,7 @@ export class ReadStateStore {
   /** Marks the channel read up to messageId; sends it now or a bit later. */
   ack(channelId: string, messageId: string): void {
     if (!this.unread(channelId) && !newer(messageId, this.get(channelId)?.lastRead)) return;
-    this.set(channelId, s => noteRead(s, messageId));
+    this.change(channelId, s => noteRead(s, messageId));
     const t = this.timers.get(channelId) ?? { at: 0 };
     this.timers.set(channelId, t);
     const wait = t.at + ACK_EVERY_MS - Date.now();
@@ -129,7 +129,7 @@ export class ReadStateStore {
   ackGuild(g: FullGuild): void {
     for (const c of g.channels) {
       const s = this.get(c.id);
-      if (s?.lastMessage) this.set(c.id, x => noteRead(x, s.lastMessage!));
+      if (s?.lastMessage) this.change(c.id, x => noteRead(x, s.lastMessage!));
     }
     this.api.ackGuild(g.id).subscribe({ error: () => this.load() });
   }
@@ -138,19 +138,30 @@ export class ReadStateStore {
     this.api.ack(channelId, messageId).subscribe({ error: () => undefined });
   }
 
+  /**
+   * Changes made while a load is on its way (messages, marks) may be newer
+   * than its answer: they are kept and applied again on top of it.
+   */
+  private inFlight: { channelId: string; f: (s: Unread | undefined) => Unread }[] | null = null;
+
   private load(): void {
+    this.inFlight = [];
     this.api.readStates().subscribe({
       next: list => {
-        // A mark sent while the answer was on its way is newer than it.
-        const local = this.states();
-        this.states.set(Object.fromEntries(list.map((r: ReadState) => {
-          const server: Unread = { lastRead: r.last_read_id, lastMessage: r.last_message_id, mentions: r.mention_count };
-          const mine = local[r.channel_id]?.lastRead;
-          return [r.channel_id, mine ? noteRead(server, mine) : server];
-        })));
+        const replay = this.inFlight ?? [];
+        this.inFlight = null;
+        this.states.set(Object.fromEntries(list.map((r: ReadState) => [r.channel_id, {
+          lastRead: r.last_read_id, lastMessage: r.last_message_id, mentions: r.mention_count,
+        }])));
+        for (const c of replay) this.set(c.channelId, c.f);
       },
-      error: () => undefined,
+      error: () => (this.inFlight = null),
     });
+  }
+
+  private change(channelId: string, f: (s: Unread | undefined) => Unread): void {
+    this.inFlight?.push({ channelId, f });
+    this.set(channelId, f);
   }
 
   private set(channelId: string, f: (s: Unread | undefined) => Unread): void {
