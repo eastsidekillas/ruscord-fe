@@ -1,10 +1,11 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { AuthService } from '@entities/session/api/auth.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import {NgIf} from '@angular/common';
 import { errorText } from '@shared/api';
 import { APP_MARK, WORDMARK } from '@shared/config/brand';
+import { VisitService } from '@shared/model/visit.service';
 
 @Component({
   selector: 'app-auth',
@@ -105,6 +106,7 @@ export class SignIn implements OnInit {
   }
 
   protected readonly busy = signal(false);
+  private readonly visits = inject(VisitService);
 
   // Rules match ruscord-core (docs/api.md); the server checks them anyway.
   initForm() {
@@ -157,7 +159,7 @@ export class SignIn implements OnInit {
     const { email, password, username, name } = this.authForm.value;
     const request = this.isLoginMode
       ? this.authService.login(email, password)
-      : this.authService.register({ email, password, username, display_name: (name || '').trim() || username });
+      : this.authService.register({ email, password, username, display_name: (name || '').trim() || username, ref: this.visits.ref() });
     this.busy.set(true);
     this.errorMessage.set('');
     request.subscribe({
