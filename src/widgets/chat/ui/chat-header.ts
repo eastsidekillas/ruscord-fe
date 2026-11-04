@@ -44,6 +44,12 @@ import { Hash, LucideAngularModule, Pencil, Phone, Pin } from 'lucide-angular';
         </ng-template>
       </div>
       <span class="flex-1"></span>
+      <label *ngIf="showSearch" class="relative shrink-0 max-md:hidden" data-search>
+        <span class="sr-only-ok">Поиск по сообщениям</span>
+        <input #searchField type="search" placeholder="Поиск" [value]="searchText" maxlength="200"
+               (keydown.enter)="search.emit(searchField.value)" (keydown.escape)="search.emit('')"
+               class="h-8 w-[200px] focus:w-[280px] transition-[width] box-border rounded-lg border border-ok-border-control bg-ok-sidebar text-ok-text px-3 text-[13px] !outline-none focus:border-ok-accent placeholder:text-ok-muted" />
+      </label>
       <button *ngIf="showPins" type="button" (click)="pins.emit()" title="Закреплённые сообщения" aria-label="Закреплённые сообщения"
               [attr.aria-pressed]="pinsOpen" data-pins
               class="w-9 h-9 rounded-lg inline-flex items-center justify-center shrink-0"
@@ -79,6 +85,10 @@ export class ChatHeader {
   /** A DM or group: the call button shows (not while in its call, not with a block). */
   @Input() canCall = false;
   @Output() call = new EventEmitter<void>();
+  /** The search box (needs READ_MESSAGE_HISTORY); Enter searches, Esc closes. */
+  @Input() showSearch = false;
+  @Input() searchText = '';
+  @Output() search = new EventEmitter<string>();
   /** The pinned messages button (needs READ_MESSAGE_HISTORY). */
   @Input() showPins = false;
   @Input() pinsOpen = false;

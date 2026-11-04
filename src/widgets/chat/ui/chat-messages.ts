@@ -35,7 +35,7 @@ const STICK_PX = 80;
       <div *ngIf="newAt(i)" role="separator" data-new-messages class="flex items-center gap-2 py-1 px-2 text-[12px] font-semibold text-ok-danger">
         <span class="flex-1 h-px bg-ok-danger"></span>Новые сообщения
       </div>
-      <ChatItem [item]="it" [canReply]="canReply" [ctx]="ctx" [editing]="it.message.id === editingId"
+      <ChatItem [item]="it" [canReply]="canReply" [ctx]="ctx" [highlight]="it.message.id === highlightId" [editing]="it.message.id === editingId"
                 (replyClicked)="replyTo.emit($event)"
                 (editClicked)="edit.emit($event)"
                 (saveEdit)="saveEdit.emit($event)"
@@ -75,6 +75,8 @@ export class ChatMessages implements AfterViewChecked {
   @Output() top = new EventEmitter<void>();
   /** Scrolled back to the bottom: the newest message is in view. */
   @Output() bottom = new EventEmitter<void>();
+  /** The message a search jumped to. */
+  @Input() highlightId: string | null = null;
   /** The last message read when the channel opened: the line «Новые сообщения» goes after it. */
   @Input() newSince: string | null = null;
   @ViewChild('box') box!: ElementRef<HTMLElement>;
@@ -113,6 +115,14 @@ export class ChatMessages implements AfterViewChecked {
     const cur = this.items[i]?.message.id;
     const prev = this.items[i - 1]?.message.id;
     return !!since && !!cur && cur > since && (!prev || prev <= since);
+  }
+
+  /** Brings a message to the middle of the view (a jump from search). */
+  scrollToMessage(id: string): void {
+    const el = this.box?.nativeElement.querySelector(`[data-message-id="${id}"]`);
+    if (!el) return;
+    this.stick = false;
+    el.scrollIntoView({ block: 'center' });
   }
 
   /** The newest message is in view (within a few pixels of the bottom). */

@@ -19,11 +19,13 @@ import { ChatHeader } from '@widgets/chat/ui/chat-header';
 import { ChatMessages } from '@widgets/chat/ui/chat-messages';
 import { ChatMessage, ReactionToggle } from '@widgets/chat/ui/chat-item';
 import { PinsPanel } from '@widgets/chat/ui/pins-panel';
+import { SearchPanel } from '@widgets/chat/ui/search-panel';
+import { parseSearch, searchable } from '@shared/lib/search-query';
 import { PendingFile, PendingMessage, failReason } from '@widgets/chat/ui/pending-item';
 import { MessageInput, SendPayload } from '@features/update-message/ui/message-input';
 import { ServerMembersSidebar } from '@widgets/sidebar/ui/server-sidebar/server-members-sidebar';
 import { GroupMembersSidebar } from '@widgets/sidebar/ui/group-members-sidebar';
-import { ApiService, GatewayService, Message, Perm, PublicUser, ReactionEvent, errorText, hasPerm, nameOf } from '@shared/api';
+import { ApiService, GatewayService, Message, Perm, PublicUser, ReactionEvent, SearchParams, errorText, hasPerm, nameOf } from '@shared/api';
 import { AppStateStore, TypingStore } from '@entities/app-state';
 import { CallStage, VoiceRoom } from '@widgets/voice';
 import { VoiceService } from '@entities/voice';
@@ -64,7 +66,7 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
   selector: 'ChannelPage',
   standalone: true,
   host: { class: 'flex-1 min-h-0' },
-  imports: [CommonModule, VoiceRoom, CallStage, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar, GroupMembersSidebar, PinsPanel],
+  imports: [CommonModule, VoiceRoom, CallStage, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar, GroupMembersSidebar, PinsPanel, SearchPanel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .typing-indicator { display: inline-flex; align-items: center; }
@@ -84,12 +86,16 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
     </div>
     <div class="flex h-full" *ngIf="!voiceRoom() && view() as v; else waiting">
         <div class="relative flex-1 min-w-0 flex flex-col overflow-hidden min-h-0">
-          <ChatHeader [showPins]="v.canRead" [pinsOpen]="pins() !== undefined" (pins)="togglePins()" [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
+          <ChatHeader [showPins]="v.canRead" [pinsOpen]="pins() !== undefined" (pins)="togglePins()"
+                      [showSearch]="v.canRead" [searchText]="found()?.text ?? ''" (search)="runSearch($event)" [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
                       [title]="v.group?.name ?? null" [members]="v.group?.recipients?.length ?? 0"
                       [canCall]="!!v.dm && !v.blocked && voice.target()?.channelId !== v.dm.id" (call)="startCall()"
                       (profile)="openProfile($event)" (rename)="renameGroup($event)" (addMembers)="addToGroup()" />
           <PinsPanel *ngIf="pins() !== undefined" class="absolute right-4 top-14 z-30" [pins]="pins() ?? null" [ctx]="mentionCtx()"
                      [canPin]="v.canPin" [authorName]="authorName" (unpin)="setPin($event, false)" (closed)="pins.set(undefined)" />
+          <SearchPanel *ngIf="found() as f" class="absolute right-4 top-14 z-30" [messages]="f.messages" [total]="f.total" [error]="f.error"
+                       [ctx]="mentionCtx()" [authorName]="authorName" [channelName]="channelName"
+                       (open)="jumpTo($event)" (more)="moreResults()" (closed)="found.set(undefined)" />
           <CallStage *ngIf="v.dm as d" [dm]="d" />
           <ChatMessages
             class="flex-1 min-h-0"
@@ -100,7 +106,8 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
             [notice]="v.canRead ? null : 'У вас нет доступа к истории этого канала.'"
             [ctx]="mentionCtx()"
             (top)="loadOlder()"
-            (bottom)="markRead()"
+            (bottom)="atBottom()"
+            [highlightId]="highlightId()"
             [newSince]="newSince()"
             (replyTo)="startReply($event)"
             [editingId]="editing()?.message?.id ?? null"
@@ -307,13 +314,15 @@ export class ChannelPage {
       const id = this.channelId();
       const v = this.view();
       const loaded = this.store.loaded();
+      // A jump from search to another message of the same channel reloads too.
+      const around = this.around();
       untracked(() => {
         if (!loaded) return;
         if (!v) {
           if (!this.voiceRoom()) this.leaveMissing();
           return;
         }
-        if (id !== this.loadedFor) this.load(id!, v.canRead);
+        if (id !== this.loadedFor || around !== this.loadedAround) this.load(id!, v.canRead, around);
       });
     });
 
@@ -353,14 +362,18 @@ export class ChannelPage {
   }
 
   private loadedFor: string | null = null;
+  private loadedAround: string | null = null;
   private pendingFor: string | null = null;
 
-  private load(id: string, canRead: boolean): void {
+  private load(id: string, canRead: boolean, around: string | null = null): void {
     this.loading?.unsubscribe();
     // A reload after reconnecting keeps unsent messages; another channel does not.
     if (id !== this.pendingFor) this.pending.set([]);
     this.pendingFor = id;
     this.loadedFor = id;
+    this.loadedAround = around;
+    this.highlightId.set(around);
+    this.reachedEnd.set(!around);
     this.messages.set([]);
     this.replyTo.set(null);
     this.editing.set(null);
@@ -371,10 +384,15 @@ export class ChannelPage {
     this.reachedStart.set(!canRead);
     this.loadingOlder.set(false);
     if (!canRead) return;
-    this.loading = this.api.messages(id, { limit: PAGE }).subscribe({
+    this.loading = this.api.messages(id, around ? { around, limit: PAGE } : { limit: PAGE }).subscribe({
       next: page => {
         // Events that came during the request are kept: merge, not replace.
         this.messages.update(list => page.reduce(upsertMessage, list));
+        if (around) {
+          this.reachedStart.set(false);
+          setTimeout(() => this.list?.scrollToMessage(around));
+          return;
+        }
         this.reachedStart.set(page.length < PAGE);
         this.list?.scrollToBottom();
         setTimeout(() => this.markRead());
@@ -403,7 +421,7 @@ export class ChannelPage {
   protected markRead(): void {
     const id = this.channelId();
     const newest = this.messages().at(-1)?.id;
-    if (!id || !newest || document.hidden || !this.list?.isAtBottom() || !this.view()?.canRead) return;
+    if (!id || !newest || document.hidden || !this.reachedEnd() || !this.list?.isAtBottom() || !this.view()?.canRead) return;
     this.reads.ack(id, newest);
   }
 
@@ -515,11 +533,105 @@ export class ChannelPage {
     });
   }
 
+  /** A search and its results; undefined when the panel is closed. */
+  protected readonly found = signal<{
+    text: string; params: SearchParams; messages: Message[] | null; total: number; error: string | null;
+  } | undefined>(undefined);
+  protected readonly channelName = (m: Message) => (this.view()?.guildId ? this.store.channel(m.channel_id)?.channel.name ?? null : null);
+  /** The message a search jumped to, flashed once. */
+  protected readonly highlightId = signal<string | null>(null);
+  /** False when the history shown stops before the newest message (after a jump). */
+  private readonly reachedEnd = signal(true);
+  private readonly around = toSignal(this.route.queryParamMap.pipe(map(p => p.get('around'))), { initialValue: null });
+
+  protected runSearch(input: string): void {
+    const v = this.view();
+    const id = this.channelId();
+    if (!v || !id || !input.trim()) {
+      this.found.set(undefined);
+      return;
+    }
+    this.pins.set(undefined);
+    const p = parseSearch(input);
+    const fail = (error: string) => this.found.set({ text: input, params: {}, messages: [], total: 0, error });
+    if (p.unknown.length) return fail(`Не знаю такой фильтр: ${p.unknown.join(', ')}`);
+    if (!searchable(p)) return fail('Напишите, что искать, или фильтр от:, есть:, упоминает:');
+    const params: SearchParams = { text: p.text || undefined, has: p.has };
+    for (const [name, key] of [[p.from, 'authorId'], [p.mentions, 'mentions']] as const) {
+      if (!name) continue;
+      const u = this.person(name);
+      if (!u) return fail(`Не нашли «${name}» среди участников`);
+      params[key] = u;
+    }
+    if (p.in) {
+      const c = this.store.guild(v.guildId)?.channels.find(x => x.type === 0 && x.name.toLocaleLowerCase('ru') === p.in!.toLocaleLowerCase('ru'));
+      if (!c) return fail(`Нет текстового канала «${p.in}»`);
+      params.channelId = c.id;
+    }
+    this.found.set({ text: input, params, messages: null, total: 0, error: null });
+    this.fetchResults(v.guildId, id, params, []);
+  }
+
+  protected moreResults(): void {
+    const f = this.found();
+    const v = this.view();
+    const id = this.channelId();
+    if (!f?.messages || !v || !id) return;
+    this.fetchResults(v.guildId, id, { ...f.params, offset: f.messages.length }, f.messages);
+  }
+
+  private fetchResults(guildId: string | null, channelId: string, params: SearchParams, before: Message[]): void {
+    this.api.search(guildId, channelId, params).subscribe({
+      next: r => this.found.update(f => f && { ...f, messages: [...before, ...r.messages], total: r.total_results }),
+      error: err => this.found.update(f => f && { ...f, messages: before, error: errorText(err, 'Поиск не удался') }),
+    });
+  }
+
+  /** A person of this channel by username, nick or display name. */
+  private person(name: string): string | null {
+    const n = name.toLocaleLowerCase('ru');
+    const w = this.world();
+    const fits = (...xs: (string | null | undefined)[]) => xs.some(x => x?.toLocaleLowerCase('ru') === n);
+    const m = w.members.find(x => fits(x.nick, x.user?.username, x.user?.display_name));
+    if (m) return m.user_id;
+    return w.people.find(p => fits(p.username, p.display_name))?.id ?? null;
+  }
+
+  protected jumpTo(m: Message): void {
+    this.found.set(undefined);
+    const gid = this.view()?.guildId;
+    void this.router.navigate(['/channels', gid ?? 'me', m.channel_id], { queryParams: { around: m.id } });
+  }
+
+  protected atBottom(): void {
+    if (this.reachedEnd()) this.markRead();
+    else this.loadNewer();
+  }
+
+  private loadingNewer = false;
+
+  private loadNewer(): void {
+    const id = this.channelId();
+    const last = this.messages().at(-1);
+    if (!id || !last || this.loadingNewer) return;
+    this.loadingNewer = true;
+    this.api.messages(id, { after: last.id, limit: PAGE }).subscribe({
+      next: page => {
+        this.loadingNewer = false;
+        if (id !== this.channelId()) return;
+        this.messages.update(list => page.reduce(upsertMessage, list));
+        if (page.length < PAGE) this.reachedEnd.set(true);
+      },
+      error: () => (this.loadingNewer = false),
+    });
+  }
+
   /** The pinned panel: undefined when closed, null while loading. */
   protected readonly pins = signal<Message[] | null | undefined>(undefined);
   protected readonly authorName = (m: Message) => nameOf(this.store.user(m.author));
 
   protected togglePins(): void {
+    this.found.set(undefined);
     const id = this.channelId();
     if (this.pins() !== undefined || !id) {
       this.pins.set(undefined);
