@@ -94,11 +94,14 @@ const MAX_FIELD_PX = 240;
     <div class="flex items-end gap-2 min-h-12 pl-1.5 pr-1.5 py-1.5 border border-ok-border-control focus-within:border-ok-accent bg-ok-sidebar cursor-text"
          [ngClass]="replyTo || picked().length ? 'rounded-b-ok-md' : 'rounded-ok-md'" [class.opacity-60]="disabled"
          (click)="$event.target === $event.currentTarget && field.focus()">
-      <button *ngIf="canAttach" type="button" (click)="filePicker.click()" [disabled]="disabled" title="Прикрепить файлы" aria-label="Прикрепить файлы"
-              class="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center text-ok-muted hover:text-ok-text hover:bg-ok-surface-1 disabled:hover:bg-transparent">
-        <lucide-angular class="w-[18px] h-[18px]" [img]="Paperclip"></lucide-angular>
-      </button>
-      <input #filePicker type="file" multiple class="hidden" aria-hidden="true" tabindex="-1" (change)="onPicked(filePicker)" />
+      <!-- A label of the file input: the browser opens the chooser itself. A
+           script click on a display:none input did not open it. -->
+      <label *ngIf="canAttach" title="Прикрепить файлы" data-attach
+             class="relative w-9 h-9 rounded-lg shrink-0 flex items-center justify-center text-ok-muted hover:text-ok-text hover:bg-ok-surface-1 cursor-pointer focus-within:ring-2 focus-within:ring-ok-accent"
+             [class.pointer-events-none]="disabled">
+        <input #filePicker type="file" multiple class="sr-only-ok" aria-label="Прикрепить файлы" [disabled]="disabled" (change)="onPicked(filePicker)" />
+        <lucide-angular class="w-[18px] h-[18px]" [img]="Paperclip" aria-hidden="true"></lucide-angular>
+      </label>
       <span *ngIf="!canAttach" class="w-2.5 shrink-0"></span>
       <textarea #field rows="1" aria-label="Сообщение"
         class="flex-1 min-w-0 self-center resize-none bg-transparent text-[15px] leading-[22px] py-[7px] text-ok-text placeholder:text-ok-muted !outline-none"

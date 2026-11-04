@@ -311,10 +311,9 @@ await step('the paperclip opens the file chooser, and the chosen file waits in t
   const onError = m => m.type() === 'error' && errors.push(m.text());
   ann.on('console', onError);
   try {
-    const [chooser] = await Promise.all([
-      ann.waitForEvent('filechooser', { timeout: 4000 }),
-      ann.getByRole('button', { name: 'Прикрепить файлы' }).click(),
-    ]);
+    const clip = ann.locator('MessageInput [data-attach]');
+    await clip.click({ trial: true, timeout: 4000 }); // visible and not covered
+    const [chooser] = await Promise.all([ann.waitForEvent('filechooser', { timeout: 4000 }), clip.click()]);
     await chooser.setFiles({ name: 'скрепка.txt', mimeType: 'text/plain', buffer: Buffer.from('x') });
     await ann.getByRole('list', { name: 'Файлы к отправке' }).getByText('скрепка.txt').waitFor({ timeout: 4000 });
     await ann.getByRole('button', { name: 'Убрать скрепка.txt' }).click();
