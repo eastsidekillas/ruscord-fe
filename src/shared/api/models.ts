@@ -43,6 +43,8 @@ export interface Role {
   position: number;
   permissions: string;
   color: number;
+  /** Anyone may ping it; otherwise only with MENTION_EVERYONE (ruscord-core ADR-0035). */
+  mentionable: boolean;
 }
 
 export interface Overwrite {
@@ -169,6 +171,9 @@ export interface Message {
   nonce?: string;
   reply_to?: Snowflake;
   mention_everyone: boolean;
+  /** Users and roles the message pings, checked by the server (ruscord-core ADR-0035). */
+  mentions: Snowflake[];
+  mention_roles: Snowflake[];
   created_at: string;
   edited_at?: string;
 }

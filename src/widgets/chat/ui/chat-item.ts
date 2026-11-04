@@ -5,6 +5,8 @@ import { AvatarUI } from '@shared/ui/avatar';
 import { CornerUpRight, LucideAngularModule, Pencil, Reply, Trash2 } from 'lucide-angular';
 import { Message } from '@shared/api';
 import { MAX_MESSAGE } from '@shared/config/limits';
+import { MarkupView, MentionContext } from '@shared/ui/markup-view';
+import { MentionTokens, toDisplay, toWire } from '@shared/lib/mention-text';
 
 /** A message ready to show: the author resolved to the newest profile. */
 export interface ChatMessage {
@@ -16,16 +18,28 @@ export interface ChatMessage {
   reply: { authorName: string; content: string } | 'missing' | null;
   canEdit: boolean;
   canDelete: boolean;
+  /** Pings the viewer: by name, by one of their roles or @everyone. */
+  mentioned: boolean;
 }
+
+const NO_NAMES = { user: () => null, role: () => null, channel: () => null };
 
 @Component({
   selector: 'ChatItem',
   standalone: true,
-  imports: [CommonModule, AvatarUI, LucideAngularModule],
+  imports: [CommonModule, AvatarUI, LucideAngularModule, MarkupView],
+  styles: `
+    :host(.mentioned) {
+      background: color-mix(in srgb, var(--color-ok-warning) 9%, transparent);
+      box-shadow: inset 2px 0 0 var(--color-ok-warning);
+    }
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'block relative group rounded-[10px] p-2 hover:bg-ok-surface-2 [&:not(.editing)]:focus-within:bg-ok-surface-2',
     '[class.editing]': 'editing',
+    '[class.mentioned]': 'item.mentioned',
+    '[attr.data-mentioned]': 'item.mentioned || null',
   },
   template: `
     <div *ngIf="item.reply" class="flex items-center gap-1.5 pl-[52px] pb-1 text-[13px] text-ok-muted min-w-0">
@@ -46,14 +60,16 @@ export interface ChatMessage {
         <div class="flex items-baseline gap-2">
           <span class="text-[15px] font-semibold text-ok-text">{{ item.authorName }}</span>
           <time class="text-[12px] text-ok-muted" [attr.datetime]="item.message.created_at">{{ when(item.message.created_at) }}</time>
+          <span *ngIf="item.message.edited_at" class="text-[12px] text-ok-muted">(изменено)</span>
         </div>
-        <p *ngIf="!editing" class="mt-0.5 text-[15px] leading-[22px] text-ok-text break-words whitespace-pre-wrap">{{ item.message.content }}<span *ngIf="item.message.edited_at" class="ml-1 text-[12px] text-ok-muted">(изменено)</span></p>
+        <MarkupView *ngIf="!editing" class="mt-0.5 text-[15px] leading-[22px] text-ok-text" [text]="item.message.content" [ctx]="ctx"
+                    (user)="authorClicked.emit($event)" />
         <ng-container *ngIf="editing">
           <label [for]="'edit-' + item.message.id" class="sr-only-ok">Изменить сообщение</label>
-          <input #editField [id]="'edit-' + item.message.id" type="text" [value]="item.message.content" [attr.maxlength]="max"
-                 class="mt-1 w-full h-11 box-border rounded-[10px] border border-ok-accent bg-ok-sidebar text-ok-text px-3.5 !outline-none"
-                 (keydown.enter)="save(editField.value)" (keydown.escape)="cancelEdit.emit()" />
-          <div class="mt-1 text-[12px] text-ok-muted">Esc — отменить · Enter — сохранить</div>
+          <textarea #editField [id]="'edit-' + item.message.id" rows="1" [value]="draft" [attr.maxlength]="max"
+                    class="mt-1 w-full box-border resize-none rounded-[10px] border border-ok-accent bg-ok-sidebar text-ok-text px-3.5 py-2.5 leading-[22px] !outline-none"
+                    (input)="grow(editField)" (keydown)="onEditKey($event, editField.value)"></textarea>
+          <div class="mt-1 text-[12px] text-ok-muted">Esc — отменить · Enter — сохранить · Shift+Enter — новая строка</div>
         </ng-container>
       </div>
     </div>
@@ -78,18 +94,34 @@ export interface ChatMessage {
 export class ChatItem {
   @Input({ required: true }) item!: ChatMessage;
   @Input() canReply = true;
+  /** Who and what the mentions in the text are. */
+  @Input() ctx: MentionContext | null = null;
   /** Shows the text as a field: Enter saves, Esc cancels. */
   @Input() set editing(on: boolean) {
     this.isEditing = on;
-    if (on) setTimeout(() => this.editField?.nativeElement.focus());
+    if (on) {
+      const shown = toDisplay(this.item.message.content, this.ctx ?? NO_NAMES);
+      this.draft = shown.text;
+      this.tokens = shown.tokens;
+      setTimeout(() => {
+        const el = this.editField?.nativeElement;
+        if (!el) return;
+        this.grow(el);
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      });
+    }
   }
   get editing(): boolean {
     return this.isEditing;
   }
   @Output() saveEdit = new EventEmitter<{ item: ChatMessage; text: string }>();
   @Output() cancelEdit = new EventEmitter<void>();
-  @ViewChild('editField') private editField?: ElementRef<HTMLInputElement>;
+  @ViewChild('editField') private editField?: ElementRef<HTMLTextAreaElement>;
   private isEditing = false;
+  /** The text being edited, mentions shown by name, and the tokens of those names. */
+  protected draft = '';
+  private tokens: MentionTokens = new Map();
   protected readonly max = MAX_MESSAGE;
   @Output() replyClicked = new EventEmitter<ChatMessage>();
   @Output() editClicked = new EventEmitter<ChatMessage>();
@@ -101,9 +133,20 @@ export class ChatItem {
   protected readonly Trash2 = Trash2;
   protected readonly CornerUpRight = CornerUpRight;
 
-  protected save(text: string): void {
-    const t = text.trim();
-    if (t) this.saveEdit.emit({ item: this.item, text: t });
+  protected onEditKey(e: KeyboardEvent, text: string): void {
+    if (e.key === 'Escape') {
+      this.cancelEdit.emit();
+    } else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      const t = text.trim();
+      if (t) this.saveEdit.emit({ item: this.item, text: toWire(t, this.tokens) });
+    }
+  }
+
+  /** The field grows with its text, as the composer does. */
+  protected grow(el: HTMLTextAreaElement): void {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 320) + 'px';
   }
 
   /** Time only for today, the date as well for older messages. */

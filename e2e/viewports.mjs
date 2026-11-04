@@ -36,7 +36,7 @@ const channelUrl = page.url();
 const screens = [
   ['login', BASE + '/login', null],
   ['home', BASE + '/channels/me', null],
-  ['channel', channelUrl, 'input[placeholder^="Написать"]'],
+  ['channel', channelUrl, 'textarea[placeholder^="Написать"]'],
 ];
 
 const visible = sel => page.evaluate(s => {

@@ -1,7 +1,7 @@
 import { Role } from '@shared/api';
 import { colorHex, moveTarget } from './roles-tab';
 
-const role = (id: string, position: number): Role => ({ id, guild_id: 'g', name: id, position, permissions: '0', color: 0 });
+const role = (id: string, position: number): Role => ({ id, guild_id: 'g', name: id, position, permissions: '0', color: 0, mentionable: false });
 
 describe('moveTarget', () => {
   const cases: { name: string; from: Role; to: Role; want: number | null }[] = [

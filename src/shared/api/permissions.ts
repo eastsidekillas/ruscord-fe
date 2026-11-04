@@ -74,7 +74,7 @@ export const PermGroups: PermGroup[] = [
       { bit: Perm.SendMessages, label: 'Отправлять сообщения' },
       { bit: Perm.ReadMessageHistory, label: 'Читать историю сообщений' },
       { bit: Perm.ManageMessages, label: 'Удалять чужие сообщения' },
-      { bit: Perm.MentionEveryone, label: 'Упоминать @everyone и @here' },
+      { bit: Perm.MentionEveryone, label: 'Упоминать @everyone, @here и все роли' },
     ],
   },
   {
