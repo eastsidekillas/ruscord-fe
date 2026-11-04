@@ -505,7 +505,7 @@ await step('ban Cat: she loses the server and cannot come back; unban', async ()
 
 await step('profile: name, about me and avatar reach others live', async () => {
   await ann.locator('[title="Настройки"]').click();
-  await ann.setInputFiles('input[type=file]', `${FIX}/photo.jpg`);
+  await ann.setInputFiles('UserSettingsModal input[type=file]', `${FIX}/photo.jpg`);
   await ann.fill('#p-name', 'Аня');
   await ann.fill('#p-bio', 'Люблю Go');
   await ann.getByRole('button', { name: 'Сохранить' }).click();
