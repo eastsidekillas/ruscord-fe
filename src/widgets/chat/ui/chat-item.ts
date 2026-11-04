@@ -43,6 +43,8 @@ const NO_NAMES = { user: () => null, role: () => null, channel: () => null };
   standalone: true,
   imports: [CommonModule, AvatarUI, LucideAngularModule, MarkupView, EmojiPicker],
   styles: `
+    :host(.highlighted) { animation: ok-found 2.5s ease-out; }
+    @keyframes ok-found { from { background: color-mix(in srgb, var(--color-ok-accent) 28%, transparent); } }
     :host(.mentioned) {
       background: color-mix(in srgb, var(--color-ok-warning) 9%, transparent);
       box-shadow: inset 2px 0 0 var(--color-ok-warning);
@@ -54,6 +56,9 @@ const NO_NAMES = { user: () => null, role: () => null, channel: () => null };
     '[class.editing]': 'editing',
     '[class.mentioned]': 'item.mentioned',
     '[attr.data-mentioned]': 'item.mentioned || null',
+    '[attr.data-message-id]': 'item.message.id',
+    '[class.highlighted]': 'highlight',
+    '[attr.data-highlight]': 'highlight || null',
   },
   template: `
     <div *ngIf="item.reply" class="flex items-center gap-1.5 pl-[52px] pb-1 text-[13px] text-ok-muted min-w-0">
@@ -159,6 +164,8 @@ const NO_NAMES = { user: () => null, role: () => null, channel: () => null };
 export class ChatItem {
   @Input({ required: true }) item!: ChatMessage;
   @Input() canReply = true;
+  /** The message a search jumped to: it flashes once. */
+  @Input() highlight = false;
   /** Who and what the mentions in the text are. */
   @Input() ctx: MentionContext | null = null;
   /** Shows the text as a field: Enter saves, Esc cancels. */

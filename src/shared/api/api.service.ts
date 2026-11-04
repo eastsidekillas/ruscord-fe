@@ -17,6 +17,8 @@ import {
   PublicUser,
   ReadState,
   Relationship,
+  SearchParams,
+  SearchResult,
   Role,
   Ban,
   Session,
@@ -291,9 +293,11 @@ export class ApiService {
 
   // Messages
   /** Newest first; before/after are message ids. */
-  messages(channelId: string, opts: { before?: string; limit?: number } = {}): Observable<Message[]> {
+  messages(channelId: string, opts: { before?: string; after?: string; around?: string; limit?: number } = {}): Observable<Message[]> {
     let params = new HttpParams().set('limit', opts.limit ?? 50);
     if (opts.before) params = params.set('before', opts.before);
+    if (opts.after) params = params.set('after', opts.after);
+    if (opts.around) params = params.set('around', opts.around);
     return this.http.get<Message[]>(this.url(`channels/${channelId}/messages`), { params });
   }
 
@@ -319,6 +323,18 @@ export class ApiService {
 
   deleteMessage(channelId: string, messageId: string): Observable<void> {
     return this.http.delete<void>(this.url(`channels/${channelId}/messages/${messageId}`));
+  }
+
+  // Search (ruscord-core ADR-0039): in a guild, or in one channel when guildId is null.
+  search(guildId: string | null, channelId: string, q: SearchParams): Observable<SearchResult> {
+    let params = new HttpParams().set('offset', q.offset ?? 0);
+    if (q.text) params = params.set('q', q.text);
+    for (const [k, v] of [['author_id', q.authorId], ['mentions', q.mentions], ['channel_id', q.channelId]] as const) {
+      if (v) params = params.set(k, v);
+    }
+    for (const h of q.has ?? []) params = params.append('has', h);
+    const path = guildId ? `guilds/${guildId}/messages/search` : `channels/${channelId}/messages/search`;
+    return this.http.get<SearchResult>(this.url(path), { params });
   }
 
   // Read states (ruscord-core ADR-0038)

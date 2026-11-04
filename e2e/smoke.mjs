@@ -369,6 +369,23 @@ await step('unread: a mention while Bob is away shows on the server and the chan
   await bob.locator('ServerChannelsItems a[data-unread]').first().waitFor({ state: 'detached', timeout: 4000 });
 });
 
+await step('search: Bob finds the bold message with a filter and jumps to it', async () => {
+  const box = bob.getByRole('searchbox', { name: 'Поиск по сообщениям' });
+  await box.fill('жирно есть:ссылка');
+  await box.press('Enter');
+  const results = bob.getByRole('dialog', { name: 'Результаты поиска' });
+  await results.getByText('Найдено: 1').waitFor({ timeout: 8000 });
+  await results.locator('[data-search-result]').first().click();
+  await bob.waitForURL(/around=/, { timeout: 8000 });
+  await bob.locator('ChatItem[data-highlight]', { hasText: 'жирно' }).waitFor({ timeout: 8000 });
+  // A word that is nowhere.
+  await box.fill('жирафы');
+  await box.press('Enter');
+  await results.getByText('Ничего не нашлось.').waitFor({ timeout: 8000 });
+  await box.press('Escape');
+  await results.waitFor({ state: 'detached', timeout: 4000 });
+});
+
 await step('channel permissions: @everyone loses #новости, Bob stops seeing it live; back to default', async () => {
   const item = ann.locator('a', { hasText: 'новости' }).first();
   await item.hover();

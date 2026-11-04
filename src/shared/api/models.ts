@@ -174,6 +174,22 @@ export interface Attachment {
   url?: string;
 }
 
+/** A page of search results, newest first (ruscord-core ADR-0039). */
+export interface SearchResult {
+  /** At most 5025: "more than five thousand". */
+  total_results: number;
+  messages: Message[];
+}
+
+export interface SearchParams {
+  text?: string;
+  authorId?: string;
+  mentions?: string;
+  channelId?: string;
+  has?: ('file' | 'image' | 'video' | 'link')[];
+  offset?: number;
+}
+
 /** How far the user has read a channel (ruscord-core ADR-0038). */
 export interface ReadState {
   channel_id: Snowflake;
