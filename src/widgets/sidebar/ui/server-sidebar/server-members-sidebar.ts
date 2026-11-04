@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, Input, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subscription, filter } from 'rxjs';
-import { ApiService, GatewayService, Member, nameOf } from '@shared/api';
+import { nameOf } from '@shared/api';
+import { GuildMembersStore } from '@entities/guild-members';
 import { StatusUi } from '@entities/user-status';
 import { AvatarUI } from '@shared/ui/avatar';
 import { AppStateStore } from '@entities/app-state';
@@ -9,7 +9,6 @@ import { ModalService } from '@shared/model/modal.service';
 
 /** Statuses of members come only for guilds up to this size (ruscord-core ADR-0018). */
 const STATUS_MAX_MEMBERS = 250;
-const PAGE = 1000;
 
 @Component({
   selector: 'ServerMembersSidebar',
@@ -40,20 +39,15 @@ const PAGE = 1000;
 })
 export class ServerMembersSidebar {
   @Input({ required: true }) set guildId(id: string) {
-    if (id !== this.id) {
-      this.id = id;
-      this.load();
-    }
+    this.directory.use(id);
   }
 
-  private readonly api = inject(ApiService);
+  private readonly directory = inject(GuildMembersStore);
   private readonly store = inject(AppStateStore);
   private readonly modal = inject(ModalService);
-  private id = '';
-  private loading?: Subscription;
 
-  protected readonly members = signal<Member[]>([]);
-  protected readonly loaded = signal(false);
+  protected readonly members = this.directory.members;
+  protected readonly loaded = this.directory.loaded;
   protected readonly withStatus = computed(() => this.members().length <= STATUS_MAX_MEMBERS);
 
   protected readonly rows = computed(() =>
@@ -77,55 +71,9 @@ export class ServerMembersSidebar {
     ].filter(s => s.rows.length);
   });
 
-  constructor() {
-    const sub = inject(GatewayService).dispatches
-      .pipe(filter(ev => (ev.d as Member | null)?.guild_id === this.id || ev.t === 'READY'))
-      .subscribe(ev => {
-        const m = ev.d as Member;
-        switch (ev.t) {
-          case 'READY':
-            this.load(); // a new session: anything may have changed
-            break;
-          case 'GUILD_MEMBER_ADD':
-            if (m.user) this.members.update(list => [...list.filter(x => x.user_id !== m.user_id), m]);
-            else this.load();
-            break;
-          case 'GUILD_MEMBER_UPDATE':
-            this.members.update(list => list.map(x => (x.user_id === m.user_id ? { ...x, ...m, user: m.user ?? x.user } : x)));
-            break;
-          case 'GUILD_MEMBER_REMOVE':
-            this.members.update(list => list.filter(x => x.user_id !== (ev.d as { user_id: string }).user_id));
-            break;
-        }
-      });
-    inject(DestroyRef).onDestroy(() => {
-      sub.unsubscribe();
-      this.loading?.unsubscribe();
-    });
-  }
-
   protected byId = (_: number, m: { user_id: string }) => m.user_id;
 
   protected openProfile(userId: string): void {
     this.modal.open('userProfile', { userId });
-  }
-
-  private load(): void {
-    this.loading?.unsubscribe();
-    this.members.set([]);
-    this.loaded.set(false);
-    const id = this.id;
-    const page = (after?: string) => {
-      this.loading = this.api.members(id, after).subscribe({
-        next: list => {
-          this.members.update(cur => [...cur, ...list]);
-          this.store.notePresences(list);
-          if (list.length === PAGE) page(list[list.length - 1].user_id);
-          else this.loaded.set(true);
-        },
-        error: () => this.loaded.set(true),
-      });
-    };
-    page();
   }
 }

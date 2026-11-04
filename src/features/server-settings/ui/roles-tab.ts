@@ -89,6 +89,16 @@ export function moveTarget(from: Role, to: Role): number | null {
             </fieldset>
           </div>
 
+          @if (!isEveryone(r)) {
+            <label class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] bg-ok-sidebar cursor-pointer">
+              <span class="flex-1 flex flex-col">
+                <span>Разрешить всем упоминать эту роль</span>
+                <span class="text-[12px] text-ok-muted">Без этого роль упоминают только те, у кого есть «Упоминать &#64;everyone, &#64;here и все роли»</span>
+              </span>
+              <input type="checkbox" role="switch" class="w-[18px] h-[18px] accent-ok-accent" [checked]="draftMentionable()" (change)="draftMentionable.set(!draftMentionable())" />
+            </label>
+          }
+
           <div class="flex flex-col gap-5">
             @for (g of groups; track g.title) {
               <fieldset class="border-0 m-0 p-0 flex flex-col gap-0.5">
@@ -139,6 +149,7 @@ export class RolesTab {
 
   protected readonly draftName = signal('');
   protected readonly draftColor = signal(0);
+  protected readonly draftMentionable = signal(false);
   private readonly draftPerms = signal(0n);
   protected dragId: string | null = null;
 
@@ -153,6 +164,7 @@ export class RolesTab {
     if (!r) return false;
     return this.draftPerms() !== BigInt(r.permissions || '0')
       || this.draftColor() !== (r.color || 0)
+      || (!this.isEveryone(r) && this.draftMentionable() !== !!r.mentionable)
       || (!this.isEveryone(r) && this.draftName().trim() !== r.name);
   });
 
@@ -177,6 +189,7 @@ export class RolesTab {
     this.error.set(null);
     this.draftName.set(r.name);
     this.draftColor.set(r.color || 0);
+    this.draftMentionable.set(!!r.mentionable);
     this.draftPerms.set(BigInt(r.permissions || '0'));
   }
 
@@ -188,10 +201,11 @@ export class RolesTab {
   }
 
   protected save(r: Role): void {
-    const patch: { name?: string; permissions: string; color: number } = {
+    const patch: { name?: string; permissions: string; color: number; mentionable?: boolean } = {
       permissions: this.draftPerms().toString(),
       color: this.draftColor(),
     };
+    if (!this.isEveryone(r)) patch.mentionable = this.draftMentionable();
     const name = this.draftName().trim();
     if (!this.isEveryone(r) && name && name !== r.name) patch.name = name;
     this.run(this.api.updateRole(this.guild().id, r.id, patch), (updated: Role) => this.select(updated));

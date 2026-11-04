@@ -224,7 +224,7 @@ export class ApiService {
     return this.http.post<Role>(this.url(`guilds/${guildId}/roles`), body);
   }
 
-  updateRole(guildId: string, roleId: string, patch: { name?: string; permissions?: string; color?: number; position?: number }): Observable<Role> {
+  updateRole(guildId: string, roleId: string, patch: { name?: string; permissions?: string; color?: number; position?: number; mentionable?: boolean }): Observable<Role> {
     return this.http.patch<Role>(this.url(`guilds/${guildId}/roles/${roleId}`), patch);
   }
 
@@ -294,7 +294,7 @@ export class ApiService {
     return this.http.get<Message[]>(this.url(`channels/${channelId}/messages`), { params });
   }
 
-  sendMessage(channelId: string, body: { content: string; nonce: string; reply_to?: string }): Observable<Message> {
+  sendMessage(channelId: string, body: { content: string; nonce: string; reply_to?: string; reply_mention?: boolean }): Observable<Message> {
     return this.http.post<Message>(this.url(`channels/${channelId}/messages`), body);
   }
 

@@ -31,8 +31,15 @@ jobs:
         with: { path: ruscord-fe }
       # Public now; if the repository becomes private, this needs a token
       # with read access to it (repository secret).
+      # A ruscord-core branch named like this one goes with it (a change that
+      # needs both repositories); otherwise main.
+      - id: pair
+        run: |
+          b="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          if git ls-remote --exit-code --heads https://github.com/eastsidekillas/ruscord-core "$b" >/dev/null; then ref="$b"; else ref=main; fi
+          echo "ruscord-core: $ref"; echo "ref=$ref" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
-        with: { repository: eastsidekillas/ruscord-core, ref: main, path: ruscord-core }
+        with: { repository: eastsidekillas/ruscord-core, ref: '${{ steps.pair.outputs.ref }}', path: ruscord-core }
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -7,3 +7,5 @@ export { DropdownMenu } from './dropdown-menu';
 export type { DropdownMenuItem } from './dropdown-menu';
 export { Dolobeb, DOLOBEB_STATES, DOLOBEB_LABELS } from './dolobeb';
 export type { DolobebState } from './dolobeb';
+export { MarkupView, roleColor } from './markup-view';
+export type { MentionContext } from './markup-view';

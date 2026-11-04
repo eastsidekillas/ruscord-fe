@@ -17,9 +17,10 @@ import { AppStateStore, IdleService, TypingStore } from '@entities/app-state';
 import { GroupModal } from '@features/group/ui/group-modal';
 import { NickModal } from '@features/change-nick';
 import { IncomingCall } from '@widgets/voice';
+import { LinkModal } from '@features/open-link';
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay, GroupModal, NickModal, ChannelSettingsModal, IncomingCall],
+  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay, GroupModal, NickModal, ChannelSettingsModal, IncomingCall, LinkModal],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -37,6 +38,7 @@ import { IncomingCall } from '@widgets/voice';
     <GroupModal *ngIf="modalService.modalType() === 'group'" />
     <NickModal *ngIf="modalService.modalType() === 'nick'" />
     <ChannelSettingsModal *ngIf="modalService.modalType() === 'channelSettings'" />
+    <LinkModal *ngIf="modalService.modalType() === 'link'" />
     <Notification *ngIf="notificationService.state().visible"></Notification>
   `,
 })

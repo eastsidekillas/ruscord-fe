@@ -92,6 +92,9 @@ async function step(title, fn) {
   } catch (e) {
     failed++;
     console.log('FAIL', title, '—', e.message.split('\n')[0]);
+    // What it was waiting for: the first lines of Playwright's call log.
+    const log = e.message.split('\n').filter(l => /^\s+- /.test(l)).slice(0, 3);
+    for (const l of log) console.log('     ', l.trim());
     const slug = title.replace(/\W+/g, '_').slice(0, 40);
     for (const [n, p] of Object.entries(pages)) {
       await p.screenshot({ path: `${SHOTS}/${slug}-${n}.png` }).catch(() => {});
@@ -99,7 +102,7 @@ async function step(title, fn) {
   }
 }
 
-const input = p => p.locator('input[placeholder^="Написать"]').first();
+const input = p => p.locator('textarea[placeholder^="Написать"]').first();
 async function say(p, text) {
   await input(p).fill(text);
   await input(p).press('Enter');
@@ -279,11 +282,28 @@ await step('create a channel from the menu; others see it live', async () => {
   await ann.getByRole('button', { name: 'Создать канал', exact: true }).click();
   // The new channel opens by itself (not just any channel URL: one was open already).
   await ann.waitForURL(u => u.href !== from && /\/channels\/[0-9a-f-]{36}\/[0-9a-f-]{36}/.test(u.pathname));
-  await ann.locator('input[placeholder="Написать в #новости"]').waitFor({ timeout: 8000 });
+  await ann.locator('textarea[placeholder="Написать в #новости"]').waitFor({ timeout: 8000 });
   await sees(bob, 'новости');
   await say(ann, 'первая новость');
   await bob.getByText('новости').first().click();
   await sees(bob, 'первая новость');
+});
+
+await step('markup and a mention from the suggestions: Bob sees bold, code, a link and the message highlighted', async () => {
+  await input(ann).pressSequentially('**жирно** и `код` https://example.com @bo', { delay: 20 });
+  await ann.getByRole('option', { name: new RegExp(name('bob'), 'i') }).first().waitFor({ timeout: 8000 });
+  await input(ann).press('Enter'); // picks the suggestion
+  await input(ann).press('Enter'); // sends
+  const msg = bob.locator('ChatItem[data-mentioned]', { hasText: 'жирно' }).last();
+  await msg.waitFor({ timeout: 8000 });
+  await msg.locator('strong', { hasText: 'жирно' }).waitFor({ timeout: 2000 });
+  await msg.locator('code', { hasText: 'код' }).waitFor({ timeout: 2000 });
+  await msg.locator('a[href="https://example.com"]').waitFor({ timeout: 2000 });
+  // Shown by the name on the server: Bob's display name (registration sets it to BOB).
+  await msg.getByText('@BOB', { exact: true }).waitFor({ timeout: 2000 });
+  // The author's own copy is not highlighted.
+  await ann.locator('ChatItem', { hasText: 'жирно' }).last().waitFor();
+  if (await ann.locator('ChatItem[data-mentioned]', { hasText: 'жирно' }).count()) throw new Error('own message is highlighted');
 });
 
 await step('channel permissions: @everyone loses #новости, Bob stops seeing it live; back to default', async () => {

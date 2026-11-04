@@ -27,6 +27,10 @@ import { CallStage, VoiceRoom } from '@widgets/voice';
 import { VoiceService } from '@entities/voice';
 import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
+import { GuildMembersStore } from '@entities/guild-members';
+import { MentionContext } from '@shared/ui/markup-view';
+import { plainText } from '@shared/lib/markup';
+import { MentionWorld, mentionContext, mentionOptions, mentionsMe } from '../model/mentions';
 
 const PAGE = 50;
 /** TYPING_START lasts 10 s on other screens; repeat it a bit sooner while typing. */
@@ -79,6 +83,7 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
             [reachedStart]="reachedStart()"
             [canReply]="v.canSend"
             [notice]="v.canRead ? null : 'У вас нет доступа к истории этого канала.'"
+            [ctx]="mentionCtx()"
             (top)="loadOlder()"
             (replyTo)="startReply($event)"
             [editingId]="editing()?.message?.id ?? null"
@@ -107,6 +112,7 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
               [placeholder]="v.placeholder"
               [disabled]="!v.canSend"
               [replyTo]="replyTo()"
+              [mentions]="suggest"
               (cancelReply)="replyTo.set(null)"
               (sendMessage)="send($event)"
               (typing)="onTyping()"
@@ -135,6 +141,7 @@ export class ChannelPage {
   private readonly modal = inject(ModalService);
   private readonly notify = inject(NotificationService);
   private readonly route = inject(ActivatedRoute);
+  private readonly directory = inject(GuildMembersStore);
   @ViewChild(ChatMessages) private list?: ChatMessages;
   @ViewChild(MessageInput) private input?: MessageInput;
 
@@ -189,9 +196,36 @@ export class ChannelPage {
   /** Sent here and not confirmed yet; cleared when the channel changes. */
   protected readonly pending = signal<PendingMessage[]>([]);
 
+  /** Everything mentions here are resolved against. */
+  private readonly world = computed<MentionWorld>(() => {
+    const v = this.view();
+    const people = new Map<string, PublicUser>();
+    const me = this.store.me();
+    if (me) people.set(me.id, me);
+    for (const r of this.store.relationships()) if (r.user) people.set(r.user.id, r.user);
+    for (const m of this.messages()) if (m.author) people.set(m.author.id, m.author);
+    for (const r of v?.dm?.recipients ?? []) people.set(r.id, r);
+    return {
+      guild: this.store.guild(v?.guildId),
+      members: v?.guildId ? this.directory.members() : [],
+      people: [...people.values()],
+      channel: id => this.store.channel(id),
+      live: u => this.store.user(u),
+    };
+  });
+  protected readonly mentionCtx = computed<MentionContext>(() => mentionContext(this.world()));
+  /** Suggestions while typing @ or #; reads the latest state on each call. */
+  protected readonly suggest = (trigger: '@' | '#', query: string) => {
+    const v = this.view();
+    const perms = v?.guildId ? this.store.guild(v.guildId)?.channel_permissions[this.channelId()!] : null;
+    return mentionOptions(this.world(), hasPerm(perms, Perm.MentionEveryone), trigger, query);
+  };
+
   protected readonly items = computed<ChatMessage[]>(() => {
     const v = this.view();
     const me = this.store.me()?.id;
+    const myRoles = this.store.guild(v?.guildId)?.member?.roles ?? [];
+    const ctx = this.mentionCtx();
     const list = this.messages();
     const byId = new Map(list.map(m => [m.id, m]));
     return list.map(m => {
@@ -203,9 +237,10 @@ export class ChannelPage {
         authorId: author?.id ?? null,
         authorName: nameOf(author),
         authorAvatar: author?.avatar ?? null,
-        reply: !m.reply_to ? null : replied ? { authorName: nameOf(this.store.user(replied.author)), content: replied.content } : 'missing',
+        reply: !m.reply_to ? null : replied ? { authorName: nameOf(this.store.user(replied.author)), content: plainText(replied.content, ctx) } : 'missing',
         canEdit: mine && !!v?.canSend,
         canDelete: mine || !!v?.canManage,
+        mentioned: mentionsMe(m, me, myRoles),
       };
     });
   });
@@ -230,6 +265,11 @@ export class ChannelPage {
   private notificationSound = new Audio('sounds/dm_notification.mp3');
 
   constructor() {
+    // Mentions and the member list of a guild channel share its members.
+    effect(() => {
+      const gid = this.view()?.guildId;
+      if (gid) untracked(() => this.directory.use(gid));
+    });
     // Load the history when the channel (or the session) changes.
     effect(() => {
       const id = this.channelId();
@@ -319,7 +359,7 @@ export class ChannelPage {
     this.replyTo.set(null);
     this.lastTyping = 0;
     const item: PendingMessage = {
-      nonce: crypto.randomUUID(), content: p.text, replyToId: p.replyToId,
+      nonce: crypto.randomUUID(), content: p.text, replyToId: p.replyToId, replyMention: p.replyMention,
       authorName: nameOf(me), authorAvatar: me?.avatar ?? null, error: null,
     };
     this.pending.update(list => [...list, item]);
@@ -342,7 +382,10 @@ export class ChannelPage {
   private deliver(item: PendingMessage): void {
     const id = this.channelId();
     if (!id) return;
-    const body = { content: item.content, nonce: item.nonce, reply_to: item.replyToId ?? undefined };
+    const body = {
+      content: item.content, nonce: item.nonce, reply_to: item.replyToId ?? undefined,
+      reply_mention: item.replyToId ? item.replyMention : undefined,
+    };
     this.api.sendMessage(id, body).subscribe({
       next: m => {
         if (m.channel_id !== this.channelId()) return;
