@@ -65,7 +65,7 @@ const NO_NAMES = { user: () => null, role: () => null, channel: () => null };
         </div>
         <MarkupView *ngIf="!editing && item.message.content" class="mt-0.5 text-[15px] leading-[22px] text-ok-text" [text]="item.message.content" [ctx]="ctx"
                     (user)="authorClicked.emit($event)" />
-        <div *ngIf="item.message.attachments?.length" class="mt-1 flex flex-col gap-1.5 items-start" aria-label="Вложения" role="group">
+        <div *ngIf="item.message.attachments.length" class="mt-1 flex flex-col gap-1.5 items-start" aria-label="Вложения" role="group">
           <ng-container *ngFor="let a of item.message.attachments; trackBy: byAttachment">
             <ng-container [ngSwitch]="kind(a)">
               <a *ngSwitchCase="'image'" [href]="a.url" target="_blank" rel="noopener noreferrer" class="block max-w-full rounded-lg overflow-hidden bg-ok-surface-2"
