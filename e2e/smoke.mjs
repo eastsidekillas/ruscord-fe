@@ -307,8 +307,9 @@ await step('markup and a mention from the suggestions: Bob sees bold, code, a li
 });
 
 await step('attachments: a picture and a file reach Bob; the picture shows, the file downloads', async () => {
+  const fs = await import('node:fs');
   await ann.locator('MessageInput input[type=file]').setInputFiles([
-    `${FIX}/alpha.png`,
+    { name: 'alpha.png', mimeType: 'image/png', buffer: fs.readFileSync(`${FIX}/alpha.png`) },
     { name: 'заметка.txt', mimeType: 'text/plain', buffer: Buffer.from('привет из файла') },
   ]);
   await ann.getByRole('list', { name: 'Файлы к отправке' }).getByText('заметка.txt').waitFor({ timeout: 4000 });
