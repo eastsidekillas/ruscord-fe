@@ -93,7 +93,7 @@ const MAX_FIELD_PX = 240;
     <!-- Not a label: with the attach button inside, a click anywhere would press it. -->
     <div class="flex items-end gap-2 min-h-12 pl-1.5 pr-1.5 py-1.5 border border-ok-border-control focus-within:border-ok-accent bg-ok-sidebar cursor-text"
          [ngClass]="replyTo || picked().length ? 'rounded-b-ok-md' : 'rounded-ok-md'" [class.opacity-60]="disabled"
-         (click)="$event.target === $event.currentTarget && field.focus()">
+         (click)="focusFrom($event)">
       <!-- A label of the file input: the browser opens the chooser itself. A
            script click on a display:none input did not open it. -->
       <label *ngIf="canAttach" title="Прикрепить файлы" data-attach
@@ -253,6 +253,15 @@ export class MessageInput implements OnChanges {
     }));
     if (added.length) this.picked.update(list => [...list, ...added]);
     this.focus();
+  }
+
+  /**
+   * A click on the frame around the field puts the caret in it. It returns
+   * nothing on purpose: a handler that returns false makes Angular cancel
+   * the event, and that cancelled the paperclip's file chooser.
+   */
+  protected focusFrom(e: MouseEvent): void {
+    if (e.target === e.currentTarget) this.field?.nativeElement.focus();
   }
 
   protected onPicked(input: HTMLInputElement): void {
