@@ -22,6 +22,10 @@ server {
 
     server_tokens off;
 
+    # The emoji catalog (public/emoji/data.json) is 360 KB as is, 100 KB gzipped.
+    gzip on;
+    gzip_types application/json application/javascript text/css image/svg+xml;
+
     location / {
         try_files $uri /index.html;
         # The page may run only its own scripts and talk only to its own

@@ -174,6 +174,23 @@ export interface Attachment {
   url?: string;
 }
 
+/** One emoji under a message. */
+export interface Reaction {
+  emoji: string;
+  count: number;
+  /** The reader put it. */
+  me: boolean;
+}
+
+/** MESSAGE_REACTION_*: emoji is absent when all went, user_id when one person's changed. */
+export interface ReactionEvent {
+  channel_id: Snowflake;
+  guild_id?: Snowflake;
+  message_id: Snowflake;
+  emoji?: string;
+  user_id?: Snowflake;
+}
+
 export interface Message {
   id: Snowflake;
   channel_id: Snowflake;
@@ -188,6 +205,9 @@ export interface Message {
   mention_roles: Snowflake[];
   /** Files of the message (ruscord-core ADR-0036). */
   attachments: Attachment[];
+  /** As the reader sees them; null in events, where the client keeps its own (ADR-0037). */
+  reactions: Reaction[] | null;
+  pinned_at?: string;
   created_at: string;
   edited_at?: string;
 }

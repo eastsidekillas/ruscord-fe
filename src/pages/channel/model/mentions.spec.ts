@@ -54,7 +54,7 @@ describe('mentions on the channel page', () => {
   });
 
   it('highlights messages that ping the viewer, not their own', () => {
-    const msg = (p: Partial<Message>): Message => ({ id: 'm', channel_id: 'c1', author: bob, content: '', mention_everyone: false, mentions: [], mention_roles: [], attachments: [], created_at: '', ...p });
+    const msg = (p: Partial<Message>): Message => ({ id: 'm', channel_id: 'c1', author: bob, content: '', mention_everyone: false, mentions: [], mention_roles: [], attachments: [], reactions: [], created_at: '', ...p });
     expect(mentionsMe(msg({ mentions: ['ann'] }), 'ann', [])).toBeTrue();
     expect(mentionsMe(msg({ mention_roles: ['r1'] }), 'ann', ['r1'])).toBeTrue();
     expect(mentionsMe(msg({ mention_everyone: true }), 'ann', [])).toBeTrue();

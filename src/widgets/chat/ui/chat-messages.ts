@@ -9,7 +9,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ChatItem, ChatMessage } from './chat-item';
+import { ChatItem, ChatMessage, ReactionToggle } from './chat-item';
 import { PendingItem, PendingMessage } from './pending-item';
 import { dayLabel, sameDay } from '@shared/lib/dates';
 import { MentionContext } from '@shared/ui/markup-view';
@@ -38,7 +38,9 @@ const STICK_PX = 80;
                 (saveEdit)="saveEdit.emit($event)"
                 (cancelEdit)="cancelEdit.emit()"
                 (deleteClicked)="remove.emit($event)"
-                (authorClicked)="author.emit($event)" />
+                (authorClicked)="author.emit($event)"
+                (react)="react.emit($event)"
+                (pin)="pin.emit($event)" />
       </ng-container>
       <PendingItem *ngFor="let p of pending; trackBy: byNonce" [item]="p" [ctx]="ctx" (retry)="retry.emit($event)" (discard)="discard.emit($event)" />
     </div>
@@ -64,6 +66,8 @@ export class ChatMessages implements AfterViewChecked {
   @Output() discard = new EventEmitter<string>();
   @Output() remove = new EventEmitter<ChatMessage>();
   @Output() author = new EventEmitter<string>();
+  @Output() react = new EventEmitter<ReactionToggle>();
+  @Output() pin = new EventEmitter<{ item: ChatMessage; on: boolean }>();
   /** Scrolled to the top: time to load older messages. */
   @Output() top = new EventEmitter<void>();
   @ViewChild('box') box!: ElementRef<HTMLElement>;
