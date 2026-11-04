@@ -237,7 +237,7 @@ export class MessageInput implements OnChanges {
   }
 
   /** Adds files within the limits of the server; says what did not fit. */
-  pick(files: File[]): void {
+  addFiles(files: File[]): void {
     if (!this.canAttach || this.disabled || !files.length) return;
     const big = files.filter(f => f.size > MAX_ATTACHMENT_BYTES);
     const ok = files.filter(f => f.size <= MAX_ATTACHMENT_BYTES && f.size > 0);
@@ -253,7 +253,7 @@ export class MessageInput implements OnChanges {
   }
 
   protected onPicked(input: HTMLInputElement): void {
-    this.pick(Array.from(input.files ?? []));
+    this.addFiles(Array.from(input.files ?? []));
     input.value = '';
   }
 
@@ -267,7 +267,7 @@ export class MessageInput implements OnChanges {
     const files = Array.from(e.clipboardData?.files ?? []);
     if (files.length && this.canAttach) {
       e.preventDefault();
-      this.pick(files);
+      this.addFiles(files);
     }
   }
 
@@ -279,7 +279,7 @@ export class MessageInput implements OnChanges {
     const files = Array.from(e.dataTransfer?.files ?? []);
     if (!files.length || !this.canAttach) return;
     e.preventDefault();
-    this.pick(files);
+    this.addFiles(files);
   }
 
   protected size(bytes: number): string {
