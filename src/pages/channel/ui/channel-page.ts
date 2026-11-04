@@ -17,12 +17,13 @@ import { Observable, Subscription, concat, defer, of } from 'rxjs';
 import { filter, map, switchMap, tap, toArray } from 'rxjs/operators';
 import { ChatHeader } from '@widgets/chat/ui/chat-header';
 import { ChatMessages } from '@widgets/chat/ui/chat-messages';
-import { ChatMessage } from '@widgets/chat/ui/chat-item';
+import { ChatMessage, ReactionToggle } from '@widgets/chat/ui/chat-item';
+import { PinsPanel } from '@widgets/chat/ui/pins-panel';
 import { PendingFile, PendingMessage, failReason } from '@widgets/chat/ui/pending-item';
 import { MessageInput, SendPayload } from '@features/update-message/ui/message-input';
 import { ServerMembersSidebar } from '@widgets/sidebar/ui/server-sidebar/server-members-sidebar';
 import { GroupMembersSidebar } from '@widgets/sidebar/ui/group-members-sidebar';
-import { ApiService, GatewayService, Message, Perm, PublicUser, errorText, hasPerm, nameOf } from '@shared/api';
+import { ApiService, GatewayService, Message, Perm, PublicUser, ReactionEvent, errorText, hasPerm, nameOf } from '@shared/api';
 import { AppStateStore, TypingStore } from '@entities/app-state';
 import { CallStage, VoiceRoom } from '@widgets/voice';
 import { VoiceService } from '@entities/voice';
@@ -32,6 +33,7 @@ import { GuildMembersStore } from '@entities/guild-members';
 import { MentionContext } from '@shared/ui/markup-view';
 import { plainText } from '@shared/lib/markup';
 import { MentionWorld, mentionContext, mentionOptions, mentionsMe } from '../model/mentions';
+import { REACTION_EVENTS, ReactionEventType, applyReaction } from '../model/reactions';
 
 const PAGE = 50;
 /** TYPING_START lasts 10 s on other screens; repeat it a bit sooner while typing. */
@@ -48,7 +50,8 @@ function preview(m: Message, names: Parameters<typeof plainText>[1]): string {
 /** Inserts or replaces a message keeping id order (ids are UUIDv7: time order). */
 export function upsertMessage(list: Message[], m: Message): Message[] {
   const i = list.findIndex(x => x.id === m.id);
-  if (i >= 0) return list.map(x => (x.id === m.id ? m : x));
+  // Events carry no reactions (null): the ones shown stay.
+  if (i >= 0) return list.map(x => (x.id === m.id ? { ...m, reactions: m.reactions ?? x.reactions } : x));
   const out = [...list];
   let at = out.length;
   while (at > 0 && out[at - 1].id > m.id) at--;
@@ -60,7 +63,7 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
   selector: 'ChannelPage',
   standalone: true,
   host: { class: 'flex-1 min-h-0' },
-  imports: [CommonModule, VoiceRoom, CallStage, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar, GroupMembersSidebar],
+  imports: [CommonModule, VoiceRoom, CallStage, ChatHeader, ChatMessages, MessageInput, ServerMembersSidebar, GroupMembersSidebar, PinsPanel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .typing-indicator { display: inline-flex; align-items: center; }
@@ -79,11 +82,13 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
       <VoiceRoom [guildId]="r.guildId" [channelId]="r.channelId" />
     </div>
     <div class="flex h-full" *ngIf="!voiceRoom() && view() as v; else waiting">
-        <div class="flex-1 min-w-0 flex flex-col overflow-hidden min-h-0">
-          <ChatHeader [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
+        <div class="relative flex-1 min-w-0 flex flex-col overflow-hidden min-h-0">
+          <ChatHeader [showPins]="v.canRead" [pinsOpen]="pins() !== undefined" (pins)="togglePins()" [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
                       [title]="v.group?.name ?? null" [members]="v.group?.recipients?.length ?? 0"
                       [canCall]="!!v.dm && !v.blocked && voice.target()?.channelId !== v.dm.id" (call)="startCall()"
                       (profile)="openProfile($event)" (rename)="renameGroup($event)" (addMembers)="addToGroup()" />
+          <PinsPanel *ngIf="pins() !== undefined" class="absolute right-4 top-14 z-30" [pins]="pins() ?? null" [ctx]="mentionCtx()"
+                     [canPin]="v.canPin" [authorName]="authorName" (unpin)="setPin($event, false)" (closed)="pins.set(undefined)" />
           <CallStage *ngIf="v.dm as d" [dm]="d" />
           <ChatMessages
             class="flex-1 min-h-0"
@@ -104,6 +109,8 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
             (discard)="discard($event)"
             (remove)="remove($event)"
             (author)="openProfile($event)"
+            (react)="react($event)"
+            (pin)="setPin($event.item.message, $event.on)"
           />
 
           <div class="h-5 px-6 text-[13px] text-ok-muted" aria-live="polite">
@@ -177,6 +184,9 @@ export class ChannelPage {
         canSend: hasPerm(perms, Perm.SendMessages),
         canAttach: hasPerm(perms, Perm.SendMessages) && hasPerm(perms, Perm.AttachFiles),
         canRead: hasPerm(perms, Perm.ReadMessageHistory),
+        canReact: hasPerm(perms, Perm.AddReactions) && hasPerm(perms, Perm.ReadMessageHistory),
+        canJoin: hasPerm(perms, Perm.ReadMessageHistory),
+        canPin: hasPerm(perms, Perm.PinMessages) && hasPerm(perms, Perm.ReadMessageHistory),
         canManage: hasPerm(perms, Perm.ManageMessages),
       };
     }
@@ -190,12 +200,14 @@ export class ChannelPage {
       return {
         kind: 'dm' as const, title: nameOf(other), topic: null, image: other?.avatar ?? null, partnerId: other?.id ?? null, group: null, dm,
         guildId: null, placeholder: `Написать ${nameOf(other)}`, blocked, canSend: !blocked, canAttach: !blocked, canRead: true, canManage: false,
+        canReact: !blocked, canJoin: !blocked, canPin: !blocked,
       };
     }
     const title = this.store.groupTitle(dm);
     return {
       kind: 'group' as const, title, topic: null, image: null, partnerId: null, group: dm, dm,
       guildId: null, placeholder: `Написать в «${title}»`, blocked: false, canSend: true, canAttach: true, canRead: true, canManage: false,
+      canReact: true, canJoin: true, canPin: true,
     };
   });
 
@@ -252,6 +264,9 @@ export class ChannelPage {
         canEdit: mine && !!v?.canSend,
         canDelete: mine || !!v?.canManage,
         mentioned: mentionsMe(m, me, myRoles),
+        canReact: !!v?.canReact,
+        canJoin: !!v?.canJoin,
+        canPin: !!v?.canPin,
       };
     });
   });
@@ -315,6 +330,11 @@ export class ChannelPage {
           this.messages.update(list => list.filter(m => m.id !== d.id));
           break;
       }
+      if (ev.t === 'MESSAGE_UPDATE' || ev.t === 'MESSAGE_DELETE') this.notePin(ev.t, d as Message);
+      if ((REACTION_EVENTS as readonly string[]).includes(ev.t)) {
+        const r = d as unknown as ReactionEvent;
+        this.applyReaction(r.message_id, ev.t as ReactionEventType, r);
+      }
     });
     inject(DestroyRef).onDestroy(() => {
       sub.unsubscribe();
@@ -334,6 +354,7 @@ export class ChannelPage {
     this.messages.set([]);
     this.replyTo.set(null);
     this.editing.set(null);
+    this.pins.set(undefined);
     this.lastTyping = 0;
     this.reachedStart.set(!canRead);
     this.loadingOlder.set(false);
@@ -470,6 +491,69 @@ export class ChannelPage {
       next: () => this.messages.update(list => list.filter(m => m.id !== item.message.id)),
       error: err => this.notify.show(errorText(err, 'Не удалось удалить сообщение'), 'error'),
     });
+  }
+
+  /** The pinned panel: undefined when closed, null while loading. */
+  protected readonly pins = signal<Message[] | null | undefined>(undefined);
+  protected readonly authorName = (m: Message) => nameOf(this.store.user(m.author));
+
+  protected togglePins(): void {
+    const id = this.channelId();
+    if (this.pins() !== undefined || !id) {
+      this.pins.set(undefined);
+      return;
+    }
+    this.pins.set(null);
+    this.api.pins(id).subscribe({
+      next: list => {
+        if (id === this.channelId() && this.pins() !== undefined) this.pins.set(list);
+      },
+      error: err => {
+        this.pins.set(undefined);
+        this.notify.show(errorText(err, 'Не удалось загрузить закреплённые'), 'error');
+      },
+    });
+  }
+
+  protected setPin(m: Message, on: boolean): void {
+    const id = this.channelId();
+    if (!id) return;
+    this.api.pin(id, m.id, on).subscribe({
+      error: err => this.notify.show(errorText(err, on ? 'Не удалось закрепить' : 'Не удалось открепить'), 'error'),
+    });
+  }
+
+  /** Keeps an open pinned panel up to date with edits, pins and deletes. */
+  private notePin(t: 'MESSAGE_UPDATE' | 'MESSAGE_DELETE', m: Message): void {
+    const list = this.pins();
+    if (!list) return;
+    const rest = list.filter(x => x.id !== m.id);
+    if (t === 'MESSAGE_DELETE' || !m.pinned_at) {
+      this.pins.set(rest);
+      return;
+    }
+    this.pins.set([m, ...rest].sort((a, b) => (b.pinned_at ?? '').localeCompare(a.pinned_at ?? '')));
+  }
+
+  /** Shows the click at once; the server's event then changes nothing. */
+  protected react(t: ReactionToggle): void {
+    const id = this.channelId();
+    const me = this.store.me()?.id;
+    if (!id || !me) return;
+    const ev: ReactionEvent = { channel_id: id, message_id: t.item.message.id, emoji: t.emoji, user_id: me };
+    this.applyReaction(ev.message_id, t.on ? 'MESSAGE_REACTION_ADD' : 'MESSAGE_REACTION_REMOVE', ev);
+    const req = t.on ? this.api.react(id, ev.message_id, t.emoji) : this.api.unreact(id, ev.message_id, t.emoji);
+    req.subscribe({
+      error: err => {
+        this.applyReaction(ev.message_id, t.on ? 'MESSAGE_REACTION_REMOVE' : 'MESSAGE_REACTION_ADD', ev);
+        this.notify.show(errorText(err, 'Не удалось поставить реакцию'), 'error');
+      },
+    });
+  }
+
+  private applyReaction(messageId: string, t: ReactionEventType, d: ReactionEvent): void {
+    const me = this.store.me()?.id;
+    this.messages.update(list => list.map(m => (m.id === messageId ? applyReaction(m, t, d, me) : m)));
   }
 
   protected startReply(item: ChatMessage): void {

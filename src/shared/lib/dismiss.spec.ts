@@ -10,6 +10,14 @@ class Popup {
   }
 }
 
+@Component({ selector: 'TogglePopup', standalone: true, template: `<span>popup</span>` })
+class TogglePopup {
+  readonly open = signal(true);
+  constructor() {
+    dismissOnOutside(this.open, () => this.open.set(false), '[data-toggle]');
+  }
+}
+
 describe('dismissOnOutside', () => {
   const press = (target: EventTarget) => target.dispatchEvent(new Event('pointerdown', { bubbles: true }));
 
@@ -26,5 +34,19 @@ describe('dismissOnOutside', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(f.componentInstance.open()).toBeFalse();
     el.remove();
+  });
+
+  it('leaves a press on its toggle button to the button', () => {
+    const f = TestBed.createComponent(TogglePopup);
+    const toggle = document.createElement('button');
+    toggle.setAttribute('data-toggle', '');
+    toggle.innerHTML = '<span>icon</span>';
+    document.body.append(f.nativeElement, toggle);
+    press(toggle.querySelector('span')!);
+    expect(f.componentInstance.open()).toBeTrue();
+    press(document.body);
+    expect(f.componentInstance.open()).toBeFalse();
+    toggle.remove();
+    (f.nativeElement as HTMLElement).remove();
   });
 });

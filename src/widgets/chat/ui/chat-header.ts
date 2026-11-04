@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Ou
 import { CommonModule } from '@angular/common';
 import { AvatarUI } from '@shared/ui/avatar';
 import { StatusUi } from '@entities/user-status';
-import { Hash, LucideAngularModule, Pencil, Phone } from 'lucide-angular';
+import { Hash, LucideAngularModule, Pencil, Phone, Pin } from 'lucide-angular';
 
 @Component({
   selector: 'ChatHeader',
@@ -43,8 +43,14 @@ import { Hash, LucideAngularModule, Pencil, Phone } from 'lucide-angular';
           <span *ngIf="topic" class="text-[13px] text-ok-muted truncate border-l border-ok-border pl-3 ml-1">{{ topic }}</span>
         </ng-template>
       </div>
+      <span class="flex-1"></span>
+      <button *ngIf="showPins" type="button" (click)="pins.emit()" title="Закреплённые сообщения" aria-label="Закреплённые сообщения"
+              [attr.aria-pressed]="pinsOpen" data-pins
+              class="w-9 h-9 rounded-lg inline-flex items-center justify-center shrink-0"
+              [ngClass]="pinsOpen ? 'text-ok-text bg-ok-surface-2' : 'text-ok-muted hover:text-ok-text hover:bg-ok-surface-2'">
+        <lucide-angular class="w-[18px] h-[18px]" [img]="Pin" aria-hidden="true"></lucide-angular>
+      </button>
       <ng-container *ngIf="type !== 'channel'">
-        <span class="flex-1"></span>
         <button *ngIf="canCall" type="button" (click)="call.emit()" data-call-start
                 [title]="type === 'group' ? 'Позвонить группе' : 'Позвонить'" [attr.aria-label]="type === 'group' ? 'Позвонить группе' : 'Позвонить'"
                 class="w-9 h-9 rounded-lg text-ok-muted hover:text-ok-text hover:bg-ok-surface-2 inline-flex items-center justify-center shrink-0">
@@ -73,12 +79,17 @@ export class ChatHeader {
   /** A DM or group: the call button shows (not while in its call, not with a block). */
   @Input() canCall = false;
   @Output() call = new EventEmitter<void>();
+  /** The pinned messages button (needs READ_MESSAGE_HISTORY). */
+  @Input() showPins = false;
+  @Input() pinsOpen = false;
+  @Output() pins = new EventEmitter<void>();
   @ViewChild('nameField') private nameField?: ElementRef<HTMLInputElement>;
 
   protected readonly renaming = signal(false);
   protected readonly Hash = Hash;
   protected readonly Pencil = Pencil;
   protected readonly Phone = Phone;
+  protected readonly Pin = Pin;
 
   protected startRename(): void {
     this.renaming.set(true);

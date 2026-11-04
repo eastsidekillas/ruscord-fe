@@ -14,6 +14,7 @@ import {
   Member,
   Message,
   Profile,
+  PublicUser,
   Relationship,
   Role,
   Ban,
@@ -317,6 +318,39 @@ export class ApiService {
 
   deleteMessage(channelId: string, messageId: string): Observable<void> {
     return this.http.delete<void>(this.url(`channels/${channelId}/messages/${messageId}`));
+  }
+
+  // Reactions and pins (ruscord-core ADR-0037)
+  private reactionUrl(channelId: string, messageId: string, emoji?: string): string {
+    const base = `channels/${channelId}/messages/${messageId}/reactions`;
+    return this.url(emoji ? `${base}/${encodeURIComponent(emoji)}` : base);
+  }
+
+  react(channelId: string, messageId: string, emoji: string): Observable<void> {
+    return this.http.put<void>(this.reactionUrl(channelId, messageId, emoji) + '/@me', null);
+  }
+
+  unreact(channelId: string, messageId: string, emoji: string): Observable<void> {
+    return this.http.delete<void>(this.reactionUrl(channelId, messageId, emoji) + '/@me');
+  }
+
+  /** Who put emoji, earliest first. */
+  reactors(channelId: string, messageId: string, emoji: string, limit = 25): Observable<PublicUser[]> {
+    return this.http.get<PublicUser[]>(this.reactionUrl(channelId, messageId, emoji), { params: { limit } });
+  }
+
+  /** Moderation: everyone's emoji, or every reaction without one. */
+  clearReactions(channelId: string, messageId: string, emoji?: string): Observable<void> {
+    return this.http.delete<void>(this.reactionUrl(channelId, messageId, emoji));
+  }
+
+  pins(channelId: string): Observable<Message[]> {
+    return this.http.get<Message[]>(this.url(`channels/${channelId}/pins`));
+  }
+
+  pin(channelId: string, messageId: string, on: boolean): Observable<void> {
+    const url = this.url(`channels/${channelId}/pins/${messageId}`);
+    return on ? this.http.put<void>(url, null) : this.http.delete<void>(url);
   }
 
   typing(channelId: string): Observable<void> {

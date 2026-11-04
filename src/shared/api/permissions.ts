@@ -29,6 +29,8 @@ export const Perm = {
   ManageGuild: 1n << 23n,
   ViewAuditLog: 1n << 24n,
   Administrator: 1n << 25n,
+  /** Pin and unpin messages (ruscord-core ADR-0037). */
+  PinMessages: 1n << 26n,
 } as const;
 
 /** Reports whether the server-sent permission string has every bit of need. */
@@ -73,7 +75,10 @@ export const PermGroups: PermGroup[] = [
       { bit: Perm.ViewChannel, label: 'Видеть каналы' },
       { bit: Perm.SendMessages, label: 'Отправлять сообщения' },
       { bit: Perm.ReadMessageHistory, label: 'Читать историю сообщений' },
-      { bit: Perm.ManageMessages, label: 'Удалять чужие сообщения' },
+      { bit: Perm.AttachFiles, label: 'Прикреплять файлы' },
+      { bit: Perm.AddReactions, label: 'Ставить новые реакции' },
+      { bit: Perm.PinMessages, label: 'Закреплять сообщения' },
+      { bit: Perm.ManageMessages, label: 'Удалять чужие сообщения и снимать реакции' },
       { bit: Perm.MentionEveryone, label: 'Упоминать @everyone, @here и все роли' },
     ],
   },
@@ -96,7 +101,8 @@ export const PermGroups: PermGroup[] = [
 const label = (bit: bigint): { bit: bigint; label: string } =>
   PermGroups.flatMap(g => g.perms).find(p => p.bit === bit)!;
 
-const TEXT_CHANNEL = [Perm.ViewChannel, Perm.SendMessages, Perm.ReadMessageHistory, Perm.ManageMessages, Perm.MentionEveryone, Perm.CreateInvite];
+const TEXT_CHANNEL = [Perm.ViewChannel, Perm.SendMessages, Perm.ReadMessageHistory, Perm.AttachFiles, Perm.AddReactions, Perm.PinMessages,
+  Perm.ManageMessages, Perm.MentionEveryone, Perm.CreateInvite];
 const VOICE_CHANNEL = [Perm.ViewChannel, Perm.Connect, Perm.Speak, Perm.Video, Perm.Stream, Perm.StreamHQ, Perm.UseVoiceActivity,
   Perm.MuteMembers, Perm.DeafenMembers, Perm.MoveMembers, Perm.CreateInvite];
 

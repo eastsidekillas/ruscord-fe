@@ -325,6 +325,28 @@ await step('attachments: a picture and a file reach Bob; the picture shows, the 
   if (!/^attachment/.test(res.headers()['content-disposition'] ?? '')) throw new Error('a text file must download, not open');
 });
 
+await step('reactions and pins: Ann reacts from the picker, Bob joins; Ann pins, Bob finds it pinned', async () => {
+  await say(ann, 'реакции сюда');
+  const annMsg = ann.locator('ChatItem', { hasText: 'реакции сюда' }).last();
+  const bobMsg = bob.locator('ChatItem', { hasText: 'реакции сюда' }).last();
+  await annMsg.hover();
+  await annMsg.getByRole('button', { name: 'Реакция', exact: true }).click();
+  const picker = ann.getByRole('dialog', { name: 'Выбор эмодзи' });
+  await picker.getByRole('searchbox', { name: 'Найти эмодзи' }).fill('лайк');
+  await picker.getByRole('button', { name: 'большой палец вверх', exact: true }).first().click();
+  await bobMsg.getByRole('button', { name: '👍: 1', exact: true }).click({ timeout: 8000 });
+  await bobMsg.getByRole('button', { name: '👍: 2, ваша реакция', exact: true }).waitFor({ timeout: 8000 });
+  await annMsg.getByRole('button', { name: '👍: 2, ваша реакция', exact: true }).waitFor({ timeout: 8000 });
+  // The owner pins it; Bob sees the mark and finds it among the pinned.
+  await annMsg.hover();
+  await annMsg.getByRole('button', { name: 'Закрепить', exact: true }).click();
+  await bobMsg.locator('[title="Закреплено"]').waitFor({ timeout: 8000 });
+  await bob.locator('[data-pins]').click();
+  await bob.getByRole('dialog', { name: 'Закреплённые сообщения' }).getByText('реакции сюда').waitFor({ timeout: 8000 });
+  await bob.locator('[data-pins]').click();
+  await bob.getByRole('dialog', { name: 'Закреплённые сообщения' }).waitFor({ state: 'detached', timeout: 4000 });
+});
+
 await step('channel permissions: @everyone loses #новости, Bob stops seeing it live; back to default', async () => {
   const item = ann.locator('a', { hasText: 'новости' }).first();
   await item.hover();
