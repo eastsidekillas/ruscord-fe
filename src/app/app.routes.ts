@@ -8,6 +8,8 @@ export const appRoutes: Routes = [
   { path: 'login', loadComponent: () => import('../pages/auth/ui/sign-in').then(m => m.SignIn) },
   { path: '', loadComponent: () => import('../pages/landing/ui/landing-page').then(m => m.LandingLayout) },
   { path: 'invite/:token', loadComponent: () => import('../pages/invite/ui/invite-page').then(m => m.InvitePage) },
+  // Owner statistics (ruscord-core ADR-0042); the core answers 404 to everyone else.
+  { path: 'admin', canActivate: [AuthGuard], loadComponent: () => import('../pages/admin/ui/admin-page').then(m => m.AdminPage) },
 
   {
     path: 'channels',

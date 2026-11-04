@@ -6,6 +6,7 @@ import { Notification } from '@shared/ui/notification';
 import { NotificationService } from '@shared/model/notification.service';
 import { ProfileViewModal } from '@features/view-profile/ui/profile-view-modal';
 import { ModalService } from '@shared/model/modal.service';
+import { VisitService } from '@shared/model/visit.service';
 import { InviteServerModal } from '@features/invite-server/ui/invite-server-modal';
 import { ServerSettingsModal } from '@features/server-settings/ui/server-settings-modal';
 import { ChannelModal } from '@features/channel-settings/ui/channel-modal';
@@ -51,5 +52,6 @@ export class AppComponent {
     inject(AppStateStore);
     inject(TypingStore);
     inject(IdleService);
+    inject(VisitService).start();
   }
 }

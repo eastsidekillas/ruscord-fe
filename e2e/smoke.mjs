@@ -131,10 +131,26 @@ await step('a wrong password shows the server\'s error and unlocks the form', as
   await ann.locator('button[type=submit]:enabled').waitFor({ timeout: 2000 });
 });
 
+await step('a visit by a tagged link is counted and the tag goes with the sign-up', async () => {
+  const visit = ann.waitForResponse(r => r.url().endsWith('/api/v1/visits') && r.request().method() === 'POST');
+  await ann.goto(BASE + '/?ref=E2E');
+  if ((await visit).status() !== 204) throw new Error('visit not counted');
+  const kept = await ann.evaluate(() => JSON.parse(localStorage.getItem('rc_ref') ?? 'null')?.ref);
+  if (kept !== 'e2e') throw new Error(`tag kept: ${kept}`);
+});
+
 await step('register three users', async () => {
+  const signup = ann.waitForRequest(r => r.url().endsWith('/api/v1/auth/register'));
   await register(ann, 'ann');
+  if ((await signup).postDataJSON().ref !== 'e2e') throw new Error('the sign-up did not carry the tag');
   await register(bob, 'bob');
   await register(cat, 'cat');
+});
+
+await step('the statistics page does not exist for a non-admin', async () => {
+  await bob.goto(BASE + '/admin');
+  await sees(bob, 'Такой страницы нет.');
+  await bob.goto(BASE + '/channels/me');
 });
 
 await step('friend request by username, live with the name, accepted', async () => {

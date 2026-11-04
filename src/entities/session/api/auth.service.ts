@@ -42,8 +42,11 @@ export class AuthService {
     return this.http.post<User>(`${this.base}/auth/login`, { email, password }).pipe(tap(u => this.signIn(u)));
   }
 
-  /** Registration signs in at once (the server sets the cookies). */
-  register(body: { email: string; username: string; display_name: string; password: string }): Observable<User> {
+  /**
+   * Registration signs in at once (the server sets the cookies). ref is the
+   * tag of the link the visitor came by, for the owner's statistics.
+   */
+  register(body: { email: string; username: string; display_name: string; password: string; ref?: string }): Observable<User> {
     return this.http.post<User>(`${this.base}/auth/register`, body).pipe(tap(u => this.signIn(u)));
   }
 

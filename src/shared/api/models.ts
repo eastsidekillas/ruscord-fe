@@ -350,3 +350,17 @@ export function deviceLabel(ua: string): string {
 export function nameOf(u: PublicUser | null | undefined): string {
   return u?.display_name || u?.username || 'Пользователь';
 }
+
+/** Owner statistics (ruscord-core ADR-0042, GET /admin/stats). */
+export interface AdminStats {
+  generated_at: string;
+  zone: string;
+  /** Moscow dates of the period, oldest first. */
+  days: string[];
+  now: Record<string, number>;
+  totals: Record<string, number>;
+  /** One number per day of days. */
+  series: Record<string, number[]>;
+  /** By link tag over the period; '' is no tag. */
+  refs: { ref: string; counts: Record<string, number> }[];
+}

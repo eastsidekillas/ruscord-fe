@@ -3,6 +3,7 @@ import { HttpClient, HttpEvent, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environment/environment';
 import {
+  AdminStats,
   Attachment,
   ChosenStatus,
   DMChannel,
@@ -335,6 +336,12 @@ export class ApiService {
     for (const h of q.has ?? []) params = params.append('has', h);
     const path = guildId ? `guilds/${guildId}/messages/search` : `channels/${channelId}/messages/search`;
     return this.http.get<SearchResult>(this.url(path), { params });
+  }
+
+  // Owner statistics (ruscord-core ADR-0042)
+  /** 404 for everyone not listed as admin. */
+  adminStats(days: number): Observable<AdminStats> {
+    return this.http.get<AdminStats>(this.url('admin/stats'), { params: { days } });
   }
 
   // Read states (ruscord-core ADR-0038)
