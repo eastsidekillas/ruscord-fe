@@ -378,7 +378,8 @@ await step('search: Bob finds the bold message with a filter and jumps to it', a
   await results.locator('[data-search-result]').first().click();
   await bob.waitForURL(/around=/, { timeout: 8000 });
   await bob.locator('ChatItem[data-highlight]', { hasText: 'жирно' }).waitFor({ timeout: 8000 });
-  // A word that is nowhere.
+  // A word that is nowhere (searches are limited to one a second).
+  await bob.waitForTimeout(1100);
   await box.fill('жирафы');
   await box.press('Enter');
   await results.getByText('Ничего не нашлось.').waitFor({ timeout: 8000 });
