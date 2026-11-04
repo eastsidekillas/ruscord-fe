@@ -27,7 +27,7 @@ server {
         # The page may run only its own scripts and talk only to its own
         # origin; nobody may frame it (clickjacking). Component styles are
         # inline <style> elements, hence 'unsafe-inline' for styles only.
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self'; connect-src 'self' ws://$http_host wss://$http_host ${RUSCORD_CSP_CONNECT}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self' ws://$http_host wss://$http_host ${RUSCORD_CSP_CONNECT}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
         add_header X-Frame-Options "DENY" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -39,7 +39,17 @@ server {
         include proxy_params;
     }
 
-    # Files are immutable; the core sets the caching and security headers.
+    # Attachments are up to 25 MiB (ruscord-core docs/adr/0036-attachments.md).
+    # Passed on as they come: the core spools them itself.
+    location ~ ^/api/v1/channels/[0-9a-f-]+/attachments$ {
+        client_max_body_size 26m;
+        proxy_request_buffering off;
+        proxy_pass http://core_upstream;
+        include proxy_params;
+    }
+
+    # Files never change under one link; the core sets the caching and
+    # security headers (attachments need a signed link).
     location /cdn/ {
         proxy_pass http://core_upstream;
         include proxy_params;

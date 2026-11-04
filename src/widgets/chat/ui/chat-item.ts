@@ -2,8 +2,9 @@ import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Ou
 import { CommonModule } from '@angular/common';
 import { messageTime } from '@shared/lib/dates';
 import { AvatarUI } from '@shared/ui/avatar';
-import { CornerUpRight, LucideAngularModule, Pencil, Reply, Trash2 } from 'lucide-angular';
-import { Message } from '@shared/api';
+import { CornerUpRight, Download, FileText, LucideAngularModule, Pencil, Reply, Trash2 } from 'lucide-angular';
+import { Attachment, Message } from '@shared/api';
+import { attachmentKind, fileSize, fitBox } from '@shared/lib/files';
 import { MAX_MESSAGE } from '@shared/config/limits';
 import { MarkupView, MentionContext } from '@shared/ui/markup-view';
 import { MentionTokens, toDisplay, toWire } from '@shared/lib/mention-text';
@@ -62,8 +63,30 @@ const NO_NAMES = { user: () => null, role: () => null, channel: () => null };
           <time class="text-[12px] text-ok-muted" [attr.datetime]="item.message.created_at">{{ when(item.message.created_at) }}</time>
           <span *ngIf="item.message.edited_at" class="text-[12px] text-ok-muted">(изменено)</span>
         </div>
-        <MarkupView *ngIf="!editing" class="mt-0.5 text-[15px] leading-[22px] text-ok-text" [text]="item.message.content" [ctx]="ctx"
+        <MarkupView *ngIf="!editing && item.message.content" class="mt-0.5 text-[15px] leading-[22px] text-ok-text" [text]="item.message.content" [ctx]="ctx"
                     (user)="authorClicked.emit($event)" />
+        <div *ngIf="item.message.attachments.length" class="mt-1 flex flex-col gap-1.5 items-start" aria-label="Вложения" role="group">
+          <ng-container *ngFor="let a of item.message.attachments; trackBy: byAttachment">
+            <ng-container [ngSwitch]="kind(a)">
+              <a *ngSwitchCase="'image'" [href]="a.url" target="_blank" rel="noopener noreferrer" class="block max-w-full rounded-lg overflow-hidden bg-ok-surface-2"
+                 [title]="a.filename">
+                <img [src]="a.url" [alt]="a.filename" loading="lazy" class="block max-w-full h-auto object-contain"
+                     [attr.width]="box(a).width" [attr.height]="box(a).height" [style.width.px]="box(a).width" />
+              </a>
+              <video *ngSwitchCase="'video'" [src]="a.url" controls preload="metadata" class="block max-w-[min(100%,480px)] max-h-[360px] rounded-lg bg-black"
+                     [attr.aria-label]="a.filename"></video>
+              <a *ngSwitchDefault [href]="a.url" [attr.download]="a.filename" rel="noopener noreferrer"
+                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-ok-border bg-ok-sidebar hover:bg-ok-surface-1 w-[min(100%,400px)] box-border">
+                <lucide-angular class="w-7 h-7 shrink-0 text-ok-muted" [img]="FileText"></lucide-angular>
+                <span class="flex-1 min-w-0 flex flex-col">
+                  <span class="text-[14px] text-ok-accent truncate">{{ a.filename }}</span>
+                  <span class="text-[12px] text-ok-muted">{{ size(a.size) }}</span>
+                </span>
+                <lucide-angular class="w-4 h-4 shrink-0 text-ok-muted" [img]="Download"></lucide-angular>
+              </a>
+            </ng-container>
+          </ng-container>
+        </div>
         <ng-container *ngIf="editing">
           <label [for]="'edit-' + item.message.id" class="sr-only-ok">Изменить сообщение</label>
           <textarea #editField [id]="'edit-' + item.message.id" rows="1" [value]="draft" [attr.maxlength]="max"
@@ -132,6 +155,19 @@ export class ChatItem {
   protected readonly Pencil = Pencil;
   protected readonly Trash2 = Trash2;
   protected readonly CornerUpRight = CornerUpRight;
+  protected readonly FileText = FileText;
+  protected readonly Download = Download;
+  protected readonly kind = attachmentKind;
+  protected byAttachment = (_: number, a: Attachment) => a.id;
+
+  /** Pictures are shown at most 400×300, keeping their shape. */
+  protected box(a: Attachment): { width: number; height: number } {
+    return fitBox(a.width ?? 1, a.height ?? 1, 400, 300);
+  }
+
+  protected size(bytes: number): string {
+    return fileSize(bytes);
+  }
 
   protected onEditKey(e: KeyboardEvent, text: string): void {
     if (e.key === 'Escape') {

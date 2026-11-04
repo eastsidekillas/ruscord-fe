@@ -32,7 +32,13 @@ export RUSCORD_FE_DIR="$fe"
 # LiveKit's default 127.0.0.1 is unreachable; give LiveKit that address.
 export RUSCORD_LIVEKIT_NODE_IP="${RUSCORD_LIVEKIT_NODE_IP:-$(hostname -I | awk '{print $1}')}"
 
-logs() { "${compose[@]}" logs --no-color > "$fe/e2e/failures/stack.log" 2>&1 || true; }
+# On failure: the whole log as an artifact, and the core's warnings and
+# errors in the job output, where they can be read without downloading.
+logs() {
+  "${compose[@]}" logs --no-color > "$fe/e2e/failures/stack.log" 2>&1 || true
+  echo "--- core warnings and errors (all in e2e/failures/stack.log)"
+  grep -E 'level=(WARN|ERROR)' "$fe/e2e/failures/stack.log" | tail -40 || true
+}
 mkdir -p "$fe/e2e/failures"
 
 "${compose[@]}" up -d --build --wait --wait-timeout 180 postgres valkey

@@ -306,6 +306,25 @@ await step('markup and a mention from the suggestions: Bob sees bold, code, a li
   if (await ann.locator('ChatItem[data-mentioned]', { hasText: 'жирно' }).count()) throw new Error('own message is highlighted');
 });
 
+await step('attachments: a picture and a file reach Bob; the picture shows, the file downloads', async () => {
+  const fs = await import('node:fs');
+  await ann.locator('MessageInput input[type=file]').setInputFiles([
+    { name: 'alpha.png', mimeType: 'image/png', buffer: fs.readFileSync(`${FIX}/alpha.png`) },
+    { name: 'заметка.txt', mimeType: 'text/plain', buffer: Buffer.from('привет из файла') },
+  ]);
+  await ann.getByRole('list', { name: 'Файлы к отправке' }).getByText('заметка.txt').waitFor({ timeout: 4000 });
+  await say(ann, 'с файлами');
+  const msg = bob.locator('ChatItem', { hasText: 'с файлами' }).last();
+  const img = msg.locator('img[src*="/cdn/attachments/"]');
+  await img.waitFor({ timeout: 15000 });
+  await bob.waitForFunction(el => el.complete && el.naturalWidth > 0, await img.elementHandle(), { timeout: 8000 });
+  const file = msg.locator('a[download="заметка.txt"]');
+  await file.waitFor({ timeout: 2000 });
+  const res = await bob.request.get(BASE + (await file.getAttribute('href')));
+  if (res.status() !== 200 || (await res.text()) !== 'привет из файла') throw new Error(`download: ${res.status()}`);
+  if (!/^attachment/.test(res.headers()['content-disposition'] ?? '')) throw new Error('a text file must download, not open');
+});
+
 await step('channel permissions: @everyone loses #новости, Bob stops seeing it live; back to default', async () => {
   const item = ann.locator('a', { hasText: 'новости' }).first();
   await item.hover();
@@ -486,7 +505,7 @@ await step('ban Cat: she loses the server and cannot come back; unban', async ()
 
 await step('profile: name, about me and avatar reach others live', async () => {
   await ann.locator('[title="Настройки"]').click();
-  await ann.setInputFiles('input[type=file]', `${FIX}/photo.jpg`);
+  await ann.setInputFiles('UserSettingsModal input[type=file]', `${FIX}/photo.jpg`);
   await ann.fill('#p-name', 'Аня');
   await ann.fill('#p-bio', 'Люблю Go');
   await ann.getByRole('button', { name: 'Сохранить' }).click();
