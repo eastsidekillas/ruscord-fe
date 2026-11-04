@@ -132,6 +132,8 @@ await step('a wrong password shows the server\'s error and unlocks the form', as
 });
 
 await step('a visit by a tagged link is counted and the tag goes with the sign-up', async () => {
+  // A tab counts one visit; this one already opened /login above.
+  await ann.evaluate(() => sessionStorage.removeItem('rc_visit'));
   const visit = ann.waitForResponse(r => r.url().endsWith('/api/v1/visits') && r.request().method() === 'POST');
   await ann.goto(BASE + '/?ref=E2E');
   if ((await visit).status() !== 204) throw new Error('visit not counted');
