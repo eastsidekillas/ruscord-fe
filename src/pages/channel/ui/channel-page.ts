@@ -30,6 +30,7 @@ import { VoiceService } from '@entities/voice';
 import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
 import { GuildMembersStore } from '@entities/guild-members';
+import { ReadStateStore } from '@entities/read-states';
 import { MentionContext } from '@shared/ui/markup-view';
 import { plainText } from '@shared/lib/markup';
 import { MentionWorld, mentionContext, mentionOptions, mentionsMe } from '../model/mentions';
@@ -99,6 +100,8 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
             [notice]="v.canRead ? null : 'У вас нет доступа к истории этого канала.'"
             [ctx]="mentionCtx()"
             (top)="loadOlder()"
+            (bottom)="markRead()"
+            [newSince]="newSince()"
             (replyTo)="startReply($event)"
             [editingId]="editing()?.message?.id ?? null"
             [pending]="pending()"
@@ -159,6 +162,9 @@ export class ChannelPage {
   private readonly notify = inject(NotificationService);
   private readonly route = inject(ActivatedRoute);
   private readonly directory = inject(GuildMembersStore);
+  private readonly reads = inject(ReadStateStore);
+  /** Where «Новые сообщения» goes: the mark when the channel opened. */
+  protected readonly newSince = signal<string | null>(null);
   @ViewChild(ChatMessages) private list?: ChatMessages;
   @ViewChild(MessageInput) private input?: MessageInput;
 
@@ -324,6 +330,7 @@ export class ChannelPage {
         case 'MESSAGE_UPDATE':
           if ((d as Message).nonce && (d as Message).author?.id === this.store.me()?.id) this.discard((d as Message).nonce!);
           this.messages.update(list => upsertMessage(list, d as Message));
+          if (ev.t === 'MESSAGE_CREATE') setTimeout(() => this.markRead());
           if (ev.t === 'MESSAGE_CREATE' && document.hidden && d.author?.id !== this.store.me()?.id) this.ding();
           break;
         case 'MESSAGE_DELETE':
@@ -336,9 +343,12 @@ export class ChannelPage {
         this.applyReaction(r.message_id, ev.t as ReactionEventType, r);
       }
     });
+    const visible = () => this.markRead();
+    document.addEventListener('visibilitychange', visible);
     inject(DestroyRef).onDestroy(() => {
       sub.unsubscribe();
       this.loading?.unsubscribe();
+      document.removeEventListener('visibilitychange', visible);
     });
   }
 
@@ -355,6 +365,8 @@ export class ChannelPage {
     this.replyTo.set(null);
     this.editing.set(null);
     this.pins.set(undefined);
+    const st = this.reads.get(id);
+    this.newSince.set(this.reads.unread(id) ? (st?.lastRead ?? null) : null);
     this.lastTyping = 0;
     this.reachedStart.set(!canRead);
     this.loadingOlder.set(false);
@@ -365,6 +377,7 @@ export class ChannelPage {
         this.messages.update(list => page.reduce(upsertMessage, list));
         this.reachedStart.set(page.length < PAGE);
         this.list?.scrollToBottom();
+        setTimeout(() => this.markRead());
       },
       error: err => this.notify.show(errorText(err, 'Не удалось загрузить сообщения'), 'error'),
     });
@@ -386,7 +399,16 @@ export class ChannelPage {
     });
   }
 
+  /** Marks the channel read when its newest message is on screen. */
+  protected markRead(): void {
+    const id = this.channelId();
+    const newest = this.messages().at(-1)?.id;
+    if (!id || !newest || document.hidden || !this.list?.isAtBottom() || !this.view()?.canRead) return;
+    this.reads.ack(id, newest);
+  }
+
   protected send(p: SendPayload): void {
+    this.newSince.set(null);
     const me = this.store.me();
     this.replyTo.set(null);
     this.lastTyping = 0;

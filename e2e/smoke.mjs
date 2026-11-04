@@ -93,7 +93,7 @@ async function step(title, fn) {
     failed++;
     console.log('FAIL', title, '—', e.message.split('\n')[0]);
     // What it was waiting for: the first lines of Playwright's call log.
-    const log = e.message.split('\n').filter(l => /^\s+- /.test(l)).slice(0, 3);
+    const log = e.message.split('\n').filter(l => /^\s+- /.test(l)).slice(0, 6);
     for (const l of log) console.log('     ', l.trim());
     const slug = title.replace(/\W+/g, '_').slice(0, 40);
     for (const [n, p] of Object.entries(pages)) {
@@ -345,6 +345,28 @@ await step('reactions and pins: Ann reacts from the picker, Bob joins; Ann pins,
   await bob.getByRole('dialog', { name: 'Закреплённые сообщения' }).getByText('реакции сюда').waitFor({ timeout: 8000 });
   await bob.locator('[data-pins]').click();
   await bob.getByRole('dialog', { name: 'Закреплённые сообщения' }).waitFor({ state: 'detached', timeout: 4000 });
+});
+
+await step('unread: a mention while Bob is away shows on the server and the channel; opening it reads it', async () => {
+  const back = bob.url();
+  await bob.goto(BASE + '/channels/me');
+  await bob.getByText('ЛИЧНЫЕ СООБЩЕНИЯ').waitFor({ timeout: 8000 });
+  try {
+    await input(ann).pressSequentially('@bo', { delay: 20 });
+    await ann.getByRole('option', { name: new RegExp(name('bob'), 'i') }).first().waitFor({ timeout: 8000 });
+    await input(ann).press('Enter');
+    await input(ann).pressSequentially('загляни', { delay: 10 });
+    await input(ann).press('Enter');
+    const server = bob.locator('ServerSidebar [data-unread]').first();
+    await server.locator('.ok-badge', { hasText: '1' }).waitFor({ timeout: 10000 });
+  } finally {
+    // Later steps expect Bob in the channel, whatever happened here.
+    await bob.goto(back);
+  }
+  // Opening the channel reads it: the mark and the badge go away.
+  await bob.locator('ChatItem', { hasText: 'загляни' }).waitFor({ timeout: 8000 });
+  await bob.locator('ServerSidebar [data-unread]').first().waitFor({ state: 'detached', timeout: 10000 });
+  await bob.locator('ServerChannelsItems a[data-unread]').first().waitFor({ state: 'detached', timeout: 4000 });
 });
 
 await step('channel permissions: @everyone loses #новости, Bob stops seeing it live; back to default', async () => {

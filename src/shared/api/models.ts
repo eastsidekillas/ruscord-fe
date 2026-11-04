@@ -174,6 +174,17 @@ export interface Attachment {
   url?: string;
 }
 
+/** How far the user has read a channel (ruscord-core ADR-0038). */
+export interface ReadState {
+  channel_id: Snowflake;
+  /** null: never opened. */
+  last_read_id: Snowflake | null;
+  /** null: no messages. */
+  last_message_id: Snowflake | null;
+  /** Unread messages that ping the user, among the newest 100 unread. */
+  mention_count: number;
+}
+
 /** One emoji under a message. */
 export interface Reaction {
   emoji: string;
