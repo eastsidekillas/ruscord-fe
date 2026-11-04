@@ -299,7 +299,8 @@ await step('markup and a mention from the suggestions: Bob sees bold, code, a li
   await msg.locator('strong', { hasText: 'жирно' }).waitFor({ timeout: 2000 });
   await msg.locator('code', { hasText: 'код' }).waitFor({ timeout: 2000 });
   await msg.locator('a[href="https://example.com"]').waitFor({ timeout: 2000 });
-  await msg.getByText('@' + name('bob').toUpperCase()).waitFor({ timeout: 2000 });
+  // Shown by the name on the server: Bob's display name (registration sets it to BOB).
+  await msg.getByText('@BOB', { exact: true }).waitFor({ timeout: 2000 });
   // The author's own copy is not highlighted.
   await ann.locator('ChatItem', { hasText: 'жирно' }).last().waitFor();
   if (await ann.locator('ChatItem[data-mentioned]', { hasText: 'жирно' }).count()) throw new Error('own message is highlighted');
