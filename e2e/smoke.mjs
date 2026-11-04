@@ -306,6 +306,25 @@ await step('markup and a mention from the suggestions: Bob sees bold, code, a li
   if (await ann.locator('ChatItem[data-mentioned]', { hasText: 'жирно' }).count()) throw new Error('own message is highlighted');
 });
 
+await step('the paperclip opens the file chooser, and the chosen file waits in the composer', async () => {
+  const errors = [];
+  const onError = m => m.type() === 'error' && errors.push(m.text());
+  ann.on('console', onError);
+  try {
+    const clip = ann.locator('MessageInput [data-attach]');
+    await clip.click({ trial: true, timeout: 4000 }); // visible and not covered
+    const [chooser] = await Promise.all([ann.waitForEvent('filechooser', { timeout: 4000 }), clip.click()]);
+    await chooser.setFiles({ name: 'скрепка.txt', mimeType: 'text/plain', buffer: Buffer.from('x') });
+    await ann.getByRole('list', { name: 'Файлы к отправке' }).getByText('скрепка.txt').waitFor({ timeout: 4000 });
+    await ann.getByRole('button', { name: 'Убрать скрепка.txt' }).click();
+  } catch (e) {
+    console.log('     console errors:', errors.slice(0, 5));
+    throw e;
+  } finally {
+    ann.off('console', onError);
+  }
+});
+
 await step('attachments: a picture and a file reach Bob; the picture shows, the file downloads', async () => {
   const fs = await import('node:fs');
   await ann.locator('MessageInput input[type=file]').setInputFiles([
