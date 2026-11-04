@@ -15,6 +15,7 @@ import {
   Message,
   Profile,
   PublicUser,
+  ReadState,
   Relationship,
   Role,
   Ban,
@@ -318,6 +319,19 @@ export class ApiService {
 
   deleteMessage(channelId: string, messageId: string): Observable<void> {
     return this.http.delete<void>(this.url(`channels/${channelId}/messages/${messageId}`));
+  }
+
+  // Read states (ruscord-core ADR-0038)
+  readStates(): Observable<ReadState[]> {
+    return this.http.get<ReadState[]>(this.url('users/@me/read-states'));
+  }
+
+  ack(channelId: string, messageId: string): Observable<void> {
+    return this.http.post<void>(this.url(`channels/${channelId}/messages/${messageId}/ack`), null);
+  }
+
+  ackGuild(guildId: string): Observable<void> {
+    return this.http.post<void>(this.url(`guilds/${guildId}/ack`), null);
   }
 
   // Reactions and pins (ruscord-core ADR-0037)

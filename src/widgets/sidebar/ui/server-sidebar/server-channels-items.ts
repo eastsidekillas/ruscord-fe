@@ -6,6 +6,7 @@ import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
 import { ApiService, FullGuild, GuildChannel, Perm, VoiceState, errorText, hasPerm, nameOf } from '@shared/api';
 import { AppStateStore, channelGroups } from '@entities/app-state';
+import { ReadStateStore } from '@entities/read-states';
 import { VoiceService } from '@entities/voice';
 import { Track } from 'livekit-client';
 import { AvatarUI } from '@shared/ui/avatar';
@@ -37,9 +38,14 @@ import { AvatarUI } from '@shared/ui/avatar';
           <a *ngIf="channel.type === 0"
              [routerLink]="['/channels', guildId(), channel.id]"
              routerLinkActive="!bg-ok-surface-2 !text-ok-text"
-             class="flex items-center gap-2 p-2 rounded-lg text-ok-muted hover:bg-ok-surface-1 hover:text-ok-text group">
+             class="relative flex items-center gap-2 p-2 rounded-lg text-ok-muted hover:bg-ok-surface-1 hover:text-ok-text group"
+             [ngClass]="{ '!text-ok-text font-semibold': reads.unread(channel.id) }"
+             [attr.data-unread]="reads.unread(channel.id) || null">
+            <span *ngIf="reads.unread(channel.id)" class="absolute -left-2 top-1/2 -mt-1 w-1 h-2 rounded-r bg-ok-text" aria-hidden="true"></span>
             <lucide-angular class="w-4 h-4 shrink-0 text-ok-muted" [img]="Hash"></lucide-angular>
-            <span class="truncate flex-1">{{ channel.name }}</span>
+            <span class="truncate flex-1">{{ channel.name }}<span *ngIf="reads.unread(channel.id)" class="sr-only-ok">, непрочитанное</span></span>
+            <span *ngIf="mentions(channel.id) as n" class="min-w-5 h-5 px-1.5 rounded-full bg-ok-danger text-ok-on-danger text-[11px] font-bold flex items-center justify-center"
+                  [attr.aria-label]="'упоминаний: ' + n">{{ n > 99 ? '99+' : n }}</span>
             <button *ngIf="canManage(channel.id)" type="button" (click)="edit(channel.id, $event)" title="Настройки канала" aria-label="Настройки канала"
                     class="w-6 h-6 -my-1 rounded-md opacity-0 group-hover:opacity-100 focus:opacity-100 text-ok-muted hover:text-ok-text flex items-center justify-center">
               <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
@@ -137,6 +143,12 @@ export class ServerChannelsItems {
   protected byId = (_: number, c: { id: string }) => c.id;
   protected byUser = (_: number, v: VoiceState) => v.user_id;
   protected readonly store = inject(AppStateStore);
+  protected readonly reads = inject(ReadStateStore);
+
+  protected mentions(channelId: string): number {
+    const s = this.reads.get(channelId);
+    return s && this.reads.unread(channelId) ? s.mentions : 0;
+  }
   private readonly voice = inject(VoiceService);
   protected readonly MicOff = MicOff;
   protected readonly HeadphoneOff = HeadphoneOff;

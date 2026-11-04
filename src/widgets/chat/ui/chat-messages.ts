@@ -32,6 +32,9 @@ const STICK_PX = 80;
       <div *ngIf="dayAt(i) as day" role="separator" class="flex items-center gap-3 py-3 px-2 text-[12px] text-ok-muted">
         <span class="flex-1 h-px bg-ok-border"></span>{{ day }}<span class="flex-1 h-px bg-ok-border"></span>
       </div>
+      <div *ngIf="newAt(i)" role="separator" data-new-messages class="flex items-center gap-2 py-1 px-2 text-[12px] font-semibold text-ok-danger">
+        <span class="flex-1 h-px bg-ok-danger"></span>Новые сообщения
+      </div>
       <ChatItem [item]="it" [canReply]="canReply" [ctx]="ctx" [editing]="it.message.id === editingId"
                 (replyClicked)="replyTo.emit($event)"
                 (editClicked)="edit.emit($event)"
@@ -70,6 +73,10 @@ export class ChatMessages implements AfterViewChecked {
   @Output() pin = new EventEmitter<{ item: ChatMessage; on: boolean }>();
   /** Scrolled to the top: time to load older messages. */
   @Output() top = new EventEmitter<void>();
+  /** Scrolled back to the bottom: the newest message is in view. */
+  @Output() bottom = new EventEmitter<void>();
+  /** The last message read when the channel opened: the line «Новые сообщения» goes after it. */
+  @Input() newSince: string | null = null;
   @ViewChild('box') box!: ElementRef<HTMLElement>;
 
   private stick = true;
@@ -101,6 +108,18 @@ export class ChatMessages implements AfterViewChecked {
     this.lastHeight = el.scrollHeight;
   }
 
+  protected newAt(i: number): boolean {
+    const since = this.newSince;
+    const cur = this.items[i]?.message.id;
+    const prev = this.items[i - 1]?.message.id;
+    return !!since && !!cur && cur > since && (!prev || prev <= since);
+  }
+
+  /** The newest message is in view (within a few pixels of the bottom). */
+  isAtBottom(): boolean {
+    return this.stick;
+  }
+
   /** Jumps to the newest message (after sending). */
   scrollToBottom(): void {
     this.stick = true;
@@ -110,7 +129,9 @@ export class ChatMessages implements AfterViewChecked {
 
   protected onScroll(): void {
     const el = this.box.nativeElement;
+    const was = this.stick;
     this.stick = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
+    if (this.stick && !was) this.bottom.emit();
     if (el.scrollTop < 40) this.top.emit();
   }
 }

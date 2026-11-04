@@ -9,6 +9,7 @@ import { NotificationService } from '@shared/model/notification.service';
 import { DropdownMenuItem } from '@shared/ui/dropdown-menu';
 import { ApiService, Perm, errorText, hasPerm } from '@shared/api';
 import { AppStateStore } from '@entities/app-state';
+import { ReadStateStore } from '@entities/read-states';
 import { settingsTabs } from '@features/server-settings/ui/server-settings-modal';
 import { LucideAngularModule, Plus, Users } from 'lucide-angular';
 import { SidebarFooter } from '@widgets/sidebar/ui/sidebar-footer';
@@ -59,6 +60,7 @@ export class Sidebar {
   private readonly api = inject(ApiService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly reads = inject(ReadStateStore);
 
   protected readonly guild = computed(() => this.store.guild(this.id()));
   protected readonly Users = Users;
@@ -78,6 +80,7 @@ export class Sidebar {
     if (settingsTabs(g).length) items.push({ label: 'Настройки сервера', action: 'editServer' });
     if (hasPerm(g.permissions, Perm.ManageChannels)) items.push({ label: 'Создать канал', action: 'createChannel' });
     if (hasPerm(g.permissions, Perm.ChangeNickname)) items.push({ label: 'Сменить ник', action: 'nick' });
+    if (g.channels.some(c => this.reads.unread(c.id))) items.push({ label: 'Отметить как прочитанное', action: 'markRead' });
     if (g.owner_id === me) {
       items.push({ label: 'Удалить сервер', action: 'deleteServer' });
     } else {
@@ -101,6 +104,9 @@ export class Sidebar {
         break;
       case 'nick':
         this.modal.open('nick', { serverId: g.id });
+        break;
+      case 'markRead':
+        this.reads.ackGuild(g);
         break;
       case 'leaveServer':
         if (confirm(`Покинуть сервер «${g.name}»?`)) {

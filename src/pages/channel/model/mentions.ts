@@ -1,4 +1,4 @@
-import { FullGuild, Member, Message, PublicUser, nameOf } from '@shared/api';
+import { FullGuild, Member, PublicUser, nameOf } from '@shared/api';
 import { MentionContext } from '@shared/ui/markup-view';
 import { MentionOption } from '@shared/lib/mention-text';
 
@@ -73,8 +73,5 @@ export function mentionOptions(w: MentionWorld, pingAll: boolean, trigger: '@' |
   return [...people.sort(byFit), ...roles.sort(byFit), ...everyone];
 }
 
-/** The message pings the viewer: by name, by a role they have or @everyone. */
-export function mentionsMe(m: Message, me: string | null | undefined, myRoles: string[]): boolean {
-  if (!me || m.author?.id === me) return false;
-  return m.mention_everyone || (m.mentions ?? []).includes(me) || (m.mention_roles ?? []).some(r => myRoles.includes(r));
-}
+/** Lives with the read states now; kept here for the page. */
+export { mentionsMe } from '@shared/lib/messages';
