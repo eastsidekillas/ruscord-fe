@@ -12,12 +12,13 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Subscription } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { HttpEventType } from '@angular/common/http';
+import { Observable, Subscription, concat, defer, of } from 'rxjs';
+import { filter, map, switchMap, tap, toArray } from 'rxjs/operators';
 import { ChatHeader } from '@widgets/chat/ui/chat-header';
 import { ChatMessages } from '@widgets/chat/ui/chat-messages';
 import { ChatMessage } from '@widgets/chat/ui/chat-item';
-import { PendingMessage, failReason } from '@widgets/chat/ui/pending-item';
+import { PendingFile, PendingMessage, failReason } from '@widgets/chat/ui/pending-item';
 import { MessageInput, SendPayload } from '@features/update-message/ui/message-input';
 import { ServerMembersSidebar } from '@widgets/sidebar/ui/server-sidebar/server-members-sidebar';
 import { GroupMembersSidebar } from '@widgets/sidebar/ui/group-members-sidebar';
@@ -35,6 +36,14 @@ import { MentionWorld, mentionContext, mentionOptions, mentionsMe } from '../mod
 const PAGE = 50;
 /** TYPING_START lasts 10 s on other screens; repeat it a bit sooner while typing. */
 const TYPING_EVERY_MS = 8000;
+
+/** A one-line preview of a message, for the message a reply answers. */
+function preview(m: Message, names: Parameters<typeof plainText>[1]): string {
+  const text = plainText(m.content, names);
+  if (text) return text;
+  const n = m.attachments?.length ?? 0;
+  return n ? (n === 1 ? m.attachments[0].filename : `Файлов: ${n}`) : '';
+}
 
 /** Inserts or replaces a message keeping id order (ids are UUIDv7: time order). */
 export function upsertMessage(list: Message[], m: Message): Message[] {
@@ -113,6 +122,7 @@ export function upsertMessage(list: Message[], m: Message): Message[] {
               [disabled]="!v.canSend"
               [replyTo]="replyTo()"
               [mentions]="suggest"
+              [canAttach]="v.canAttach"
               (cancelReply)="replyTo.set(null)"
               (sendMessage)="send($event)"
               (typing)="onTyping()"
@@ -165,6 +175,7 @@ export class ChannelPage {
         kind: 'channel' as const, title: channel.name, topic: channel.topic || null, image: null, partnerId: null, group: null, dm: null,
         guildId: guild.id, placeholder: `Написать в #${channel.name}`, blocked: false,
         canSend: hasPerm(perms, Perm.SendMessages),
+        canAttach: hasPerm(perms, Perm.SendMessages) && hasPerm(perms, Perm.AttachFiles),
         canRead: hasPerm(perms, Perm.ReadMessageHistory),
         canManage: hasPerm(perms, Perm.ManageMessages),
       };
@@ -178,13 +189,13 @@ export class ChannelPage {
       const blocked = !!other && this.store.relationship(other.id)?.type === 2;
       return {
         kind: 'dm' as const, title: nameOf(other), topic: null, image: other?.avatar ?? null, partnerId: other?.id ?? null, group: null, dm,
-        guildId: null, placeholder: `Написать ${nameOf(other)}`, blocked, canSend: !blocked, canRead: true, canManage: false,
+        guildId: null, placeholder: `Написать ${nameOf(other)}`, blocked, canSend: !blocked, canAttach: !blocked, canRead: true, canManage: false,
       };
     }
     const title = this.store.groupTitle(dm);
     return {
       kind: 'group' as const, title, topic: null, image: null, partnerId: null, group: dm, dm,
-      guildId: null, placeholder: `Написать в «${title}»`, blocked: false, canSend: true, canRead: true, canManage: false,
+      guildId: null, placeholder: `Написать в «${title}»`, blocked: false, canSend: true, canAttach: true, canRead: true, canManage: false,
     };
   });
 
@@ -237,7 +248,7 @@ export class ChannelPage {
         authorId: author?.id ?? null,
         authorName: nameOf(author),
         authorAvatar: author?.avatar ?? null,
-        reply: !m.reply_to ? null : replied ? { authorName: nameOf(this.store.user(replied.author)), content: plainText(replied.content, ctx) } : 'missing',
+        reply: !m.reply_to ? null : replied ? { authorName: nameOf(this.store.user(replied.author)), content: preview(replied, ctx) } : 'missing',
         canEdit: mine && !!v?.canSend,
         canDelete: mine || !!v?.canManage,
         mentioned: mentionsMe(m, me, myRoles),
@@ -360,6 +371,7 @@ export class ChannelPage {
     this.lastTyping = 0;
     const item: PendingMessage = {
       nonce: crypto.randomUUID(), content: p.text, replyToId: p.replyToId, replyMention: p.replyMention,
+      files: p.files.map(file => ({ file, id: null, progress: 0 })),
       authorName: nameOf(me), authorAvatar: me?.avatar ?? null, error: null,
     };
     this.pending.update(list => [...list, item]);
@@ -369,6 +381,7 @@ export class ChannelPage {
 
   /** Sends again with the same nonce: the server keeps one copy at most. */
   protected retry(nonce: string): void {
+    // The newest copy: it knows which files are already up.
     const item = this.pending().find(p => p.nonce === nonce);
     if (!item) return;
     this.setPending(nonce, null);
@@ -379,14 +392,26 @@ export class ChannelPage {
     this.pending.update(list => list.filter(p => p.nonce !== nonce));
   }
 
+  /**
+   * Uploads the files that are not up yet, one at a time with progress,
+   * then sends the message with their ids. A retry starts from the first
+   * file without an id.
+   */
   private deliver(item: PendingMessage): void {
     const id = this.channelId();
     if (!id) return;
-    const body = {
-      content: item.content, nonce: item.nonce, reply_to: item.replyToId ?? undefined,
-      reply_mention: item.replyToId ? item.replyMention : undefined,
-    };
-    this.api.sendMessage(id, body).subscribe({
+    const uploads = item.files.map((f, i) => (f.id ? of(f.id) : this.upload(id, item.nonce, i, f)));
+    concat(...uploads).pipe(
+      toArray(),
+      switchMap(ids => {
+        const body = {
+          content: item.content, nonce: item.nonce, reply_to: item.replyToId ?? undefined,
+          reply_mention: item.replyToId ? item.replyMention : undefined,
+          attachments: ids.length ? ids : undefined,
+        };
+        return this.api.sendMessage(id, body);
+      }),
+    ).subscribe({
       next: m => {
         if (m.channel_id !== this.channelId()) return;
         this.discard(item.nonce);
@@ -395,6 +420,22 @@ export class ChannelPage {
       },
       error: err => this.setPending(item.nonce, failReason(err)),
     });
+  }
+
+  /** One file up; its progress and then its id land in the pending message. */
+  private upload(channelId: string, nonce: string, i: number, f: PendingFile): Observable<string> {
+    return defer(() => this.api.uploadAttachment(channelId, f.file)).pipe(
+      tap(ev => {
+        if (ev.type === HttpEventType.UploadProgress && ev.total) this.setFile(nonce, i, { progress: ev.loaded / ev.total });
+      }),
+      filter(ev => ev.type === HttpEventType.Response),
+      map(ev => (ev.type === HttpEventType.Response ? ev.body!.id : '')),
+      tap(fileId => this.setFile(nonce, i, { id: fileId, progress: 1 })),
+    );
+  }
+
+  private setFile(nonce: string, i: number, patch: Partial<PendingFile>): void {
+    this.pending.update(list => list.map(p => (p.nonce === nonce ? { ...p, files: p.files.map((f, j) => (j === i ? { ...f, ...patch } : f)) } : p)));
   }
 
   private setPending(nonce: string, error: string | null): void {

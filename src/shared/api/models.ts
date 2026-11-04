@@ -162,6 +162,18 @@ export interface Relationship {
   user?: PublicUser;
 }
 
+/** A file of a message; `url` is a signed link that lives a day or more. */
+export interface Attachment {
+  id: Snowflake;
+  filename: string;
+  size: number;
+  /** Sniffed by the server; pictures come with their size. */
+  content_type: string;
+  width?: number;
+  height?: number;
+  url?: string;
+}
+
 export interface Message {
   id: Snowflake;
   channel_id: Snowflake;
@@ -174,6 +186,8 @@ export interface Message {
   /** Users and roles the message pings, checked by the server (ruscord-core ADR-0035). */
   mentions: Snowflake[];
   mention_roles: Snowflake[];
+  /** Files of the message (ruscord-core ADR-0036). */
+  attachments: Attachment[];
   created_at: string;
   edited_at?: string;
 }

@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environment/environment';
 import {
+  Attachment,
   ChosenStatus,
   DMChannel,
   FullGuild,
@@ -294,7 +295,19 @@ export class ApiService {
     return this.http.get<Message[]>(this.url(`channels/${channelId}/messages`), { params });
   }
 
-  sendMessage(channelId: string, body: { content: string; nonce: string; reply_to?: string; reply_mention?: boolean }): Observable<Message> {
+  /** Uploads a file to send in the channel; the events carry the progress (ruscord-core ADR-0036). */
+  uploadAttachment(channelId: string, file: File): Observable<HttpEvent<Attachment>> {
+    return this.http.post<Attachment>(this.url(`channels/${channelId}/attachments`), file, {
+      params: new HttpParams().set('filename', file.name),
+      reportProgress: true,
+      observe: 'events',
+    });
+  }
+
+  sendMessage(
+    channelId: string,
+    body: { content: string; nonce: string; reply_to?: string; reply_mention?: boolean; attachments?: string[] },
+  ): Observable<Message> {
     return this.http.post<Message>(this.url(`channels/${channelId}/messages`), body);
   }
 
