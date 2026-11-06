@@ -392,10 +392,23 @@ await step('unread: a mention while Bob is away shows on the server and the chan
     await input(ann).pressSequentially('@bo', { delay: 20 });
     await ann.getByRole('option', { name: new RegExp(name('bob'), 'i') }).first().waitFor({ timeout: 8000 });
     await input(ann).press('Enter');
+    // Enter picks the suggestion, it does not send "@bo" as text.
+    const typed = await input(ann).inputValue();
+    if (!/^@\S+ $/.test(typed) || /^@bo $/i.test(typed)) throw new Error(`the suggestion was not picked: "${typed}"`);
     await input(ann).pressSequentially('загляни', { delay: 10 });
     await input(ann).press('Enter');
     const server = bob.locator('ServerSidebar [data-unread]').first();
-    await server.locator('.ok-badge', { hasText: '1' }).waitFor({ timeout: 10000 });
+    await server.locator('.ok-badge', { hasText: '1' }).waitFor({ timeout: 10000 }).catch(async e => {
+      // What Bob's side and the server know, to tell a lost mention from a lost event.
+      const badge = await server.locator('.ok-badge').textContent({ timeout: 500 }).catch(() => 'none');
+      const states = await bob.evaluate(() => fetch('/api/v1/users/@me/read-states').then(r => r.json()));
+      const ch = new URL(back).pathname.split('/').at(-1);
+      const last = await bob.evaluate(id => fetch(`/api/v1/channels/${id}/messages?limit=3`).then(r => r.json()), ch);
+      console.log('     badge:', badge, '| server state:', JSON.stringify(states.find(x => x.channel_id === ch)));
+      console.log('     last messages:', JSON.stringify(last.map(m => [m.id, m.content, m.mentions?.length ?? m.mentions])));
+      console.log('     events Bob got:', JSON.stringify(bob.frames_.slice(-6).map(f => [f.t, f.d?.id ?? f.d?.message_id, f.d?.content])));
+      throw e;
+    });
   } finally {
     // Later steps expect Bob in the channel, whatever happened here.
     await bob.goto(back);
