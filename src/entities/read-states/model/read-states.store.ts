@@ -140,14 +140,20 @@ export class ReadStateStore {
 
   /**
    * Changes made while a load is on its way (messages, marks) may be newer
-   * than its answer: they are kept and applied again on top of it.
+   * than its answer: they are kept and applied again on top of it. Applying
+   * one twice changes nothing, so the buffer runs from the first of
+   * overlapping loads to the answer of the last.
    */
   private inFlight: { channelId: string; f: (s: Unread | undefined) => Unread }[] | null = null;
+  /** Only the answer of the latest load counts: an earlier one may come last and is older. */
+  private loadSeq = 0;
 
   private load(): void {
-    this.inFlight = [];
+    const seq = ++this.loadSeq;
+    this.inFlight ??= [];
     this.api.readStates().subscribe({
       next: list => {
+        if (seq !== this.loadSeq) return;
         const replay = this.inFlight ?? [];
         this.inFlight = null;
         this.states.set(Object.fromEntries(list.map((r: ReadState) => [r.channel_id, {
@@ -155,7 +161,9 @@ export class ReadStateStore {
         }])));
         for (const c of replay) this.set(c.channelId, c.f);
       },
-      error: () => (this.inFlight = null),
+      error: () => {
+        if (seq === this.loadSeq) this.inFlight = null;
+      },
     });
   }
 
