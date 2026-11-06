@@ -392,6 +392,9 @@ await step('unread: a mention while Bob is away shows on the server and the chan
     await input(ann).pressSequentially('@bo', { delay: 20 });
     await ann.getByRole('option', { name: new RegExp(name('bob'), 'i') }).first().waitFor({ timeout: 8000 });
     await input(ann).press('Enter');
+    // Enter picks the suggestion, it does not send "@bo" as text.
+    const typed = await input(ann).inputValue();
+    if (!/^@\S+ $/.test(typed) || /^@bo $/i.test(typed)) throw new Error(`the suggestion was not picked: "${typed}"`);
     await input(ann).pressSequentially('загляни', { delay: 10 });
     await input(ann).press('Enter');
     const server = bob.locator('ServerSidebar [data-unread]').first();
