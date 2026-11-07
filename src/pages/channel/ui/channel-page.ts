@@ -37,6 +37,7 @@ import { MentionContext } from '@shared/ui/markup-view';
 import { plainText } from '@shared/lib/markup';
 import { MentionWorld, mentionContext, mentionOptions, mentionsMe } from '../model/mentions';
 import { REACTION_EVENTS, ReactionEventType, applyReaction } from '../model/reactions';
+import { MessageEventType, applyMessageEvent, upsertMessage } from '../model/window';
 
 const PAGE = 50;
 /** TYPING_START lasts 10 s on other screens; repeat it a bit sooner while typing. */
@@ -48,18 +49,6 @@ function preview(m: Message, names: Parameters<typeof plainText>[1]): string {
   if (text) return text;
   const n = m.attachments?.length ?? 0;
   return n ? (n === 1 ? m.attachments[0].filename : `Файлов: ${n}`) : '';
-}
-
-/** Inserts or replaces a message keeping id order (ids are UUIDv7: time order). */
-export function upsertMessage(list: Message[], m: Message): Message[] {
-  const i = list.findIndex(x => x.id === m.id);
-  // Events carry no reactions (null): the ones shown stay.
-  if (i >= 0) return list.map(x => (x.id === m.id ? { ...m, reactions: m.reactions ?? x.reactions } : x));
-  const out = [...list];
-  let at = out.length;
-  while (at > 0 && out[at - 1].id > m.id) at--;
-  out.splice(at, 0, m);
-  return out;
 }
 
 @Component({
@@ -337,14 +326,19 @@ export class ChannelPage {
       switch (ev.t) {
         case 'MESSAGE_CREATE':
         case 'MESSAGE_UPDATE':
-          if ((d as Message).nonce && (d as Message).author?.id === this.store.me()?.id) this.discard((d as Message).nonce!);
-          this.messages.update(list => upsertMessage(list, d as Message));
-          if (ev.t === 'MESSAGE_CREATE') setTimeout(() => this.markRead());
-          if (ev.t === 'MESSAGE_CREATE' && document.hidden && d.author?.id !== this.store.me()?.id) this.ding();
+        case 'MESSAGE_DELETE': {
+          const m = d as Message;
+          const mine = m.author?.id === this.store.me()?.id;
+          if (ev.t !== 'MESSAGE_DELETE' && m.nonce && mine) this.discard(m.nonce);
+          this.applyEvent(ev.t, m);
+          if (ev.t === 'MESSAGE_CREATE') {
+            // One's own message in the middle of history: go to it, at the end.
+            if (mine && !this.reachedEnd()) this.toPresent();
+            setTimeout(() => this.markRead());
+            if (document.hidden && !mine) this.ding();
+          }
           break;
-        case 'MESSAGE_DELETE':
-          this.messages.update(list => list.filter(m => m.id !== d.id));
-          break;
+        }
       }
       if (ev.t === 'MESSAGE_UPDATE' || ev.t === 'MESSAGE_DELETE') this.notePin(ev.t, d as Message);
       if ((REACTION_EVENTS as readonly string[]).includes(ev.t)) {
@@ -363,6 +357,26 @@ export class ChannelPage {
 
   private loadedFor: string | null = null;
   private loadedAround: string | null = null;
+  /**
+   * Events of the channel that came while its first page is on its way. They
+   * are at least as new as the page, so they go on top of it, and only then
+   * is it known which messages the window holds.
+   */
+  private early: { t: MessageEventType; m: Message }[] | null = null;
+
+  private applyEvent(t: MessageEventType, m: Message): void {
+    if (this.early) {
+      this.early.push({ t, m });
+      return;
+    }
+    this.messages.update(list => applyMessageEvent(list, t, m, this.reachedEnd()));
+  }
+
+  /** Leaves a jump into history for the newest messages. */
+  private toPresent(): void {
+    const gid = this.view()?.guildId;
+    void this.router.navigate(['/channels', gid ?? 'me', this.channelId()]);
+  }
   private pendingFor: string | null = null;
 
   private load(id: string, canRead: boolean, around: string | null = null): void {
@@ -383,11 +397,14 @@ export class ChannelPage {
     this.lastTyping = 0;
     this.reachedStart.set(!canRead);
     this.loadingOlder.set(false);
+    this.early = null;
     if (!canRead) return;
+    this.early = [];
     this.loading = this.api.messages(id, around ? { around, limit: PAGE } : { limit: PAGE }).subscribe({
       next: page => {
-        // Events that came during the request are kept: merge, not replace.
-        this.messages.update(list => page.reduce(upsertMessage, list));
+        const early = this.early ?? [];
+        this.early = null;
+        this.messages.set(early.reduce((list, e) => applyMessageEvent(list, e.t, e.m, !around), page.reduce(upsertMessage, [] as Message[])));
         if (around) {
           this.reachedStart.set(false);
           setTimeout(() => this.list?.scrollToMessage(around));
@@ -397,7 +414,10 @@ export class ChannelPage {
         this.list?.scrollToBottom();
         setTimeout(() => this.markRead());
       },
-      error: err => this.notify.show(errorText(err, 'Не удалось загрузить сообщения'), 'error'),
+      error: err => {
+        this.early = null;
+        this.notify.show(errorText(err, 'Не удалось загрузить сообщения'), 'error');
+      },
     });
   }
 
@@ -476,8 +496,9 @@ export class ChannelPage {
       next: m => {
         if (m.channel_id !== this.channelId()) return;
         this.discard(item.nonce);
-        this.messages.update(list => upsertMessage(list, m));
-        this.list?.scrollToBottom();
+        this.applyEvent('MESSAGE_CREATE', m);
+        if (this.reachedEnd()) this.list?.scrollToBottom();
+        else this.toPresent();
       },
       error: err => this.setPending(item.nonce, failReason(err)),
     });
@@ -517,7 +538,7 @@ export class ChannelPage {
     }
     this.api.editMessage(id, item.message.id, text).subscribe({
       next: m => {
-        this.messages.update(list => upsertMessage(list, m));
+        this.applyEvent('MESSAGE_UPDATE', m);
         this.editing.set(null);
       },
       error: err => this.notify.show(errorText(err, 'Не удалось изменить сообщение'), 'error'),
