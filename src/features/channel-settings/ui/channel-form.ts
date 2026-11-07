@@ -6,6 +6,7 @@ import { filter, take, timeout } from 'rxjs';
 import { Hash, LucideAngularModule, LucideIconData, List, Volume2 } from 'lucide-angular';
 import { ApiService, FullGuild, GatewayService, GuildChannel, GuildChannelType, errorText } from '@shared/api';
 import { AppStateStore } from '@entities/app-state';
+import { SLOW_MODES, slowModeLabel } from '@shared/lib/slow-mode';
 
 const TYPES: { value: GuildChannelType; label: string; icon: LucideIconData }[] = [
   { value: 0, label: 'Текстовый', icon: Hash },
@@ -54,6 +55,13 @@ const FIELD = 'h-12 box-border rounded-ok-md border border-ok-border-control bg-
           <div class="flex flex-col gap-1.5">
             <label for="cc-topic" class="text-[13px] font-medium text-ok-muted">Тема</label>
             <input id="cc-topic" name="topic" [(ngModel)]="topic" maxlength="1024" class="${FIELD} px-4" />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="cc-slow" class="text-[13px] font-medium text-ok-muted">Медленный режим</label>
+            <select id="cc-slow" name="slow" [(ngModel)]="slow" class="${FIELD} px-3" aria-describedby="cc-slow-hint">
+              @for (s of slowModes; track s) { <option [ngValue]="s">{{ slowLabel(s) }}</option> }
+            </select>
+            <span id="cc-slow-hint" class="text-[12px] text-ok-muted">Сколько участник ждёт между своими сообщениями. Модераторов не касается.</span>
           </div>
         }
 
@@ -116,7 +124,10 @@ export class ChannelForm implements OnInit {
   protected name = '';
   protected topic = '';
   protected limit = 0;
+  protected slow = 0;
   protected parentId: string | null = null;
+  protected slowModes = SLOW_MODES;
+  protected readonly slowLabel = slowModeLabel;
 
   ngOnInit(): void {
     this.parentId = this.parent();
@@ -126,6 +137,9 @@ export class ChannelForm implements OnInit {
       this.name = ch.name;
       this.topic = ch.topic ?? '';
       this.limit = ch.user_limit ?? 0;
+      this.slow = ch.rate_limit_per_user ?? 0;
+      // A value set elsewhere (the API) stays a choice.
+      if (!SLOW_MODES.includes(this.slow)) this.slowModes = [...SLOW_MODES, this.slow].sort((a, b) => a - b);
       this.parentId = ch.parent_id ?? null;
     }
   }
@@ -143,7 +157,7 @@ export class ChannelForm implements OnInit {
     const req = ch
       ? this.api.updateChannel(ch.id, {
           name,
-          ...(ch.type === 0 ? { topic: this.topic.trim() } : {}),
+          ...(ch.type === 0 ? { topic: this.topic.trim(), rate_limit_per_user: this.slow } : {}),
           ...(ch.type === 2 ? { user_limit: limit } : {}),
           ...(ch.type !== 4 ? { parent_id: this.parentId } : {}),
         })
@@ -151,6 +165,7 @@ export class ChannelForm implements OnInit {
           type: this.type,
           name,
           ...(this.type === 0 && this.topic.trim() ? { topic: this.topic.trim() } : {}),
+          ...(this.type === 0 && this.slow ? { rate_limit_per_user: this.slow } : {}),
           ...(this.type === 2 && limit ? { user_limit: limit } : {}),
           ...(this.type !== 4 && this.parentId ? { parent_id: this.parentId } : {}),
         });

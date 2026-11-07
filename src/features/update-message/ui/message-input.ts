@@ -57,6 +57,9 @@ const MAX_FIELD_PX = 240;
       </button>
     </div>
 
+    <p *ngIf="hint && !disabled" class="m-0 px-1 pb-1.5 text-[12px] tabular-nums" data-composer-hint
+       [ngClass]="hold ? 'text-ok-text' : 'text-ok-muted'">{{ hint }}</p>
+
     <div *ngIf="replyTo" class="flex items-center gap-2 px-3 py-2 rounded-t-ok-md bg-ok-surface-2 text-[13px] text-ok-muted min-w-0">
       <span class="flex-1 truncate">Ответ <span class="font-semibold text-ok-text">{{ replyTo.authorName }}</span></span>
       <button type="button" (click)="replyMention = !replyMention" [attr.aria-pressed]="replyMention"
@@ -117,7 +120,7 @@ const MAX_FIELD_PX = 240;
         (keydown)="onKey($event)"
         (paste)="onPaste($event)"
       ></textarea>
-      <button type="button" (click)="handleSend()" [disabled]="disabled || (!message.trim() && !picked().length)" title="Отправить" aria-label="Отправить"
+      <button type="button" (click)="handleSend()" [disabled]="disabled || hold || (!message.trim() && !picked().length)" title="Отправить" aria-label="Отправить"
               class="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center text-ok-accent hover:bg-ok-surface-1 disabled:text-ok-muted disabled:hover:bg-transparent">
         <lucide-angular class="w-[18px] h-[18px]" [img]="SendHorizonal"></lucide-angular>
       </button>
@@ -134,6 +137,10 @@ export class MessageInput implements OnChanges {
   @Input() mentions: MentionSuggest | null = null;
   /** The user may attach files here (ATTACH_FILES). */
   @Input() canAttach = false;
+  /** A line above the field: slow mode, a countdown (ruscord-core ADR-0043, ADR-0044). */
+  @Input() hint: string | null = null;
+  /** Sending waits (slow mode, a new account): Enter keeps the text. */
+  @Input() hold = false;
   @Output() cancelReply = new EventEmitter<void>();
   /** Fired on input; the page decides how often to tell the server. */
   @Output() typing = new EventEmitter<void>();
@@ -166,7 +173,7 @@ export class MessageInput implements OnChanges {
   handleSend(): void {
     const text = this.message.trim();
     const files = this.picked().map(p => p.file);
-    if ((!text && !files.length) || this.disabled) return;
+    if ((!text && !files.length) || this.disabled || this.hold) return;
     this.sendMessage.emit({
       text: toWire(text, this.tokens), replyToId: this.replyTo?.message.id ?? null, replyMention: this.replyMention, files,
     });

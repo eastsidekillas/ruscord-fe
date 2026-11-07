@@ -212,12 +212,12 @@ export class ApiService {
     return this.http.get<Member[]>(this.url(`guilds/${guildId}/members`), { params });
   }
 
-  createChannel(guildId: string, body: { type: 0 | 2 | 4; name: string; topic?: string; parent_id?: string; user_limit?: number }): Observable<GuildChannel> {
+  createChannel(guildId: string, body: { type: 0 | 2 | 4; name: string; topic?: string; parent_id?: string; user_limit?: number; rate_limit_per_user?: number }): Observable<GuildChannel> {
     return this.http.post<GuildChannel>(this.url(`guilds/${guildId}/channels`), body);
   }
 
   /** parent_id: null takes the channel out of its category. */
-  updateChannel(channelId: string, patch: { name?: string; topic?: string; parent_id?: string | null; user_limit?: number }): Observable<GuildChannel> {
+  updateChannel(channelId: string, patch: { name?: string; topic?: string; parent_id?: string | null; user_limit?: number; rate_limit_per_user?: number }): Observable<GuildChannel> {
     return this.http.patch<GuildChannel>(this.url(`channels/${channelId}`), patch);
   }
 

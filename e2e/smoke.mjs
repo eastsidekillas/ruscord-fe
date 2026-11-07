@@ -476,6 +476,33 @@ await step('channel permissions: @everyone loses #новости, Bob stops seei
   await ann.keyboard.press('Escape');
 });
 
+await step('slow mode: Ann sets 30 s on #новости; Bob writes once, then waits with a countdown; off again', async () => {
+  const setSlow = async label => {
+    const item = ann.locator('a', { hasText: 'новости' }).first();
+    await item.hover();
+    await item.getByRole('button', { name: 'Настройки канала' }).click();
+    await ann.locator('#cc-slow').selectOption({ label });
+    await ann.getByRole('button', { name: 'Сохранить', exact: true }).click();
+    await ann.keyboard.press('Escape');
+  };
+  await setSlow('30 с');
+  const back = bob.url();
+  await bob.locator('a', { hasText: 'новости' }).first().click();
+  const hint = bob.locator('[data-composer-hint]');
+  await hint.filter({ hasText: 'одно сообщение в 30 с' }).waitFor({ timeout: 8000 });
+  await say(bob, 'медленно раз');
+  await hint.filter({ hasText: 'следующее сообщение через' }).waitFor();
+  await input(bob).fill('медленно два');
+  await input(bob).press('Enter');
+  if ((await input(bob).inputValue()) !== 'медленно два') throw new Error('a second message went out in slow mode');
+  if (!(await bob.getByRole('button', { name: 'Отправить' }).isDisabled())) throw new Error('send is not held');
+  await setSlow('Выкл.');
+  await hint.waitFor({ state: 'detached', timeout: 8000 });
+  await input(bob).press('Enter');
+  await bob.locator('ChatItem', { hasText: 'медленно два' }).waitFor();
+  await bob.goto(back);
+});
+
 await step('own nickname on the server: set, then reset', async () => {
   await menu(ann, 'Сменить ник');
   await ann.fill('#nk', 'Анюта');

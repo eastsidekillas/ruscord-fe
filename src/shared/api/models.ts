@@ -73,6 +73,8 @@ export interface GuildChannel {
   position: number;
   user_limit?: number;
   bitrate?: number;
+  /** Slow mode of a text channel: seconds between one member's messages, 0 off (ruscord-core ADR-0043). */
+  rate_limit_per_user?: number;
   permission_overwrites: Overwrite[];
 }
 
@@ -295,6 +297,8 @@ export interface ApiError {
   code: string;
   message: string;
   fields?: Record<string, string>;
+  /** Seconds until the request may pass (slow mode, a new account, a rate limit). */
+  retry_after?: number;
 }
 
 /** Reads the API error out of an HttpErrorResponse-like value. */
