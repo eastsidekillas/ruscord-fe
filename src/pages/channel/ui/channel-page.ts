@@ -77,7 +77,7 @@ function preview(m: Message, names: Parameters<typeof plainText>[1]): string {
     </div>
     <div class="flex h-full" *ngIf="!voiceRoom() && view() as v; else waiting">
         <div class="relative flex-1 min-w-0 flex flex-col overflow-hidden min-h-0">
-          <ChatHeader [showMembers]="!!v.guildId || !!v.group" [membersOpen]="layout.membersOpen()" (members)="layout.toggleMembers()"
+          <ChatHeader [showMembers]="!!v.guildId || !!v.group" [membersOpen]="layout.membersOpen()" (toggleMembers)="layout.toggleMembers()"
                       [showPins]="v.canRead" [pinsOpen]="pins() !== undefined" (pins)="togglePins()"
                       [showSearch]="v.canRead" [searchText]="found()?.text ?? ''" (search)="runSearch($event)" [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
                       [title]="v.group?.name ?? null" [members]="v.group?.recipients?.length ?? 0"
