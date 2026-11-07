@@ -35,6 +35,7 @@ import { GuildMembersStore } from '@entities/guild-members';
 import { ReadStateStore } from '@entities/read-states';
 import { MentionContext } from '@shared/ui/markup-view';
 import { plainText } from '@shared/lib/markup';
+import { Wait, waitFromError, waitHint } from '@shared/lib/slow-mode';
 import { MentionWorld, mentionContext, mentionOptions, mentionsMe } from '../model/mentions';
 import { REACTION_EVENTS, ReactionEventType, applyReaction } from '../model/reactions';
 import { MessageEventType, applyMessageEvent, upsertMessage } from '../model/window';
@@ -129,6 +130,8 @@ function preview(m: Message, names: Parameters<typeof plainText>[1]): string {
               [replyTo]="replyTo()"
               [mentions]="suggest"
               [canAttach]="v.canAttach"
+              [hint]="composerHint()"
+              [hold]="!!wait()"
               (cancelReply)="replyTo.set(null)"
               (sendMessage)="send($event)"
               (typing)="onTyping()"
@@ -240,6 +243,38 @@ export class ChannelPage {
   });
   protected readonly mentionCtx = computed<MentionContext>(() => mentionContext(this.world()));
   /** Suggestions while typing @ or #; reads the latest state on each call. */
+  /** Slow mode of this channel, and whether it passes the user by (moderators, ruscord-core ADR-0043). */
+  protected readonly slow = computed(() => {
+    const inGuild = this.store.channel(this.channelId());
+    if (!inGuild) return { secs: 0, exempt: true };
+    const perms = inGuild.guild.channel_permissions[inGuild.channel.id];
+    return {
+      secs: inGuild.channel.rate_limit_per_user ?? 0,
+      exempt: hasPerm(perms, Perm.ManageMessages) || hasPerm(perms, Perm.ManageChannels),
+    };
+  });
+  /** What sending waits for: slow mode per channel, the newcomer wait (ADR-0044) on every server. */
+  private readonly waits = signal<{ slow: Record<string, Wait>; newcomer: Wait | null }>({ slow: {}, newcomer: null });
+  /** Ticks every second while something waits, for the countdown. */
+  private readonly now = signal(Date.now());
+  protected readonly wait = computed(() => {
+    const id = this.channelId();
+    const w = this.waits();
+    const now = this.now();
+    // Slow mode turned off (or the user became a moderator) ends its wait.
+    const slowOn = this.slow().secs > 0 && !this.slow().exempt;
+    const all = [id && slowOn ? w.slow[id] : undefined, this.view()?.guildId ? w.newcomer : null];
+    return all.filter((x): x is Wait => !!x && x.until > now).sort((a, b) => b.until - a.until)[0] ?? null;
+  });
+  protected readonly composerHint = computed(() => waitHint(this.wait(), this.slow().secs, this.slow().exempt, this.now()));
+
+  private setWait(channelId: string, w: Wait | null): void {
+    this.waits.update(all => w?.kind === 'new'
+      ? { ...all, newcomer: w }
+      : { ...all, slow: { ...all.slow, [channelId]: w ?? { kind: 'slow', until: 0 } } });
+    this.now.set(Date.now());
+  }
+
   protected readonly suggest = (trigger: '@' | '#', query: string) => {
     const v = this.view();
     const perms = v?.guildId ? this.store.guild(v.guildId)?.channel_permissions[this.channelId()!] : null;
@@ -346,6 +381,12 @@ export class ChannelPage {
         this.applyReaction(r.message_id, ev.t as ReactionEventType, r);
       }
     });
+    const tick = setInterval(() => {
+      const w = this.waits();
+      const now = Date.now();
+      if ((w.newcomer?.until ?? 0) > now - 1000 || Object.values(w.slow).some(x => x.until > now - 1000)) this.now.set(now);
+    }, 1000);
+    inject(DestroyRef).onDestroy(() => clearInterval(tick));
     const visible = () => this.markRead();
     document.addEventListener('visibilitychange', visible);
     inject(DestroyRef).onDestroy(() => {
@@ -457,6 +498,10 @@ export class ChannelPage {
     };
     this.pending.update(list => [...list, item]);
     this.list?.scrollToBottom();
+    // Slow mode starts with the send, so a second Enter waits at once.
+    const id = this.channelId();
+    const slow = this.slow();
+    if (id && slow.secs > 0 && !slow.exempt) this.setWait(id, { kind: 'slow', until: Date.now() + slow.secs * 1000 });
     this.deliver(item);
   }
 
@@ -500,7 +545,11 @@ export class ChannelPage {
         if (this.reachedEnd()) this.list?.scrollToBottom();
         else this.toPresent();
       },
-      error: err => this.setPending(item.nonce, failReason(err)),
+      error: err => {
+        // The server tells how long to wait; any other failure did not start one.
+        this.setWait(id, waitFromError(err));
+        this.setPending(item.nonce, failReason(err));
+      },
     });
   }
 
