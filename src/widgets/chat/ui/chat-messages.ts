@@ -13,9 +13,7 @@ import { ChatItem, ChatMessage, ReactionToggle } from './chat-item';
 import { PendingItem, PendingMessage } from './pending-item';
 import { dayLabel, sameDay } from '@shared/lib/dates';
 import { MentionContext } from '@shared/ui/markup-view';
-
-/** Scrolled to the bottom within this many pixels counts as "at the bottom". */
-const STICK_PX = 80;
+import { ScrollBox, afterRender, stickAfterScroll } from '../lib/stick';
 
 @Component({
   selector: 'ChatMessages',
@@ -84,6 +82,8 @@ export class ChatMessages implements AfterViewChecked {
   private stick = true;
   private lastHeight = 0;
   private lastFirst: string | null = null;
+  /** The box at the previous scroll event: tells a move up by the user. */
+  private lastScroll: ScrollBox | null = null;
 
   protected byId = (_: number, it: ChatMessage) => it.message.id;
   protected byNonce = (_: number, p: PendingMessage) => p.nonce;
@@ -101,10 +101,14 @@ export class ChatMessages implements AfterViewChecked {
     const el = this.box?.nativeElement;
     if (!el) return;
     const first = this.items[0]?.message.id ?? null;
-    if (first !== this.lastFirst && this.lastFirst !== null && el.scrollHeight > this.lastHeight && !this.stick) {
-      el.scrollTop += el.scrollHeight - this.lastHeight;
-    } else if (this.stick) {
-      el.scrollTop = el.scrollHeight;
+    const prepended = first !== this.lastFirst && this.lastFirst !== null;
+    switch (afterRender(this.stick, prepended, this.lastHeight, el.scrollHeight)) {
+      case 'keep-place':
+        el.scrollTop += el.scrollHeight - this.lastHeight;
+        break;
+      case 'to-bottom':
+        el.scrollTop = el.scrollHeight;
+        break;
     }
     this.lastFirst = first;
     this.lastHeight = el.scrollHeight;
@@ -140,7 +144,9 @@ export class ChatMessages implements AfterViewChecked {
   protected onScroll(): void {
     const el = this.box.nativeElement;
     const was = this.stick;
-    this.stick = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
+    const cur = { top: el.scrollTop, height: el.scrollHeight, client: el.clientHeight };
+    this.stick = stickAfterScroll(this.lastScroll, cur);
+    this.lastScroll = cur;
     if (this.stick && !was) this.bottom.emit();
     if (el.scrollTop < 40) this.top.emit();
   }

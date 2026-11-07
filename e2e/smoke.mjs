@@ -384,6 +384,31 @@ await step('reactions and pins: Ann reacts from the picker, Bob joins; Ann pins,
   await bob.getByRole('dialog', { name: 'Закреплённые сообщения' }).waitFor({ state: 'detached', timeout: 4000 });
 });
 
+await step('scrolling up by a small wheel step stays up, nothing pulls it back down', async () => {
+  // Tall messages, so the history is longer than the view.
+  const ch = new URL(ann.url()).pathname.split('/').at(-1);
+  const tall = Array.from({ length: 40 }, (_, i) => `строка ${i + 1}`).join('\n');
+  for (const n of [1, 2, 3]) {
+    const r = await ann.evaluate(([id, content]) => fetch(`/api/v1/channels/${id}/messages`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content }),
+    }).then(r => r.status), [ch, `длинное ${n}\n${tall}`]);
+    if (r !== 201) throw new Error(`send: ${r}`);
+  }
+  await bob.locator('ChatItem', { hasText: 'длинное 3' }).waitFor();
+  const box = bob.locator('ChatMessages > div').first();
+  const fromBottom = () => box.evaluate(el => Math.round(el.scrollHeight - el.scrollTop - el.clientHeight));
+  await box.hover();
+  if (await fromBottom() > 5) throw new Error(`not at the bottom before the test: ${await fromBottom()}`);
+  await bob.mouse.wheel(0, -40);
+  await bob.waitForTimeout(400);
+  // Hovering re-renders the list; before the fix that pulled it back down.
+  await bob.locator('ChatItem', { hasText: 'длинное 2' }).hover();
+  await bob.waitForTimeout(300);
+  const d = await fromBottom();
+  if (d < 30) throw new Error(`the view went back down: ${d} px from the bottom`);
+  await box.evaluate(el => el.scrollTo({ top: el.scrollHeight }));
+});
+
 await step('unread: a mention while Bob is away shows on the server and the channel; opening it reads it', async () => {
   const back = bob.url();
   await bob.goto(BASE + '/channels/me');
