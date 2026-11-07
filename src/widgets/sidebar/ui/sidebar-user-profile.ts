@@ -4,7 +4,8 @@ import { StatusUi, StatusUIText } from '@entities/user-status';
 import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
 import { AvatarUI } from '@shared/ui/avatar';
-import { LucideAngularModule, SlidersHorizontal } from 'lucide-angular';
+import { HeadphoneOff, Headphones, LucideAngularModule, Mic, MicOff, Settings } from 'lucide-angular';
+import { VoiceService } from '@entities/voice';
 import { AuthService } from '@entities/session';
 import { ApiService, ChosenStatus, errorText, nameOf } from '@shared/api';
 import { dismissOnOutside } from '@shared/lib/dismiss';
@@ -22,7 +23,7 @@ const CHOICES: { value: ChosenStatus; label: string; dot: string }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, LucideAngularModule, StatusUi, StatusUIText, AvatarUI],
   template: `
-    <div *ngIf="user() as u" class="relative flex items-center gap-2 p-1">
+    <div *ngIf="user() as u" class="relative flex items-center gap-1 p-1" data-user-panel>
       <button type="button" class="flex items-center gap-2 min-w-0 flex-1 text-left rounded-lg hover:bg-ok-surface-1"
               (click)="menuOpen.set(!menuOpen())" title="Сменить статус" [attr.aria-expanded]="menuOpen()">
         <span class="relative w-8 h-8 shrink-0">
@@ -34,9 +35,22 @@ const CHOICES: { value: ChosenStatus; label: string; dot: string }[] = [
           <StatusUIText [userId]="u.id" />
         </span>
       </button>
+      <button type="button" (click)="voice.toggleMute()" [disabled]="!voice.canSpeak()" [attr.aria-pressed]="voice.selfMute()"
+              [title]="voice.serverMute() ? 'Микрофон выключил модератор' : voice.selfMute() ? 'Включить микрофон' : 'Выключить микрофон'"
+              aria-keyshortcuts="Control+Shift+M"
+              class="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+              [ngClass]="voice.serverMute() ? 'text-ok-danger' : voice.selfMute() ? 'text-ok-danger bg-ok-surface-1' : 'text-ok-muted hover:text-ok-text hover:bg-ok-surface-1'">
+        <lucide-angular class="w-4 h-4" [img]="voice.selfMute() || voice.serverMute() ? MicOff : Mic"></lucide-angular>
+      </button>
+      <button type="button" (click)="voice.toggleDeaf()" [attr.aria-pressed]="voice.selfDeaf()"
+              [title]="voice.selfDeaf() ? 'Включить звук' : 'Выключить звук'" aria-keyshortcuts="Control+Shift+D"
+              class="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center"
+              [ngClass]="voice.selfDeaf() ? 'text-ok-danger bg-ok-surface-1' : 'text-ok-muted hover:text-ok-text hover:bg-ok-surface-1'">
+        <lucide-angular class="w-4 h-4" [img]="voice.selfDeaf() ? HeadphoneOff : Headphones"></lucide-angular>
+      </button>
       <button type="button" (click)="openSettings()" title="Настройки" aria-label="Настройки"
-              class="w-9 h-9 shrink-0 rounded-lg text-ok-muted hover:text-ok-text hover:bg-ok-surface-1 flex items-center justify-center">
-        <lucide-angular class="w-4 h-4" [img]="SlidersHorizontal"></lucide-angular>
+              class="w-8 h-8 shrink-0 rounded-lg text-ok-muted hover:text-ok-text hover:bg-ok-surface-1 flex items-center justify-center">
+        <lucide-angular class="w-4 h-4" [img]="Settings"></lucide-angular>
       </button>
 
       <div *ngIf="menuOpen()" role="menu" aria-label="Статус"
@@ -60,7 +74,12 @@ export class SidebarUserProfile {
   protected readonly name = computed(() => nameOf(this.user()));
   protected readonly menuOpen = signal(false);
   protected readonly choices = CHOICES;
-  protected readonly SlidersHorizontal = SlidersHorizontal;
+  protected readonly voice = inject(VoiceService);
+  protected readonly Mic = Mic;
+  protected readonly MicOff = MicOff;
+  protected readonly Headphones = Headphones;
+  protected readonly HeadphoneOff = HeadphoneOff;
+  protected readonly Settings = Settings;
 
   constructor() {
     dismissOnOutside(this.menuOpen, () => this.menuOpen.set(false));

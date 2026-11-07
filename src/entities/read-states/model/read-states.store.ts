@@ -126,6 +126,12 @@ export class ReadStateStore {
     }, wait);
   }
 
+  /** Esc in a channel: read up to its newest message. */
+  ackLatest(channelId: string): void {
+    const last = this.get(channelId)?.lastMessage;
+    if (last) this.ack(channelId, last);
+  }
+
   ackGuild(g: FullGuild): void {
     for (const c of g.channels) {
       const s = this.get(c.id);

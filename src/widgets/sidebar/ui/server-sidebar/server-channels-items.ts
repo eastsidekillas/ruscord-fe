@@ -51,7 +51,8 @@ import { AvatarUI } from '@shared/ui/avatar';
               <lucide-angular class="w-3.5 h-3.5" [img]="Settings"></lucide-angular>
             </button>
           </a>
-          <ng-container *ngIf="channel.type === 2">
+          <div *ngIf="channel.type === 2" [attr.data-voice-card]="inVoice(channel.id).length ? channel.name : null"
+               [ngClass]="inVoice(channel.id).length ? 'my-1 rounded-ok-md border border-ok-success/30 bg-ok-surface-1/60 pb-1' : ''">
             <div (click)="join(channel.id)" [attr.data-voice-channel]="channel.name" [attr.aria-current]="here(channel.id) ? 'true' : null"
                  [title]="!canConnect(channel.id) ? 'Нет права подключаться' : full(channel) ? 'В голосовом канале нет мест' : 'Войти в голосовой канал'"
                  (dragover)="dragOver(channel.id, $event)" (dragleave)="dropTarget.set(null)" (drop)="drop(channel.id, $event)"
@@ -124,7 +125,15 @@ import { AvatarUI } from '@shared/ui/avatar';
               </li>
             </ul>
             </ng-container>
-          </ng-container>
+            <div *ngIf="inVoice(channel.id).length" class="flex items-center justify-end gap-2 px-2 pt-1 text-[12px]">
+              <span *ngIf="here(channel.id); else sitIn" class="font-semibold text-ok-success">вы здесь</span>
+              <ng-template #sitIn>
+                <button *ngIf="canConnect(channel.id) && !full(channel)" type="button" (click)="join(channel.id); $event.stopPropagation()"
+                        [attr.aria-label]="'Подсесть в ' + channel.name" data-voice-sit-in
+                        class="h-7 px-2.5 rounded-lg bg-ok-success text-ok-on-accent font-bold hover:brightness-110">Подсесть</button>
+              </ng-template>
+            </div>
+          </div>
         </ng-container>
       </ng-container>
     </div>

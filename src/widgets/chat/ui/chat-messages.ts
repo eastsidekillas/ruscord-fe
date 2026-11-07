@@ -11,6 +11,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { ChatItem, ChatMessage, ReactionToggle } from './chat-item';
 import { PendingItem, PendingMessage } from './pending-item';
+import { Dolobeb } from '@shared/ui/dolobeb';
 import { dayLabel, sameDay } from '@shared/lib/dates';
 import { MentionContext } from '@shared/ui/markup-view';
 import { ScrollBox, afterRender, stickAfterScroll } from '../lib/stick';
@@ -19,12 +20,18 @@ import { ScrollBox, afterRender, stickAfterScroll } from '../lib/stick';
   selector: 'ChatMessages',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, ChatItem, PendingItem],
+  imports: [CommonModule, ChatItem, PendingItem, Dolobeb],
   template: `
     <div #box class="h-full overflow-y-auto px-4 py-6 flex flex-col gap-1" (scroll)="onScroll()">
       <div class="mt-auto"></div>
       <div *ngIf="loadingOlder" class="text-center text-[12px] text-ok-muted">Загрузка…</div>
-      <div *ngIf="reachedStart && items.length" class="text-center text-[12px] text-ok-muted pb-2">Начало переписки</div>
+      <div *ngIf="reachedStart && start && !notice" class="flex items-center gap-4 px-2 pb-4 mb-2 border-b border-ok-border" data-chat-start>
+        <Dolobeb state="happy" [size]="64" [animate]="false" />
+        <div class="min-w-0">
+          <div class="text-[20px] font-extrabold text-ok-text">{{ start.title }}</div>
+          <div class="text-[13px] text-ok-muted">{{ start.text }}</div>
+        </div>
+      </div>
       <p *ngIf="notice" class="text-center text-[13px] text-ok-muted">{{ notice }}</p>
       <ng-container *ngFor="let it of items; let i = index; trackBy: byId">
       <div *ngIf="dayAt(i) as day" role="separator" class="flex items-center gap-3 py-3 px-2 text-[12px] text-ok-muted">
@@ -53,6 +60,8 @@ export class ChatMessages implements AfterViewChecked {
   @Input() reachedStart = false;
   @Input() canReply = true;
   @Input() notice: string | null = null;
+  /** What the very top of the history says once it is reached. */
+  @Input() start: { title: string; text: string } | null = null;
   /** Who and what mentions in the messages are. */
   @Input() ctx: MentionContext | null = null;
   /** The message being edited in place. */

@@ -19,9 +19,11 @@ import { GroupModal } from '@features/group/ui/group-modal';
 import { NickModal } from '@features/change-nick';
 import { IncomingCall } from '@widgets/voice';
 import { LinkModal } from '@features/open-link';
+import { QuickSwitchModal } from '@features/quick-switch';
+import { HotkeysService } from '@features/hotkeys';
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay, GroupModal, NickModal, ChannelSettingsModal, IncomingCall, LinkModal],
+  imports: [RouterOutlet, CreateServerModal, Notification, NgIf, ProfileViewModal, InviteServerModal, ServerSettingsModal, ChannelModal, UserSettingsModal, ConnectionOverlay, GroupModal, NickModal, ChannelSettingsModal, IncomingCall, LinkModal, QuickSwitchModal],
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -40,6 +42,7 @@ import { LinkModal } from '@features/open-link';
     <NickModal *ngIf="modalService.modalType() === 'nick'" />
     <ChannelSettingsModal *ngIf="modalService.modalType() === 'channelSettings'" />
     <LinkModal *ngIf="modalService.modalType() === 'link'" />
+    <QuickSwitchModal *ngIf="modalService.modalType() === 'quickSwitch'" />
     <Notification *ngIf="notificationService.state().visible"></Notification>
   `,
 })
@@ -53,5 +56,6 @@ export class AppComponent {
     inject(TypingStore);
     inject(IdleService);
     inject(VisitService).start();
+    inject(HotkeysService).start();
   }
 }

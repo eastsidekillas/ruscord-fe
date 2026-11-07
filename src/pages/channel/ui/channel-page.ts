@@ -30,6 +30,7 @@ import { AppStateStore, TypingStore } from '@entities/app-state';
 import { CallStage, VoiceRoom } from '@widgets/voice';
 import { VoiceService } from '@entities/voice';
 import { ModalService } from '@shared/model/modal.service';
+import { LayoutService } from '@shared/model/layout.service';
 import { NotificationService } from '@shared/model/notification.service';
 import { GuildMembersStore } from '@entities/guild-members';
 import { ReadStateStore } from '@entities/read-states';
@@ -76,7 +77,8 @@ function preview(m: Message, names: Parameters<typeof plainText>[1]): string {
     </div>
     <div class="flex h-full" *ngIf="!voiceRoom() && view() as v; else waiting">
         <div class="relative flex-1 min-w-0 flex flex-col overflow-hidden min-h-0">
-          <ChatHeader [showPins]="v.canRead" [pinsOpen]="pins() !== undefined" (pins)="togglePins()"
+          <ChatHeader [showMembers]="!!v.guildId || !!v.group" [membersOpen]="layout.membersOpen()" (members)="layout.toggleMembers()"
+                      [showPins]="v.canRead" [pinsOpen]="pins() !== undefined" (pins)="togglePins()"
                       [showSearch]="v.canRead" [searchText]="found()?.text ?? ''" (search)="runSearch($event)" [name]="v.title" [type]="v.kind" [imageUrl]="v.image" [topic]="v.topic" [userId]="v.partnerId"
                       [title]="v.group?.name ?? null" [members]="v.group?.recipients?.length ?? 0"
                       [canCall]="!!v.dm && !v.blocked && voice.target()?.channelId !== v.dm.id" (call)="startCall()"
@@ -92,6 +94,7 @@ function preview(m: Message, names: Parameters<typeof plainText>[1]): string {
             [items]="items()"
             [loadingOlder]="loadingOlder()"
             [reachedStart]="reachedStart()"
+            [start]="start()"
             [canReply]="v.canSend"
             [notice]="v.canRead ? null : 'У вас нет доступа к истории этого канала.'"
             [ctx]="mentionCtx()"
@@ -139,9 +142,9 @@ function preview(m: Message, names: Parameters<typeof plainText>[1]): string {
           </ng-template>
         </div>
 
-        <ServerMembersSidebar *ngIf="v.guildId" [guildId]="v.guildId"
-          class="w-[240px] shrink-0 hidden lg:block" />
-        <GroupMembersSidebar *ngIf="v.group as g" [group]="g" (leave)="leaveGroup()"
+        <ServerMembersSidebar *ngIf="v.guildId && layout.membersOpen()" [guildId]="v.guildId" [channelId]="channelId()"
+          class="hidden lg:block" />
+        <GroupMembersSidebar *ngIf="layout.membersOpen() && v.group as g" [group]="g" (leave)="leaveGroup()"
           class="w-[260px] shrink-0 hidden lg:flex" />
     </div>
     <ng-template #waiting>
@@ -154,6 +157,7 @@ function preview(m: Message, names: Parameters<typeof plainText>[1]): string {
 export class ChannelPage {
   protected readonly store = inject(AppStateStore);
   protected readonly voice = inject(VoiceService);
+  protected readonly layout = inject(LayoutService);
   private readonly typing = inject(TypingStore);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
@@ -168,6 +172,17 @@ export class ChannelPage {
   @ViewChild(MessageInput) private input?: MessageInput;
 
   protected readonly channelId = toSignal(this.route.paramMap.pipe(map(p => p.get('channelId'))), { initialValue: null });
+
+  /** The top of the history: dolobeb and what this place is. */
+  protected readonly start = computed(() => {
+    const v = this.view();
+    if (!v) return null;
+    switch (v.kind) {
+      case 'channel': return { title: `Это начало #${v.title}`, text: v.topic || 'Пиши первым — долобеб любит, когда шумно.' };
+      case 'dm': return { title: v.title, text: `Начало вашей переписки с ${v.title}.` };
+      default: return { title: v.title, text: 'Начало группы. Позовите ещё кого-нибудь — долобеб любит толпу.' };
+    }
+  });
 
   /** A voice channel shows its room instead of the chat. */
   protected readonly voiceRoom = computed(() => {

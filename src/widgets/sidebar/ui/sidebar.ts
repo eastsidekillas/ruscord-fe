@@ -8,21 +8,26 @@ import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
 import { DropdownMenuItem } from '@shared/ui/dropdown-menu';
 import { ApiService, Perm, errorText, hasPerm } from '@shared/api';
-import { AppStateStore } from '@entities/app-state';
+import { AppStateStore, TypingStore } from '@entities/app-state';
+import { guildPulse, pulseText } from '../lib/pulse';
 import { ReadStateStore } from '@entities/read-states';
 import { settingsTabs } from '@features/server-settings/ui/server-settings-modal';
 import { LucideAngularModule, Plus, Users } from 'lucide-angular';
 import { SidebarFooter } from '@widgets/sidebar/ui/sidebar-footer';
+import { ResizeHandle } from '@shared/ui/resize-handle';
+import { LayoutService } from '@shared/model/layout.service';
+import { CHANNELS_COLUMN } from '@shared/lib/column-width';
 
 @Component({
   selector: 'Sidebar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterLink, RouterLinkActive, LucideAngularModule, SidebarItem, SidebarHeader, ServerChannelsItems, SidebarFooter],
-  host: { class: 'w-[248px] shrink-0 flex flex-col min-h-0 bg-ok-sidebar rounded-tl-ok-lg' },
+  imports: [CommonModule, RouterLink, RouterLinkActive, LucideAngularModule, SidebarItem, SidebarHeader, ServerChannelsItems, SidebarFooter, ResizeHandle],
+  host: { class: 'relative shrink-0 flex flex-col min-h-0 bg-ok-sidebar rounded-tl-ok-md', '[style.width.px]': 'layout.channelsWidth()' },
   template: `
     <SidebarHeader *ngIf="isServerRoute"
       [serverName]="guild()?.name ?? null"
+      [pulse]="pulse()"
       [items]="menu()"
       (menuAction)="handleMenuAction($event)"
     />
@@ -48,6 +53,7 @@ import { SidebarFooter } from '@widgets/sidebar/ui/sidebar-footer';
     <ServerChannelsItems *ngIf="isServerRoute && guild() as g" class="flex-1 min-h-0" [guild]="g" />
 
     <SidebarFooter />
+    <ResizeHandle [spec]="CHANNELS" edge="right" label="Ширина списка каналов" />
   `,
 })
 export class Sidebar {
@@ -61,8 +67,15 @@ export class Sidebar {
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
   private readonly reads = inject(ReadStateStore);
+  protected readonly layout = inject(LayoutService);
+  protected readonly CHANNELS = CHANNELS_COLUMN;
 
   protected readonly guild = computed(() => this.store.guild(this.id()));
+  private readonly typing = inject(TypingStore);
+  protected readonly pulse = computed(() => {
+    const g = this.guild();
+    return g ? pulseText(guildPulse(g, this.typing.typing(), Date.now(), this.store.me()?.id)) : '';
+  });
   protected readonly Users = Users;
   protected readonly Plus = Plus;
   /** Incoming friend requests (relationship type 3). */

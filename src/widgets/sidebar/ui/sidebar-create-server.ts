@@ -9,7 +9,7 @@ import { ModalService } from '@shared/model/modal.service';
   imports: [LucideAngularModule],
   template: `
     <button type="button" (click)="open()" aria-label="Добавить сервер" title="Добавить сервер"
-            class="w-12 h-12 shrink-0 rounded-ok-md border border-dashed border-ok-border-control text-ok-muted hover:text-ok-text flex items-center justify-center">
+            class="w-12 h-12 shrink-0 rounded-[14px] border border-dashed border-ok-border-control text-ok-success hover:bg-ok-surface-1 flex items-center justify-center">
       <lucide-angular class="w-5 h-5" [img]="Plus"></lucide-angular>
     </button>
   `,
