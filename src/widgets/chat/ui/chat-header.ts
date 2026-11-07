@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Ou
 import { CommonModule } from '@angular/common';
 import { AvatarUI } from '@shared/ui/avatar';
 import { StatusUi } from '@entities/user-status';
-import { Hash, LucideAngularModule, Pencil, Phone, Pin } from 'lucide-angular';
+import { Hash, LucideAngularModule, Pencil, Phone, Pin, Users } from 'lucide-angular';
 
 @Component({
   selector: 'ChatHeader',
@@ -50,6 +50,12 @@ import { Hash, LucideAngularModule, Pencil, Phone, Pin } from 'lucide-angular';
                (keydown.enter)="search.emit(searchField.value)" (keydown.escape)="search.emit('')"
                class="h-8 w-[200px] focus:w-[280px] transition-[width] box-border rounded-lg border border-ok-border-control bg-ok-sidebar text-ok-text px-3 text-[13px] !outline-none focus:border-ok-accent placeholder:text-ok-muted" />
       </label>
+      <button *ngIf="showMembers" type="button" (click)="toggleMembers.emit()" title="Список участников" aria-label="Список участников" data-members-toggle
+              [attr.aria-pressed]="membersOpen"
+              class="w-9 h-9 rounded-lg inline-flex items-center justify-center shrink-0 max-lg:hidden"
+              [ngClass]="membersOpen ? 'text-ok-text bg-ok-surface-2' : 'text-ok-muted hover:text-ok-text hover:bg-ok-surface-2'">
+        <lucide-angular class="w-[18px] h-[18px]" [img]="Users" aria-hidden="true"></lucide-angular>
+      </button>
       <button *ngIf="showPins" type="button" (click)="pins.emit()" title="Закреплённые сообщения" aria-label="Закреплённые сообщения"
               [attr.aria-pressed]="pinsOpen" data-pins
               class="w-9 h-9 rounded-lg inline-flex items-center justify-center shrink-0"
@@ -93,6 +99,10 @@ export class ChatHeader {
   @Input() showPins = false;
   @Input() pinsOpen = false;
   @Output() pins = new EventEmitter<void>();
+  /** The right column's button: members of a server or a group. */
+  @Input() showMembers = false;
+  @Input() membersOpen = false;
+  @Output() toggleMembers = new EventEmitter<void>();
   @ViewChild('nameField') private nameField?: ElementRef<HTMLInputElement>;
 
   protected readonly renaming = signal(false);
@@ -100,6 +110,7 @@ export class ChatHeader {
   protected readonly Pencil = Pencil;
   protected readonly Phone = Phone;
   protected readonly Pin = Pin;
+  protected readonly Users = Users;
 
   protected startRename(): void {
     this.renaming.set(true);

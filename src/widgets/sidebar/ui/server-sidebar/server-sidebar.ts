@@ -13,10 +13,11 @@ import { APP_MARK } from '@shared/config/brand';
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, SidebarCreateServer, AvatarUI],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'w-[72px] shrink-0 flex flex-col items-center gap-2 py-3 bg-ok-bg overflow-y-auto max-sm:hidden' },
+  host: { class: 'w-[72px] shrink-0 flex flex-col items-center gap-2 pt-1 pb-3 bg-ok-bg overflow-y-auto max-sm:hidden' },
   template: `
     <span class="relative shrink-0">
-      <a [routerLink]="['/channels/me']" routerLinkActive="ok-active" title="Личные сообщения"
+      <span *ngIf="home.isActive" class="ok-pill ok-pill-active" aria-hidden="true"></span>
+      <a [routerLink]="['/channels/me']" routerLinkActive #home="routerLinkActive" [attr.aria-current]="home.isActive ? 'page' : null" title="Личные сообщения"
          [attr.aria-label]="'Личные сообщения' + (dms().unread ? ', непрочитанных: ' + dms().unread : '')"
          class="ok-rail-item bg-ok-surface-1 hover:bg-ok-surface-2">
         <img [src]="mark" alt="" class="w-7 h-7" />
@@ -25,8 +26,8 @@ import { APP_MARK } from '@shared/config/brand';
     </span>
     <div class="w-8 h-px bg-ok-border shrink-0"></div>
     <span *ngFor="let server of store.guilds(); trackBy: byId" class="relative shrink-0" [attr.data-unread]="guilds()[server.id]?.unread || null">
-      <span *ngIf="guilds()[server.id]?.unread && !rla.isActive" class="ok-pill" aria-hidden="true"></span>
-      <a [routerLink]="['/channels', server.id]" routerLinkActive="ok-active" #rla="routerLinkActive"
+      <span *ngIf="guilds()[server.id]?.unread || rla.isActive" class="ok-pill" [class.ok-pill-active]="rla.isActive" aria-hidden="true"></span>
+      <a [routerLink]="['/channels', server.id]" routerLinkActive #rla="routerLinkActive" [attr.aria-current]="rla.isActive ? 'page' : null"
          [attr.aria-label]="server.name + label(server.id)" [title]="server.name"
          class="ok-rail-item overflow-hidden text-[15px]">
         <AvatarUI [src]="server.icon" [name]="server.name" [letters]="2"
@@ -38,13 +39,13 @@ import { APP_MARK } from '@shared/config/brand';
   `,
   styles: `
     .ok-rail-item {
-      width: 48px; height: 48px; flex-shrink: 0; border-radius: 12px;
+      width: 48px; height: 48px; flex-shrink: 0; border-radius: 14px;
       display: flex; align-items: center; justify-content: center;
     }
-    .ok-active { box-shadow: 0 0 0 2px var(--color-ok-bg), 0 0 0 4px var(--color-ok-text); }
-    /* Something unread: a pill at the rail's edge, like Discord. */
+    /* Something unread: a short pill at the rail's edge; the open place: a tall one. */
     .ok-pill { position: absolute; left: -12px; top: 50%; width: 4px; height: 8px; margin-top: -4px;
-               border-radius: 0 4px 4px 0; background: var(--color-ok-text); }
+               border-radius: 0 4px 4px 0; background: var(--color-ok-text); transition: height .15s, margin-top .15s; }
+    .ok-pill-active { height: 32px; margin-top: -16px; }
     /* Mentions: a count at the corner. */
     .ok-badge { position: absolute; right: -4px; bottom: -4px; min-width: 20px; height: 20px; padding: 0 5px;
                 border-radius: 10px; border: 3px solid var(--color-ok-bg); box-sizing: content-box;

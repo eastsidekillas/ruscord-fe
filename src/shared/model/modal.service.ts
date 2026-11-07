@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type ModalType = 'createServer' | 'invite' | 'editServer' | 'channel' | 'userProfile' | 'userSettings' | 'group' | 'nick' | 'channelSettings' | 'link';
+export type ModalType = 'createServer' | 'invite' | 'editServer' | 'channel' | 'userProfile' | 'userSettings' | 'group' | 'nick' | 'channelSettings' | 'link' | 'quickSwitch';
 
 export interface ModalData {
   [key: string]: any;

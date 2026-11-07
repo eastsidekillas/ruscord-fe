@@ -567,9 +567,9 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
   await bob.locator('[data-voice-tile="ANN"] [data-voice-camera]').waitFor({ state: 'detached', timeout: 15000 });
   await bob.locator('[data-voice-stage]').waitFor({ state: 'detached', timeout: 15000 });
 
-  await bob.locator('[data-voice-panel] button[title="Выключить микрофон"]').click();
+  await bob.locator('[data-user-panel] button[title="Выключить микрофон"]').click();
   await ann.locator('[data-voice-member="BOB"] [title="Микрофон выключен"]').waitFor({ timeout: 10000 });
-  await bob.locator('[data-voice-panel] button[title="Включить микрофон"]').click();
+  await bob.locator('[data-user-panel] button[title="Включить микрофон"]').click();
 
   // The owner mutes Bob: LiveKit takes his microphone away, his button goes grey.
   // Assumption A25: the real LiveKit unpublishes his track itself, so Ann
@@ -581,11 +581,11 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
   await bobRow.locator('button[title="Выключить микрофон участнику"]').click();
   await bobRow.locator('[title="Микрофон выключил модератор"]').waitFor({ timeout: 10000 });
   await sees(bob, 'Модератор выключил вам микрофон', 10000);
-  await bob.locator('[data-voice-panel] button[title="Микрофон выключил модератор"]:disabled').waitFor({ timeout: 10000 });
+  await bob.locator('[data-user-panel] button[title="Микрофон выключил модератор"]:disabled').waitFor({ timeout: 10000 });
   await audioTracks(ann, 0);
   await bobRow.hover();
   await bobRow.locator('button[title="Вернуть микрофон"]').click();
-  await bob.locator('[data-voice-panel] button[title="Выключить микрофон"]:enabled').waitFor({ timeout: 10000 });
+  await bob.locator('[data-user-panel] button[title="Выключить микрофон"]:enabled').waitFor({ timeout: 10000 });
   await audioTracks(ann, 1);
 
   // A25: deafened by the owner, Bob receives no sound (canSubscribe=false).

@@ -1,14 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HeadphoneOff, Headphones, LucideAngularModule, Mic, MicOff, Monitor, MonitorOff, PhoneOff, Settings2, Video, VideoOff } from 'lucide-angular';
+import { LucideAngularModule, Monitor, MonitorOff, PhoneOff, Settings2, Video, VideoOff } from 'lucide-angular';
 import { AppStateStore } from '@entities/app-state';
 import { VoiceStats } from './voice-stats';
 import { nameOf } from '@shared/api';
 import { DeviceKind, VoiceService } from '@entities/voice';
 
 /**
- * The voice connection bar above the user panel: where you are, mute,
- * deafen, devices and leave. Shown while connected or when a problem
+ * The voice connection bar above the user panel: where you are, camera,
+ * screen, devices and leave. Shown while connected or when a problem
  * needs telling.
  */
 @Component({
@@ -32,19 +32,6 @@ import { DeviceKind, VoiceService } from '@entities/voice';
           </button>
         </div>
         <div class="grid gap-1" [style.grid-template-columns]="'repeat(' + buttons() + ', minmax(0, 1fr))'">
-          <button type="button" (click)="voice.toggleMute()" [disabled]="!voice.canSpeak()"
-                  [title]="voice.serverMute() ? 'Микрофон выключил модератор' : voice.selfMute() ? 'Включить микрофон' : 'Выключить микрофон'"
-                  [attr.aria-pressed]="voice.selfMute()"
-                  class="h-9 rounded-lg flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                  [ngClass]="voice.serverMute() ? 'bg-ok-surface-1 text-ok-danger' : voice.selfMute() ? 'bg-ok-text text-ok-bg' : 'text-ok-text hover:bg-ok-surface-1'">
-            <lucide-angular class="w-4 h-4" [img]="voice.selfMute() || voice.serverMute() ? MicOff : Mic"></lucide-angular>
-          </button>
-          <button type="button" (click)="voice.toggleDeaf()" [title]="voice.selfDeaf() ? 'Включить звук' : 'Выключить звук'"
-                  [attr.aria-pressed]="voice.selfDeaf()"
-                  class="h-9 rounded-lg flex items-center justify-center"
-                  [ngClass]="voice.selfDeaf() ? 'bg-ok-text text-ok-bg' : 'text-ok-text hover:bg-ok-surface-1'">
-            <lucide-angular class="w-4 h-4" [img]="voice.selfDeaf() ? HeadphoneOff : Headphones"></lucide-angular>
-          </button>
           <button *ngIf="voice.canCamera()" type="button" (click)="voice.toggleCamera()" data-voice-camera-button
                   [title]="voice.cameraOn() ? 'Выключить камеру' : 'Включить камеру'"
                   [attr.aria-pressed]="voice.cameraOn()"
@@ -142,17 +129,13 @@ export class VoicePanel {
     if (open) void this.voice.refreshDevices();
   }
 
-  /** Mute, deafen and devices always; camera and screen when allowed. */
-  protected readonly buttons = computed(() => 3 + Number(this.voice.canCamera()) + Number(this.voice.canShare()));
+  /** Devices always; camera and screen when allowed. Mute and deafen live in the user row. */
+  protected readonly buttons = computed(() => 1 + Number(this.voice.canCamera()) + Number(this.voice.canShare()));
 
   protected pick(kind: DeviceKind, ev: Event): void {
     void this.voice.setDevice(kind, (ev.target as HTMLSelectElement).value);
   }
 
-  protected readonly Mic = Mic;
-  protected readonly MicOff = MicOff;
-  protected readonly Headphones = Headphones;
-  protected readonly HeadphoneOff = HeadphoneOff;
   protected readonly PhoneOff = PhoneOff;
   protected readonly Settings2 = Settings2;
   protected readonly Monitor = Monitor;
