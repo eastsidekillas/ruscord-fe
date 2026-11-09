@@ -73,12 +73,12 @@ const BTN = 'h-10 w-full rounded-ok-md font-semibold disabled:opacity-50';
 
         <div class="flex flex-col gap-2">
           <span class="text-[13px] font-semibold text-ok-muted">Обработка звука</span>
-          <div role="group" aria-label="Обработка звука" class="grid grid-cols-3 gap-1 p-1 bg-ok-surface-1 rounded-ok-lg">
+          <div role="group" aria-label="Обработка звука" class="grid grid-cols-3 gap-1 p-1 bg-ok-surface-2 rounded-ok-lg">
             @for (m of modes; track m.key) {
               <button type="button" [attr.data-processing]="m.key" [attr.aria-pressed]="voice.prefs().mode === m.key"
                       (click)="voice.updatePrefs({ mode: m.key })"
                       class="min-h-9 px-2 rounded-ok-md text-[13px] font-semibold"
-                      [class]="voice.prefs().mode === m.key ? 'bg-ok-accent text-ok-on-accent' : 'text-ok-muted hover:text-ok-text'">
+                      [class]="voice.prefs().mode === m.key ? 'bg-ok-bg text-ok-text' : 'text-ok-muted hover:text-ok-text'">
                 {{ m.label }}
               </button>
             }
@@ -122,13 +122,13 @@ const BTN = 'h-10 w-full rounded-ok-md font-semibold disabled:opacity-50';
 
       <div preview class="flex flex-col items-center gap-3 text-center">
         <span class="self-start text-[13px] font-semibold text-ok-muted">Как вас слышно</span>
-        <Dolobeb [state]="face()" [size]="96" [audioLevel]="mic.level()" />
+        <Dolobeb [state]="face()" [size]="132" [audioLevel]="mic.level()" />
         <div class="w-full h-2 rounded-full bg-ok-surface-2 overflow-hidden" [attr.data-mic-level]="mic.level()">
-          <div class="h-full bg-ok-accent" [style.width.%]="mic.level() * 100"></div>
+          <div class="h-full bg-ok-success" [style.width.%]="mic.level() * 100"></div>
         </div>
         <p class="m-0 text-[13px] text-ok-muted">Скажите что-нибудь: долобеб откроет рот в такт вашему голосу</p>
         <button type="button" data-mic-check [disabled]="voice.connected()" (click)="toggleCheck()"
-                [class]="btn + ' bg-ok-accent text-ok-on-accent'">{{ mic.running() ? 'Остановить' : 'Слышать себя' }}</button>
+                [class]="btn + ' bg-ok-accent text-ok-on-accent'">{{ checking() ? 'Остановить' : 'Слышать себя' }}</button>
         <button type="button" data-speaker-check (click)="mic.playTone(outputId())"
                 [class]="btn + ' bg-ok-surface-2 text-ok-text'">Проверить динамики</button>
         @if (voice.connected()) {
@@ -158,6 +158,8 @@ export class VoiceSectionComponent {
   protected readonly face = computed(() => checkFace(this.mic.running(), this.mic.level()));
   protected readonly keyLabel = computed(() => talkKeyLabel(this.voice.prefs().talkKey));
 
+  /** The user wants the check on; true from the click, also while the browser still asks for access. */
+  protected readonly checking = signal(false);
   protected readonly capturing = signal(false);
   protected readonly keyHint = signal('');
 
@@ -172,7 +174,13 @@ export class VoiceSectionComponent {
 
     // A call owns the microphone: end the check when one starts.
     effect(() => {
-      if (this.voice.connected() && untracked(() => this.mic.running())) this.mic.stop();
+      if (this.voice.connected()) {
+        untracked(() => {
+          // stop() is idempotent and also cancels a start still waiting for the browser.
+          this.checking.set(false);
+          this.mic.stop();
+        });
+      }
     });
 
     // Names appear once the browser grants access: refresh after the first run.
@@ -191,17 +199,23 @@ export class VoiceSectionComponent {
       const now = settings();
       const changed = last !== null && last !== now;
       last = now;
-      if (changed && untracked(() => this.mic.running())) untracked(() => this.begin());
+      if (changed && untracked(() => this.checking())) untracked(() => void this.begin());
     });
   }
 
   protected toggleCheck(): void {
-    if (this.mic.running()) this.mic.stop();
-    else this.begin();
+    if (this.checking()) {
+      this.checking.set(false);
+      this.mic.stop();
+    } else {
+      this.checking.set(true);
+      void this.begin();
+    }
   }
 
-  private begin(): void {
-    void this.mic.start({ input: this.voice.input(), output: this.voice.output(), flags: this.voice.flags() });
+  private async begin(): Promise<void> {
+    await this.mic.start({ input: this.voice.input(), output: this.voice.output(), flags: this.voice.flags() });
+    if (this.mic.error()) this.checking.set(false);
   }
 
   protected pick(kind: DeviceKind, ev: Event): void {

@@ -86,6 +86,28 @@ describe('VoiceSectionComponent', () => {
     expect(mic.stop).toHaveBeenCalled();
   });
 
+  it('stops a start still pending when a call begins', () => {
+    mic.start.and.callFake(() => new Promise<void>(() => undefined));
+    const f = render();
+    (q(f, '[data-mic-check]') as HTMLButtonElement).click();
+    mic.stop.calls.reset();
+    voice.connected.set(true);
+    f.detectChanges();
+    expect(mic.stop).toHaveBeenCalled();
+  });
+
+  it('restarts when the device changes during a pending start', () => {
+    mic.start.and.callFake(() => new Promise<void>(() => undefined));
+    const f = render();
+    (q(f, '[data-mic-check]') as HTMLButtonElement).click();
+    f.detectChanges();
+    mic.start.calls.reset();
+    voice.input.set('mic2');
+    f.detectChanges();
+    expect(mic.start).toHaveBeenCalledTimes(1);
+    expect(mic.start.calls.mostRecent().args[0].input).toBe('mic2');
+  });
+
   it('stops the check on destroy', () => {
     const f = render();
     mic.stop.calls.reset();
@@ -95,7 +117,7 @@ describe('VoiceSectionComponent', () => {
 
   it('restarts a running check with the new device', async () => {
     const f = render();
-    mic.running.set(true);
+    (q(f, '[data-mic-check]') as HTMLButtonElement).click();
     f.detectChanges();
     mic.start.calls.reset();
     voice.input.set('mic2');
@@ -106,7 +128,7 @@ describe('VoiceSectionComponent', () => {
 
   it('does not restart when only the volume changes', () => {
     const f = render();
-    mic.running.set(true);
+    (q(f, '[data-mic-check]') as HTMLButtonElement).click();
     f.detectChanges();
     mic.start.calls.reset();
     voice.prefs.update(p => ({ ...p, volume: 0.3 }));
