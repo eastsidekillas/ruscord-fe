@@ -1,5 +1,13 @@
+import { signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { Subject } from 'rxjs';
 import { DisconnectReason, Track } from 'livekit-client';
-import { cameraErrorText, disconnectText, liveKitUrl, micAllowed, screenPreset, shareErrorText, sourceAllowed } from './voice.service';
+import { ApiService, GatewayService } from '@shared/api';
+import { AuthService } from '@entities/session/api/auth.service';
+import {
+  VoiceService, cameraErrorText, disconnectText, liveKitUrl, micAllowed, micWanted, screenPreset, shareErrorText, sourceAllowed,
+} from './voice.service';
+import { DEFAULT_VOICE_PREFS } from './voice-prefs';
 
 describe('voice helpers', () => {
   it('connects to LiveKit on this site unless the core names another address', () => {
@@ -56,5 +64,74 @@ describe('voice helpers', () => {
   it('allows the camera only when LiveKit lists it', () => {
     expect(sourceAllowed({ canPublish: true, canPublishSources: [1] }, Track.Source.Camera)).toBeTrue();
     expect(sourceAllowed({ canPublish: true, canPublishSources: [2] }, Track.Source.Camera)).toBeFalse();
+  });
+});
+
+describe('micWanted', () => {
+  const open = { canSpeak: true, selfMute: false, selfDeaf: false, talkRequired: false, talkHeld: false };
+
+  it('wants the microphone open unless something forbids it', () => {
+    expect(micWanted(open)).toBeTrue();
+    expect(micWanted({ ...open, talkRequired: true })).toBeFalse();
+    expect(micWanted({ ...open, talkRequired: true, talkHeld: true })).toBeTrue();
+    expect(micWanted({ ...open, talkRequired: true, talkHeld: true, selfMute: true })).toBeFalse();
+    expect(micWanted({ ...open, talkRequired: true, talkHeld: true, selfDeaf: true })).toBeFalse();
+    expect(micWanted({ ...open, canSpeak: false })).toBeFalse();
+  });
+});
+
+describe('VoiceService voice prefs', () => {
+  interface Internals {
+    audio: Map<string, HTMLMediaElement>;
+    room: unknown;
+  }
+  let service: VoiceService;
+  let internals: Internals;
+
+  beforeEach(() => {
+    localStorage.removeItem('ruscord.voice.prefs');
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ApiService, useValue: {} },
+        { provide: GatewayService, useValue: { dispatches: new Subject() } },
+        { provide: AuthService, useValue: { signedIn: signal(true), user: signal(null) } },
+      ],
+    });
+    service = TestBed.inject(VoiceService);
+    internals = service as unknown as Internals;
+  });
+
+  afterEach(() => localStorage.removeItem('ruscord.voice.prefs'));
+
+  it('sets the volume on playing elements and saves it', async () => {
+    const el = document.createElement('audio');
+    internals.audio.set('a', el);
+    await service.updatePrefs({ volume: 0.4 });
+    expect(el.volume).toBe(0.4);
+    expect(JSON.parse(localStorage.getItem('ruscord.voice.prefs') ?? '{}').volume).toBe(0.4);
+  });
+
+  function withMicTrack() {
+    const restartTrack = jasmine.createSpy('restartTrack').and.resolveTo();
+    internals.room = {
+      disconnect: () => Promise.resolve(),
+      localParticipant: { getTrackPublication: () => ({ audioTrack: { restartTrack } }) },
+    };
+    return restartTrack;
+  }
+
+  it('restarts the microphone track with the new flags when the mode changes', async () => {
+    const restartTrack = withMicTrack();
+    await service.updatePrefs({ mode: 'clean' });
+    expect(restartTrack).toHaveBeenCalledOnceWith({
+      deviceId: undefined, noiseSuppression: false, echoCancellation: false, autoGainControl: false,
+    });
+  });
+
+  it('does not restart the microphone track when only the volume changes', async () => {
+    const restartTrack = withMicTrack();
+    await service.updatePrefs({ volume: 0.5 });
+    expect(restartTrack).not.toHaveBeenCalled();
+    expect(service.prefs().mode).toBe(DEFAULT_VOICE_PREFS.mode);
   });
 });
