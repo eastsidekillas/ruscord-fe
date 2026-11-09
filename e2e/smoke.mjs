@@ -513,6 +513,22 @@ await step('own nickname on the server: set, then reset', async () => {
   await sees(ann, 'Ник сброшен');
 });
 
+await step('voice settings outside a call: microphone check shows a level, camera preview shows frames', async () => {
+  await ann.locator('[data-user-panel] button[title="Настройки"]').click();
+  await ann.getByRole('button', { name: 'Голос', exact: true }).click();
+  await ann.locator('[data-mic-check]').click();
+  await ann.waitForFunction(() => Number(document.querySelector('[data-mic-level]')?.getAttribute('data-mic-level')) > 0, null, { timeout: 15000 });
+  await ann.getByRole('button', { name: 'Камера', exact: true }).click();
+  await ann.locator('[data-camera-toggle]').click();
+  await ann.waitForFunction(() => {
+    const v = document.querySelector('[data-camera-preview] video');
+    return !!v && v.videoWidth > 0;
+  }, null, { timeout: 15000 });
+  await ann.locator('[data-camera-toggle]').click();
+  await ann.keyboard.press('Escape');
+  await ann.locator('[data-camera-preview]').waitFor({ state: 'detached', timeout: 5000 });
+});
+
 await step('voice: both enter the voice channel, hear who speaks, mute shows; the owner mutes and disconnects Bob', async () => {
   const room = p => p.locator('[data-voice-member]');
   for (const p of [ann, bob]) await p.locator('[data-voice-channel="General"]').click();
@@ -556,16 +572,36 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
     return !!v && v.videoWidth > 0;
   }, null, { timeout: 15000 });
   // The statistics show what Bob receives from Ann; logged for the record.
-  await bob.locator('[data-voice-panel] button[title="Устройства"]').click();
-  await bob.locator('[data-voice-stats-toggle]').click();
+  await bob.locator('[data-voice-panel] button[title="Настройки голоса и видео"]').click();
+  await bob.getByRole('button', { name: 'Соединение', exact: true }).click();
   await bob.locator('[data-voice-stats]').getByText('Камера:').waitFor({ timeout: 15000 });
   await bob.waitForTimeout(4500); // two samples: rates and buffers since the last one
   console.log('     stats on Bob\'s side: ' + (await bob.locator('[data-voice-stats]').innerText()).replace(/\s*\n\s*/g, ' | '));
-  await bob.locator('[data-voice-stats-toggle]').click();
-  await bob.locator('[data-voice-panel] button[title="Устройства"]').click();
+  await bob.keyboard.press('Escape');
+  await bob.locator('[data-settings-connection]').waitFor({ state: 'detached', timeout: 5000 });
   await ann.locator('[data-voice-camera-toggle]').click();
   await bob.locator('[data-voice-tile="ANN"] [data-voice-camera]').waitFor({ state: 'detached', timeout: 15000 });
   await bob.locator('[data-voice-stage]').waitFor({ state: 'detached', timeout: 15000 });
+
+  // Push-to-talk: Bob turns it on in the settings; the beeping microphone goes
+  // quiet for Ann until he holds the key.
+  await bob.locator('[data-user-panel] button[title="Настройки"]').click();
+  await bob.getByRole('button', { name: 'Голос', exact: true }).click();
+  await bob.locator('[data-talk-toggle]').check();
+  await bob.keyboard.press('Escape');
+  await bob.locator('[data-settings-voice]').waitFor({ state: 'detached', timeout: 5000 });
+  // The toggle has to apply (the fake microphone beeps without a pause), then 3 s of silence.
+  await ann.waitForFunction(() => !document.querySelector('[data-voice-tile="BOB"][data-speaking]'), null, { timeout: 10000 });
+  await ann.waitForTimeout(3000);
+  if (await ann.locator('[data-voice-tile="BOB"][data-speaking]').count()) throw new Error('Bob is heard without holding the key');
+  await bob.keyboard.down('Backquote');
+  await ann.locator('[data-voice-tile="BOB"][data-speaking]').waitFor({ timeout: 10000 });
+  await bob.keyboard.up('Backquote');
+  await bob.locator('[data-user-panel] button[title="Настройки"]').click();
+  await bob.getByRole('button', { name: 'Голос', exact: true }).click();
+  await bob.locator('[data-talk-toggle]').uncheck();
+  await bob.keyboard.press('Escape');
+  await bob.locator('[data-settings-voice]').waitFor({ state: 'detached', timeout: 5000 });
 
   await bob.locator('[data-user-panel] button[title="Выключить микрофон"]').click();
   await ann.locator('[data-voice-member="BOB"] [title="Микрофон выключен"]').waitFor({ timeout: 10000 });

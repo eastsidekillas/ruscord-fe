@@ -1,20 +1,20 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule, Monitor, MonitorOff, PhoneOff, Settings2, Video, VideoOff } from 'lucide-angular';
 import { AppStateStore } from '@entities/app-state';
-import { VoiceStats } from './voice-stats';
+import { ModalService } from '@shared/model/modal.service';
 import { nameOf } from '@shared/api';
-import { DeviceKind, VoiceService } from '@entities/voice';
+import { VoiceService, talkKeyLabel } from '@entities/voice';
 
 /**
  * The voice connection bar above the user panel: where you are, camera,
- * screen, devices and leave. Shown while connected or when a problem
+ * screen, the settings and leave. Shown while connected or when a problem
  * needs telling.
  */
 @Component({
   selector: 'VoicePanel',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, VoiceStats],
+  imports: [CommonModule, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div *ngIf="voice.connected() || voice.error()" class="flex flex-col gap-2" data-voice-panel>
@@ -47,46 +47,14 @@ import { DeviceKind, VoiceService } from '@entities/voice';
                   [ngClass]="voice.sharing() ? 'bg-ok-accent text-ok-on-accent' : 'text-ok-text hover:bg-ok-surface-1'">
             <lucide-angular class="w-4 h-4" [img]="voice.sharing() ? MonitorOff : Monitor"></lucide-angular>
           </button>
-          <button type="button" (click)="toggleDevices()" title="Устройства" [attr.aria-expanded]="devicesOpen()"
-                  class="h-9 rounded-lg flex items-center justify-center text-ok-text hover:bg-ok-surface-1"
-                  [class.bg-ok-surface-1]="devicesOpen()">
+          <button type="button" (click)="openSettings()" title="Настройки голоса и видео" aria-label="Настройки голоса и видео"
+                  class="h-9 rounded-lg flex items-center justify-center text-ok-text hover:bg-ok-surface-1">
             <lucide-angular class="w-4 h-4" [img]="Settings2"></lucide-angular>
           </button>
         </div>
 
-        <div *ngIf="devicesOpen()" class="flex flex-col gap-2 text-[12px]">
-          <label class="flex flex-col gap-1">
-            <span class="text-ok-muted">Микрофон</span>
-            <select [value]="voice.input()" (change)="pick('audioinput', $event)"
-                    class="h-9 bg-ok-sidebar border border-ok-border-control rounded-lg px-2 text-ok-text">
-              <option value="">По умолчанию</option>
-              <option *ngFor="let d of voice.inputs()" [value]="d.deviceId">{{ d.label || 'Микрофон' }}</option>
-            </select>
-          </label>
-          <label *ngIf="voice.outputs().length" class="flex flex-col gap-1">
-            <span class="text-ok-muted">Динамики</span>
-            <select [value]="voice.output()" (change)="pick('audiooutput', $event)"
-                    class="h-9 bg-ok-sidebar border border-ok-border-control rounded-lg px-2 text-ok-text">
-              <option value="">По умолчанию</option>
-              <option *ngFor="let d of voice.outputs()" [value]="d.deviceId">{{ d.label || 'Динамики' }}</option>
-            </select>
-          </label>
-          <p *ngIf="!voice.outputs().length" class="text-ok-muted">Этот браузер не даёт выбрать динамики.</p>
-          <label *ngIf="voice.canCamera() && voice.cameras().length" class="flex flex-col gap-1">
-            <span class="text-ok-muted">Камера</span>
-            <select [value]="voice.camera()" (change)="pick('videoinput', $event)"
-                    class="h-9 bg-ok-sidebar border border-ok-border-control rounded-lg px-2 text-ok-text">
-              <option value="">По умолчанию</option>
-              <option *ngFor="let d of voice.cameras()" [value]="d.deviceId">{{ d.label || 'Камера' }}</option>
-            </select>
-          </label>
-          <button type="button" (click)="statsOpen.set(!statsOpen())" [attr.aria-expanded]="statsOpen()" data-voice-stats-toggle
-                  class="self-start text-ok-accent hover:underline">{{ statsOpen() ? 'Скрыть статистику соединения' : 'Статистика соединения' }}</button>
-          <VoiceStats *ngIf="statsOpen()" />
-        </div>
-
         <p *ngIf="voice.pushToTalk()" class="text-[12px] text-ok-warning">
-          На этом канале только push-to-talk — он появится в настройках голоса. Пока вы слушаете.
+          На этом канале только рация: удерживайте клавишу {{ talkKey() }}
         </p>
       </div>
 
@@ -101,8 +69,8 @@ export class VoicePanel {
   protected readonly voice = inject(VoiceService);
   private readonly store = inject(AppStateStore);
 
-  protected readonly devicesOpen = signal(false);
-  protected readonly statsOpen = signal(false);
+  private readonly modal = inject(ModalService);
+
   protected readonly statusText = computed(() => {
     switch (this.voice.status()) {
       case 'connecting': return 'Подключение…';
@@ -123,18 +91,14 @@ export class VoicePanel {
     return [ch?.name, g?.name].filter(Boolean).join(' · ');
   });
 
-  protected toggleDevices(): void {
-    const open = !this.devicesOpen();
-    this.devicesOpen.set(open);
-    if (open) void this.voice.refreshDevices();
-  }
-
-  /** Devices always; camera and screen when allowed. Mute and deafen live in the user row. */
+  /** Settings always; camera and screen when allowed. Mute and deafen live in the user row. */
   protected readonly buttons = computed(() => 1 + Number(this.voice.canCamera()) + Number(this.voice.canShare()));
 
-  protected pick(kind: DeviceKind, ev: Event): void {
-    void this.voice.setDevice(kind, (ev.target as HTMLSelectElement).value);
+  protected openSettings(): void {
+    this.modal.open('userSettings', { section: 'voice' });
   }
+
+  protected readonly talkKey = computed(() => talkKeyLabel(this.voice.prefs().talkKey));
 
   protected readonly PhoneOff = PhoneOff;
   protected readonly Settings2 = Settings2;
