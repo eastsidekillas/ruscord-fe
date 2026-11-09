@@ -688,7 +688,7 @@ await step('devices: a new sign-in is announced, signing it out works at once; p
   await ann2.waitForURL(/\/channels\/me/, { timeout: 10000 });
   await sees(ann, 'Вход с нового устройства');
   await ann.locator('[title="Настройки"]').click();
-  await ann.getByRole('button', { name: 'Устройства и безопасность' }).click();
+  await ann.getByRole('button', { name: 'Вход и сеансы' }).click();
   await ann.locator('[data-session]').nth(1).waitFor({ timeout: 8000 });
   await ann.locator('[data-session]', { hasNotText: 'это устройство' }).getByRole('button', { name: 'Завершить' }).click();
   // Signed out at once: the socket closes and the session cannot be renewed.
@@ -751,7 +751,7 @@ await step('block from the friends page: the friend is gone on both sides; unblo
 await step('Cat deletes her account; it cannot sign in again', async () => {
   await cat.goto(BASE + '/channels/me');
   await cat.locator('[title="Настройки"]').click();
-  await cat.getByRole('button', { name: 'Устройства и безопасность' }).click();
+  await cat.getByRole('button', { name: 'Вход и сеансы' }).click();
   await cat.fill('#del-pw', 'password-cat');
   await cat.getByRole('button', { name: 'Удалить навсегда' }).click();
   await cat.waitForURL(/\/login/, { timeout: 8000 });

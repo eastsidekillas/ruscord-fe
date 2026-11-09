@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-/** A link under the message («Открыть устройства»). */
+/** A link under the message («Открыть сеансы»). */
 export interface NotificationAction {
   label: string;
   run: () => void;
