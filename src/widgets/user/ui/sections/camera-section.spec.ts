@@ -136,6 +136,14 @@ describe('CameraSectionComponent', () => {
     expect(gum).toHaveBeenCalledOnceWith({ video: { deviceId: 'cam1' } });
   });
 
+  it('asks for the default camera when the saved id is not in a list of real ids', async () => {
+    voice.camera.set('gone');
+    gum.and.resolveTo(fakeStream().stream);
+    const f = render();
+    await click(f, '[data-camera-toggle]');
+    expect(gum).toHaveBeenCalledOnceWith({ video: true });
+  });
+
   it('shows the running call track and makes no request of its own', () => {
     voice.cameraOn.set(true);
     const f = render();

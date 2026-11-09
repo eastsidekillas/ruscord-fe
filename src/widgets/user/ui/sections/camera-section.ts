@@ -137,7 +137,10 @@ export class CameraSectionComponent {
   private async begin(): Promise<void> {
     this.halt();
     const mine = this.run;
-    const id = this.voice.camera();
+    // Real ids in the list: a stale saved id means the default camera, as the select shows.
+    // Id-less entries (before permission): the saved id is all we know.
+    const list = this.voice.cameras();
+    const id = list.some(d => d.deviceId) ? selectedOr(list, this.voice.camera()) : this.voice.camera();
     this.error.set('');
     let got: MediaStream;
     try {
