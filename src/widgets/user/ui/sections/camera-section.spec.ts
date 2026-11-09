@@ -56,6 +56,15 @@ describe('CameraSectionComponent', () => {
     expect(gum).not.toHaveBeenCalled();
   });
 
+  it('lists no entry for a camera without an id, so the default stays selected', () => {
+    voice.cameras.set([cam('', '')]);
+    voice.camera.set('');
+    const f = render();
+    const select = q(f, '[data-camera]') as HTMLSelectElement;
+    expect(select.options.length).toBe(1);
+    expect(select.selectedOptions[0].textContent).toContain('По умолчанию');
+  });
+
   it('shows a note instead of the select without cameras', () => {
     voice.cameras.set([]);
     const f = render();

@@ -13,9 +13,9 @@ import { SETTINGS_GROUPS, sectionFrom, SettingsSection } from './settings-sectio
 
 
 /**
- * User settings over the whole window, by the mockups «Настройки: профиль»
- * and «Настройки: устройства и безопасность»: sections on the left, the
- * section on the right, Esc or the cross closes.
+ * User settings over the whole window: sections on the left (profile,
+ * voice, camera, connection, sign-in and security), the section on the
+ * right, Esc or the cross closes.
  */
 @Component({
   selector: 'UserSettingsModal',

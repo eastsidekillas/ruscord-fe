@@ -46,7 +46,9 @@ const BTN = 'h-10 w-full rounded-ok-md font-semibold disabled:opacity-50';
             <select [class]="select" (change)="pick('audioinput', $event)" data-input>
               <option value="" [selected]="inputId() === ''">По умолчанию</option>
               @for (d of voice.inputs(); track d.deviceId) {
-                <option [value]="d.deviceId" [selected]="d.deviceId === inputId()">{{ d.label || 'Микрофон' }}</option>
+                @if (d.deviceId) {
+                  <option [value]="d.deviceId" [selected]="d.deviceId === inputId()">{{ d.label || 'Микрофон' }}</option>
+                }
               }
             </select>
           </label>
@@ -56,7 +58,9 @@ const BTN = 'h-10 w-full rounded-ok-md font-semibold disabled:opacity-50';
               <select [class]="select" (change)="pick('audiooutput', $event)" data-output>
                 <option value="" [selected]="outputId() === ''">По умолчанию</option>
                 @for (d of voice.outputs(); track d.deviceId) {
-                  <option [value]="d.deviceId" [selected]="d.deviceId === outputId()">{{ d.label || 'Динамики' }}</option>
+                  @if (d.deviceId) {
+                    <option [value]="d.deviceId" [selected]="d.deviceId === outputId()">{{ d.label || 'Динамики' }}</option>
+                  }
                 }
               </select>
             </label>
@@ -106,10 +110,10 @@ const BTN = 'h-10 w-full rounded-ok-md font-semibold disabled:opacity-50';
             <input type="checkbox" role="switch" data-talk-toggle class="w-5 h-5 mt-0.5 accent-ok-accent"
                    [checked]="voice.prefs().talkMode" (change)="voice.updatePrefs({ talkMode: $any($event.target).checked })" />
           </label>
-          @if (voice.prefs().talkMode) {
+          @if (voice.prefs().talkMode || voice.pushToTalk()) {
             <div class="flex items-center gap-3">
               <span class="text-[13px] text-ok-muted">Клавиша</span>
-              <button type="button" data-talk-key (click)="capturing.set(true)" (keydown)="capture($event)" (blur)="capturing.set(false)"
+              <button type="button" data-talk-key (click)="capturing.set(true)" (keydown)="capture($event)" (blur)="stopCapture()"
                       class="h-10 min-w-24 px-4 rounded-ok-md border border-ok-border-control font-semibold"
                       [class]="capturing() ? 'bg-ok-surface-2 text-ok-text' : 'bg-ok-surface-1 text-ok-text'">
                 {{ capturing() ? 'Нажмите клавишу…' : keyLabel() }}
@@ -164,6 +168,8 @@ export class VoiceSectionComponent {
   protected readonly keyHint = signal('');
 
   constructor() {
+    // An error from an earlier check (a past denial) is not news on reopening.
+    this.mic.clearError();
     const onDeviceChange = () => void this.voice.refreshDevices();
     void this.voice.refreshDevices();
     navigator.mediaDevices?.addEventListener?.('devicechange', onDeviceChange);
@@ -229,6 +235,11 @@ export class VoiceSectionComponent {
   protected setFlag(key: keyof AudioFlags, ev: Event): void {
     const custom = { ...this.voice.prefs().custom, [key]: (ev.target as HTMLInputElement).checked };
     void this.voice.updatePrefs({ custom });
+  }
+
+  protected stopCapture(): void {
+    this.capturing.set(false);
+    this.keyHint.set('');
   }
 
   /** While capturing, the key never reaches the rest of the page (Esc would close the settings). */

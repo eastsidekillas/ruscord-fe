@@ -11,6 +11,7 @@ class FakeVoice {
   input = signal('mic1');
   output = signal('');
   connected = signal(false);
+  pushToTalk = signal(false);
   prefs = signal<VoicePrefs>({ ...DEFAULT_VOICE_PREFS });
   flags = () => flagsFor(this.prefs());
   refreshDevices = jasmine.createSpy('refreshDevices').and.resolveTo();
@@ -24,6 +25,7 @@ class FakeMic {
   running = signal(false);
   level = signal(0);
   error = signal<string | null>(null);
+  clearError = jasmine.createSpy('clearError');
   start = jasmine.createSpy('start').and.callFake(async () => this.running.set(true));
   stop = jasmine.createSpy('stop').and.callFake(() => this.running.set(false));
   playTone = jasmine.createSpy('playTone').and.resolveTo();
@@ -176,5 +178,45 @@ describe('VoiceSectionComponent', () => {
     f.detectChanges();
     q(f, '[data-talk-key]')!.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', bubbles: true, cancelable: true }));
     expect(voice.updatePrefs).toHaveBeenCalledWith({ talkKey: 'KeyV' });
+  });
+
+  it('shows the talk key row when the channel requires push-to-talk, even with the mode off', () => {
+    voice.pushToTalk.set(true);
+    const f = render();
+    expect(q(f, '[data-talk-key]')).not.toBeNull();
+  });
+
+  it('hides the talk key row when nothing asks for push-to-talk', () => {
+    expect(q(render(), '[data-talk-key]')).toBeNull();
+  });
+
+  it('clears the key hint when the key button loses focus', () => {
+    voice.prefs.update(p => ({ ...p, talkMode: true }));
+    const f = render();
+    (q(f, '[data-talk-key]') as HTMLButtonElement).click();
+    f.detectChanges();
+    q(f, '[data-talk-key]')!.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true, cancelable: true }));
+    f.detectChanges();
+    expect(f.nativeElement.textContent).toContain('Эту клавишу назначить нельзя');
+    q(f, '[data-talk-key]')!.dispatchEvent(new Event('blur'));
+    f.detectChanges();
+    expect(f.nativeElement.textContent).not.toContain('Эту клавишу назначить нельзя');
+  });
+
+  it('forgets an old check error on open', () => {
+    render();
+    expect(mic.clearError).toHaveBeenCalled();
+  });
+
+  it('lists no entries without an id, so the default stays selected', () => {
+    voice.inputs.set([dev('', '')]);
+    voice.outputs.set([dev('', '')]);
+    voice.input.set('');
+    const f = render();
+    for (const sel of ['[data-input]', '[data-output]']) {
+      const select = q(f, sel) as HTMLSelectElement;
+      expect(select.options.length).withContext(sel).toBe(1);
+      expect(select.selectedOptions[0].textContent).withContext(sel).toContain('По умолчанию');
+    }
   });
 });

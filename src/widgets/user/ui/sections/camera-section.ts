@@ -32,7 +32,9 @@ const BTN = 'h-10 w-full rounded-ok-md font-semibold bg-ok-accent text-ok-on-acc
             <select [class]="select" (change)="pick($event)" data-camera>
               <option value="" [selected]="cameraId() === ''">По умолчанию</option>
               @for (d of voice.cameras(); track d.deviceId) {
-                <option [value]="d.deviceId" [selected]="d.deviceId === cameraId()">{{ d.label || 'Камера' }}</option>
+                @if (d.deviceId) {
+                  <option [value]="d.deviceId" [selected]="d.deviceId === cameraId()">{{ d.label || 'Камера' }}</option>
+                }
               }
             </select>
           </label>
