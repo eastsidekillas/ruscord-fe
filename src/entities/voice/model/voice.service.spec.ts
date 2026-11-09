@@ -155,4 +155,27 @@ describe('VoiceService voice prefs', () => {
     expect(restartTrack).not.toHaveBeenCalled();
     expect(service.prefs().mode).toBe(DEFAULT_VOICE_PREFS.mode);
   });
+
+  it('shows the microphone as on only while the talk key is held in talk mode', async () => {
+    let enabled = false;
+    internals.room = {
+      disconnect: () => Promise.resolve(),
+      options: { audioCaptureDefaults: {} },
+      localParticipant: {
+        getTrackPublication: () => undefined,
+        get isMicrophoneEnabled() { return enabled; },
+        setMicrophoneEnabled: (on: boolean) => { enabled = on; return Promise.resolve(); },
+      },
+    };
+    await service.updatePrefs({ talkMode: true });
+    expect(service.micOn()).toBeFalse();
+    await service.holdTalk(true);
+    expect(service.micOn()).toBeTrue();
+    await service.holdTalk(false);
+    expect(service.micOn()).toBeFalse();
+    // A self-mute keeps it off even with the key held.
+    service.selfMute.set(true);
+    await service.holdTalk(true);
+    expect(service.micOn()).toBeFalse();
+  });
 });

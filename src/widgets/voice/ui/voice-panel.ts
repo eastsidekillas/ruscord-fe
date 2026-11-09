@@ -17,7 +17,8 @@ import { VoiceService, talkKeyLabel } from '@entities/voice';
   imports: [CommonModule, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div *ngIf="voice.connected() || voice.error()" class="flex flex-col gap-2" data-voice-panel>
+    <div *ngIf="voice.connected() || voice.error()" class="flex flex-col gap-2" data-voice-panel
+         [attr.data-voice-mic]="voice.micOn() ? 'on' : 'off'">
       <div *ngIf="voice.connected()" class="rounded-ok-md bg-ok-surface-2 p-3 flex flex-col gap-3">
         <div class="flex items-center gap-2">
           <div class="min-w-0 flex-1">

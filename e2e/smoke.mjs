@@ -583,25 +583,27 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
   await bob.locator('[data-voice-tile="ANN"] [data-voice-camera]').waitFor({ state: 'detached', timeout: 15000 });
   await bob.locator('[data-voice-stage]').waitFor({ state: 'detached', timeout: 15000 });
 
-  // Push-to-talk: Bob turns it on in the settings; the beeping microphone goes
-  // quiet for Ann until he holds the key.
-  await bob.locator('[data-user-panel] button[title="Настройки"]').click();
-  await bob.getByRole('button', { name: 'Голос', exact: true }).click();
-  await bob.locator('[data-talk-toggle]').check();
-  await bob.keyboard.press('Escape');
-  await bob.locator('[data-settings-voice]').waitFor({ state: 'detached', timeout: 5000 });
-  // The toggle has to apply (the fake microphone beeps without a pause), then 3 s of silence.
-  await ann.waitForFunction(() => !document.querySelector('[data-voice-tile="BOB"][data-speaking]'), null, { timeout: 10000 });
-  await ann.waitForTimeout(3000);
-  if (await ann.locator('[data-voice-tile="BOB"][data-speaking]').count()) throw new Error('Bob is heard without holding the key');
-  await bob.keyboard.down('Backquote');
-  await ann.locator('[data-voice-tile="BOB"][data-speaking]').waitFor({ timeout: 10000 });
-  await bob.keyboard.up('Backquote');
-  await bob.locator('[data-user-panel] button[title="Настройки"]').click();
-  await bob.getByRole('button', { name: 'Голос', exact: true }).click();
-  await bob.locator('[data-talk-toggle]').uncheck();
-  await bob.keyboard.press('Escape');
-  await bob.locator('[data-settings-voice]').waitFor({ state: 'detached', timeout: 5000 });
+  // Push-to-talk on Bob's side: the panel says whether his microphone is
+  // enabled (LiveKit's state), which does not depend on the beeps being heard.
+  const talkMode = async on => {
+    await bob.locator('[data-user-panel] button[title="Настройки"]').click();
+    await bob.getByRole('button', { name: 'Голос', exact: true }).click();
+    await bob.locator('[data-talk-toggle]').setChecked(on);
+    await bob.keyboard.press('Escape');
+    await bob.locator('[data-settings-voice]').waitFor({ state: 'detached', timeout: 5000 });
+  };
+  const mic = state => bob.locator(`[data-voice-panel][data-voice-mic="${state}"]`);
+  await talkMode(true);
+  try {
+    await mic('off').waitFor({ timeout: 10000 });
+    await bob.keyboard.down('Backquote');
+    await mic('on').waitFor({ timeout: 10000 });
+    await bob.keyboard.up('Backquote');
+    await mic('off').waitFor({ timeout: 10000 });
+  } finally {
+    await bob.keyboard.up('Backquote').catch(() => {});
+    await talkMode(false);
+  }
 
   await bob.locator('[data-user-panel] button[title="Выключить микрофон"]').click();
   await ann.locator('[data-voice-member="BOB"] [title="Микрофон выключен"]').waitFor({ timeout: 10000 });

@@ -207,6 +207,8 @@ export class VoiceService {
   readonly error = signal<string | null>(null);
   /** The token does not allow the microphone, or push-to-talk is required. */
   readonly canSpeak = signal(true);
+  /** Our microphone is enabled in LiveKit right now (open, or held in push-to-talk). */
+  readonly micOn = signal(false);
   readonly pushToTalk = signal(false);
   /** Saved voice settings: processing mode, speaker volume, push-to-talk. */
   readonly prefs: WritableSignal<VoicePrefs> = signal(loadVoicePrefs());
@@ -551,6 +553,8 @@ export class VoiceService {
       this.error.set('Нет доступа к микрофону: разрешите его в браузере');
       this.selfMute.set(true);
       console.warn('voice: microphone', err);
+    } finally {
+      this.micOn.set(room.localParticipant.isMicrophoneEnabled);
     }
   }
 
@@ -677,6 +681,7 @@ export class VoiceService {
   private syncLocal(local: LocalParticipant): void {
     this.sharing.set(local.isScreenShareEnabled);
     this.cameraOn.set(local.isCameraEnabled);
+    this.micOn.set(local.isMicrophoneEnabled);
     this.updateVideos();
   }
 
@@ -718,6 +723,7 @@ export class VoiceService {
     this.audio.clear();
     for (const v of this.videos.values()) v.clear();
     this.sharing.set(false);
+    this.micOn.set(false);
     this.canCamera.set(false);
     this.cameraOn.set(false);
     this.filming.set(new Set());
