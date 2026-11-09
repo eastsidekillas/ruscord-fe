@@ -6,6 +6,7 @@ import { ModalService } from '@shared/model/modal.service';
 import { AccountSettingsSectionComponent } from './sections/account-settings-section';
 import { DevicesSectionComponent } from './sections/devices-section';
 import { SecuritySectionComponent } from './sections/security-section';
+import { VoiceSectionComponent } from './sections/voice-section';
 import { SETTINGS_GROUPS, sectionFrom, SettingsSection } from './settings-sections';
 
 
@@ -17,7 +18,7 @@ import { SETTINGS_GROUPS, sectionFrom, SettingsSection } from './settings-sectio
 @Component({
   selector: 'UserSettingsModal',
   standalone: true,
-  imports: [LucideAngularModule, AccountSettingsSectionComponent, DevicesSectionComponent, SecuritySectionComponent],
+  imports: [LucideAngularModule, AccountSettingsSectionComponent, DevicesSectionComponent, SecuritySectionComponent, VoiceSectionComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="fixed inset-0 z-50 flex flex-wrap overflow-y-auto bg-ok-bg text-ok-text text-[15px] leading-normal">
@@ -42,6 +43,7 @@ import { SETTINGS_GROUPS, sectionFrom, SettingsSection } from './settings-sectio
           <div class="flex-1 min-w-0">
             @switch (section()) {
               @case ('profile') { <AccountSettingsSection /> }
+              @case ('voice') { <VoiceSection /> }
               @case ('login') {
                 <div class="flex flex-col gap-10">
                   <DevicesSection />
