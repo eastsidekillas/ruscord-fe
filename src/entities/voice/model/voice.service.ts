@@ -498,15 +498,25 @@ export class VoiceService {
     }
   }
 
-  /** Applies the current wish for the microphone (see micWanted). */
-  private syncMic(): Promise<void> {
-    return this.setMic(micWanted({
+  private micWish(): boolean {
+    return micWanted({
       canSpeak: this.canSpeak(),
       selfMute: this.selfMute(),
       selfDeaf: this.selfDeaf(),
       talkRequired: this.talkRequired(),
       talkHeld: this.talkHeld,
-    }));
+    });
+  }
+
+  /**
+   * Applies the current wish for the microphone (see micWanted). The first
+   * publish can wait on a permission prompt; if the wish changed meanwhile,
+   * apply it again. Every repeat needs a new change, so this ends.
+   */
+  private async syncMic(): Promise<void> {
+    const want = this.micWish();
+    await this.setMic(want);
+    if (this.micWish() !== want) await this.syncMic();
   }
 
   /** Saves a change of the voice settings and applies it to the live room. */
@@ -534,7 +544,11 @@ export class VoiceService {
         }
       }
     }
-    if (this.talkRequired() !== talkBefore) await this.syncMic();
+    // A held key does not survive a change of the mode or of the key: its release would never match.
+    if (this.talkRequired() !== talkBefore || next.talkKey !== before.talkKey) {
+      this.talkHeld = false;
+      await this.syncMic();
+    }
   }
 
   /** The talk key went down or up; matters only while push-to-talk is on. */

@@ -178,4 +178,91 @@ describe('VoiceService voice prefs', () => {
     await service.holdTalk(true);
     expect(service.micOn()).toBeFalse();
   });
+
+  function recordingRoom() {
+    const calls: boolean[] = [];
+    let enabled = false;
+    const pending: Array<() => void> = [];
+    let defer = false;
+    internals.room = {
+      disconnect: () => Promise.resolve(),
+      options: { audioCaptureDefaults: {} },
+      localParticipant: {
+        getTrackPublication: () => undefined,
+        get isMicrophoneEnabled() { return enabled; },
+        setMicrophoneEnabled: (on: boolean) => {
+          calls.push(on);
+          if (!defer) { enabled = on; return Promise.resolve(); }
+          defer = false;
+          return new Promise<void>(r => pending.push(() => { enabled = on; r(); }));
+        },
+      },
+    };
+    return { calls, pending, deferNext: () => { defer = true; }, isOn: () => enabled };
+  }
+
+  it('does not keep the microphone open after talk mode was turned off while the key was held', async () => {
+    const room = recordingRoom();
+    await service.updatePrefs({ talkMode: true });
+    await service.holdTalk(true);
+    await service.updatePrefs({ talkMode: false });
+    await service.holdTalk(false); // the release is ignored: the mode is off
+    await service.updatePrefs({ talkMode: true });
+    expect(room.isOn()).toBeFalse();
+    expect(service.micOn()).toBeFalse();
+  });
+
+  it('closes the microphone when the talk key is rebound while held', async () => {
+    const room = recordingRoom();
+    await service.updatePrefs({ talkMode: true });
+    await service.holdTalk(true);
+    expect(room.isOn()).toBeTrue();
+    await service.updatePrefs({ talkKey: 'KeyV' });
+    expect(room.isOn()).toBeFalse();
+    await service.holdTalk(false); // the old key's release must not matter
+    expect(room.isOn()).toBeFalse();
+  });
+
+  it('ignores a repeated press and a release without a press', async () => {
+    const room = recordingRoom();
+    await service.updatePrefs({ talkMode: true });
+    room.calls.length = 0;
+    await service.holdTalk(false);
+    expect(room.calls).toEqual([]);
+    await service.holdTalk(true);
+    await service.holdTalk(true);
+    expect(room.calls).toEqual([true]);
+    await service.holdTalk(false);
+    expect(room.calls).toEqual([true, false]);
+  });
+
+  it('ignores the talk key when push-to-talk is not required', async () => {
+    const room = recordingRoom();
+    await service.holdTalk(true);
+    expect(room.calls).toEqual([]);
+  });
+
+  it('closes the microphone if the key was released while the first publish was pending', async () => {
+    const room = recordingRoom();
+    await service.updatePrefs({ talkMode: true });
+    room.deferNext();
+    const press = service.holdTalk(true);
+    const release = service.holdTalk(false);
+    room.pending.shift()?.();
+    await Promise.all([press, release]);
+    expect(room.calls[room.calls.length - 1]).toBeFalse();
+    expect(room.isOn()).toBeFalse();
+  });
+
+  it('forgets a held talk key and the required push-to-talk on leaving', async () => {
+    const room = recordingRoom();
+    const internal = service as unknown as { talkHeld: boolean; reset(e: string | null): void };
+    await service.updatePrefs({ talkMode: true });
+    await service.holdTalk(true);
+    service.pushToTalk.set(true);
+    internal.reset(null);
+    expect(internal.talkHeld).toBeFalse();
+    expect(service.pushToTalk()).toBeFalse();
+    expect(room.calls.length).toBeGreaterThan(0);
+  });
 });
