@@ -115,6 +115,7 @@ describe('VoiceService voice prefs', () => {
     const restartTrack = jasmine.createSpy('restartTrack').and.resolveTo();
     internals.room = {
       disconnect: () => Promise.resolve(),
+      options: { audioCaptureDefaults: {} },
       localParticipant: { getTrackPublication: () => ({ audioTrack: { restartTrack } }) },
     };
     return restartTrack;
@@ -126,6 +127,26 @@ describe('VoiceService voice prefs', () => {
     expect(restartTrack).toHaveBeenCalledOnceWith({
       deviceId: undefined, noiseSuppression: false, echoCancellation: false, autoGainControl: false,
     });
+  });
+
+  it('uses the new flags for a microphone enabled after the mode changed', async () => {
+    const used: unknown[] = [];
+    const room = {
+      disconnect: () => Promise.resolve(),
+      options: { audioCaptureDefaults: { noiseSuppression: true, echoCancellation: true, autoGainControl: true, deviceId: undefined } },
+      localParticipant: {
+        getTrackPublication: () => undefined,
+        setMicrophoneEnabled: (on: boolean) => {
+          if (on) used.push({ ...room.options.audioCaptureDefaults });
+          return Promise.resolve();
+        },
+      },
+    };
+    internals.room = room;
+    await service.updatePrefs({ mode: 'clean' });
+    await service.updatePrefs({ talkMode: true });
+    await service.holdTalk(true);
+    expect(used).toEqual([{ noiseSuppression: false, echoCancellation: false, autoGainControl: false, deviceId: undefined }]);
   });
 
   it('does not restart the microphone track when only the volume changes', async () => {

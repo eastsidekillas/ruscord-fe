@@ -520,6 +520,8 @@ export class VoiceService {
     }
     const flags = this.flags();
     if (FLAG_NAMES.some(n => flags[n] !== flagsBefore[n])) {
+      // The room's capture defaults are shared with its local participant: the next publish reads them.
+      if (this.room) Object.assign(this.room.options.audioCaptureDefaults ??= {}, { ...flags, deviceId: this.input() || undefined });
       const track = this.room?.localParticipant.getTrackPublication(Track.Source.Microphone)?.audioTrack;
       if (track) {
         try {
