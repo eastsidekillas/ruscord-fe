@@ -20,7 +20,10 @@ export interface VoicePrefs {
 const PREFS_KEY = 'ruscord.voice.prefs';
 const MODES: readonly ProcessingMode[] = ['suppress', 'clean', 'custom'];
 const FLAG_NAMES: readonly (keyof AudioFlags)[] = ['noiseSuppression', 'echoCancellation', 'autoGainControl'];
-const FORBIDDEN_KEYS = new Set(['Escape', 'Tab', 'Enter', 'Space', '']);
+const FORBIDDEN_KEYS = new Set([
+  'Escape', 'Tab', 'Enter', 'Space', '',
+  'ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight', 'ShiftLeft', 'ShiftRight',
+]);
 
 export const DEFAULT_VOICE_PREFS: VoicePrefs = {
   mode: 'suppress',
@@ -80,7 +83,7 @@ export function saveVoicePrefs(p: VoicePrefs): void {
   }
 }
 
-/** Keys that must stay free: leaving, focus moves, submit and the space bar. */
+/** Keys that must stay free: leaving, focus moves, submit, the space bar and the modifiers of shortcuts. */
 export function talkKeyAllowed(code: string): boolean {
   return !FORBIDDEN_KEYS.has(code);
 }

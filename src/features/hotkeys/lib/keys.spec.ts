@@ -53,7 +53,7 @@ describe('hotkeys', () => {
 
 describe('push to talk', () => {
   const ctx = { key: 'Backquote', required: true, typing: false, modalOpen: false };
-  const down = { code: 'Backquote', repeat: false };
+  const down = { code: 'Backquote', repeat: false, ctrlKey: false, metaKey: false, altKey: false };
 
   it('starts on the talk key', () => {
     expect(startsTalk(down, ctx)).toBeTrue();
@@ -65,6 +65,15 @@ describe('push to talk', () => {
     expect(startsTalk(down, { ...ctx, modalOpen: true })).toBeFalse();
     expect(startsTalk({ ...down, code: 'KeyV' }, ctx)).toBeFalse();
     expect(startsTalk(down, { ...ctx, required: false })).toBeFalse();
+  });
+
+  it('leaves Ctrl, Cmd and Alt combinations to the shortcuts', () => {
+    const k = { ...ctx, key: 'KeyK' };
+    const press = { ...down, code: 'KeyK' };
+    expect(startsTalk(press, k)).toBeTrue();
+    expect(startsTalk({ ...press, ctrlKey: true }, k)).toBeFalse();
+    expect(startsTalk({ ...press, metaKey: true }, k)).toBeFalse();
+    expect(startsTalk({ ...press, altKey: true }, k)).toBeFalse();
   });
 
   it('releases on the talk key whatever the focus or modal is', () => {

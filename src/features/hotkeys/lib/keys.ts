@@ -61,9 +61,11 @@ export function isTyping(target: EventTarget | null): boolean {
 
 /** Whether this key press opens the microphone in push-to-talk. */
 export function startsTalk(
-  e: { code: string; repeat: boolean },
+  e: { code: string; repeat: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean },
   c: { key: string; required: boolean; typing: boolean; modalOpen: boolean },
 ): boolean {
+  // Ctrl, Cmd and Alt combinations belong to the app's shortcuts (Ctrl+K and the like).
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
   return c.required && !e.repeat && !c.typing && !c.modalOpen && e.code === c.key;
 }
 

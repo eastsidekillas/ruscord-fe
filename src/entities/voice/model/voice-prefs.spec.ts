@@ -63,6 +63,15 @@ describe('voice prefs', () => {
     it('rejects reserved keys', () => {
       for (const c of ['Escape', 'Tab', 'Enter', 'Space', '']) expect(talkKeyAllowed(c)).toBe(false);
     });
+    it('rejects modifier keys', () => {
+      for (const side of ['Left', 'Right']) {
+        for (const m of ['Control', 'Alt', 'Meta', 'Shift']) expect(talkKeyAllowed(m + side)).toBe(false);
+      }
+    });
+    it('falls back to the default for a stored forbidden key', () => {
+      localStorage.setItem(KEY, '{"talkKey":"ControlLeft"}');
+      expect(loadVoicePrefs().talkKey).toBe(DEFAULT_VOICE_PREFS.talkKey);
+    });
     it('accepts a letter key', () => {
       expect(talkKeyAllowed('KeyV')).toBe(true);
     });
