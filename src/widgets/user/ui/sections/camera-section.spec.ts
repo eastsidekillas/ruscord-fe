@@ -124,6 +124,18 @@ describe('CameraSectionComponent', () => {
     expect(third.stop).not.toHaveBeenCalled();
   });
 
+  it('does not restart the preview when the device list gains the saved id after access', async () => {
+    const { stream } = fakeStream();
+    voice.cameras.set([cam('', '')]); // before permission: devices without ids
+    gum.and.resolveTo(stream);
+    const f = render();
+    await click(f, '[data-camera-toggle]');
+    voice.cameras.set([cam('cam1', 'Cam One'), cam('cam2', 'Cam Two')]);
+    f.detectChanges();
+    await f.whenStable();
+    expect(gum).toHaveBeenCalledOnceWith({ video: { deviceId: 'cam1' } });
+  });
+
   it('shows the running call track and makes no request of its own', () => {
     voice.cameraOn.set(true);
     const f = render();

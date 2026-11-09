@@ -107,10 +107,10 @@ export class CameraSectionComponent {
       }
     });
 
-    // Another camera restarts a running preview.
+    // Another saved camera restarts a running preview; a refreshed device list does not.
     let last: string | null = null;
     effect(() => {
-      const now = this.cameraId();
+      const now = this.voice.camera();
       const changed = last !== null && last !== now;
       last = now;
       if (changed && untracked(() => this.wanted() && !this.voice.cameraOn())) untracked(() => void this.begin());
@@ -137,7 +137,7 @@ export class CameraSectionComponent {
   private async begin(): Promise<void> {
     this.halt();
     const mine = this.run;
-    const id = this.cameraId();
+    const id = this.voice.camera();
     this.error.set('');
     let got: MediaStream;
     try {
