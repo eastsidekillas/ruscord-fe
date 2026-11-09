@@ -4,6 +4,8 @@ import { LucideAngularModule, X } from 'lucide-angular';
 import { AuthService } from '@entities/session/api/auth.service';
 import { ModalService } from '@shared/model/modal.service';
 import { AccountSettingsSectionComponent } from './sections/account-settings-section';
+import { CameraSectionComponent } from './sections/camera-section';
+import { ConnectionSectionComponent } from './sections/connection-section';
 import { DevicesSectionComponent } from './sections/devices-section';
 import { SecuritySectionComponent } from './sections/security-section';
 import { VoiceSectionComponent } from './sections/voice-section';
@@ -18,7 +20,7 @@ import { SETTINGS_GROUPS, sectionFrom, SettingsSection } from './settings-sectio
 @Component({
   selector: 'UserSettingsModal',
   standalone: true,
-  imports: [LucideAngularModule, AccountSettingsSectionComponent, DevicesSectionComponent, SecuritySectionComponent, VoiceSectionComponent],
+  imports: [LucideAngularModule, AccountSettingsSectionComponent, DevicesSectionComponent, SecuritySectionComponent, VoiceSectionComponent, CameraSectionComponent, ConnectionSectionComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="fixed inset-0 z-50 flex flex-wrap overflow-y-auto bg-ok-bg text-ok-text text-[15px] leading-normal">
@@ -44,6 +46,8 @@ import { SETTINGS_GROUPS, sectionFrom, SettingsSection } from './settings-sectio
             @switch (section()) {
               @case ('profile') { <AccountSettingsSection /> }
               @case ('voice') { <VoiceSection /> }
+              @case ('camera') { <CameraSection /> }
+              @case ('connection') { <ConnectionSection /> }
               @case ('login') {
                 <div class="flex flex-col gap-10">
                   <DevicesSection />
