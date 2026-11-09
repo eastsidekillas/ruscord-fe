@@ -51,3 +51,23 @@ export function neighbour(ids: readonly string[], current: string | null, dir: 1
   }
   return null;
 }
+
+/** Whether keystrokes on this target are text input (a field, a select, an editable block). */
+export function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable
+    || target.contentEditable === 'true';
+}
+
+/** Whether this key press opens the microphone in push-to-talk. */
+export function startsTalk(
+  e: { code: string; repeat: boolean },
+  c: { key: string; required: boolean; typing: boolean; modalOpen: boolean },
+): boolean {
+  return c.required && !e.repeat && !c.typing && !c.modalOpen && e.code === c.key;
+}
+
+/** Whether this key release closes it; deliberately blind to focus and modals. */
+export function endsTalk(e: { code: string }, key: string): boolean {
+  return e.code === key;
+}

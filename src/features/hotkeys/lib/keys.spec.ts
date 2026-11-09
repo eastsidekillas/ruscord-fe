@@ -1,4 +1,4 @@
-import { KeyLike, hotkeyFor, neighbour } from './keys';
+import { KeyLike, endsTalk, hotkeyFor, isTyping, neighbour, startsTalk } from './keys';
 
 const k = (key: string, mods: Partial<KeyLike> = {}, code = ''): KeyLike =>
   ({ key, code, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...mods });
@@ -48,5 +48,38 @@ describe('hotkeys', () => {
     expect(neighbour(ids, 'a', -1, id => unread.has(id))).toBe('d');
     expect(neighbour(ids, 'd', 1, id => unread.has(id))).toBeNull();
     expect(neighbour(ids, 'b', 1, () => false)).toBeNull();
+  });
+});
+
+describe('push to talk', () => {
+  const ctx = { key: 'Backquote', required: true, typing: false, modalOpen: false };
+  const down = { code: 'Backquote', repeat: false };
+
+  it('starts on the talk key', () => {
+    expect(startsTalk(down, ctx)).toBeTrue();
+  });
+
+  it('does not start on repeat, typing, an open modal, another key or when not required', () => {
+    expect(startsTalk({ ...down, repeat: true }, ctx)).toBeFalse();
+    expect(startsTalk(down, { ...ctx, typing: true })).toBeFalse();
+    expect(startsTalk(down, { ...ctx, modalOpen: true })).toBeFalse();
+    expect(startsTalk({ ...down, code: 'KeyV' }, ctx)).toBeFalse();
+    expect(startsTalk(down, { ...ctx, required: false })).toBeFalse();
+  });
+
+  it('releases on the talk key whatever the focus or modal is', () => {
+    expect(endsTalk({ code: 'Backquote' }, 'Backquote')).toBeTrue();
+    expect(endsTalk({ code: 'KeyV' }, 'Backquote')).toBeFalse();
+  });
+
+  it('detects typing targets', () => {
+    expect(isTyping(document.createElement('textarea'))).toBeTrue();
+    expect(isTyping(document.createElement('input'))).toBeTrue();
+    expect(isTyping(document.createElement('select'))).toBeTrue();
+    expect(isTyping(document.createElement('div'))).toBeFalse();
+    const editable = document.createElement('div');
+    editable.contentEditable = 'true';
+    expect(isTyping(editable)).toBeTrue();
+    expect(isTyping(null)).toBeFalse();
   });
 });
