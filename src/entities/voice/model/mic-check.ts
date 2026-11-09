@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import type { AudioFlags } from './voice-prefs';
+import { captureFlags, type AudioFlags } from './voice-prefs';
 
 export interface MicCheckOptions {
   /** Input device id; empty for the system default. */
@@ -65,7 +65,7 @@ export class MicCheck {
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: o.input || undefined, ...o.flags },
+        audio: { deviceId: o.input || undefined, ...captureFlags(o.flags) },
       });
     } catch (e) {
       if (id === this.run) this.error.set(micErrorText(e));
@@ -76,18 +76,24 @@ export class MicCheck {
       return;
     }
     this.stream = stream;
-    const ctx = new AudioContext();
-    this.ctx = ctx;
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 1024;
-    ctx.createMediaStreamSource(stream).connect(analyser);
-    const samples = new Float32Array(analyser.fftSize);
-    const tick = () => {
-      analyser.getFloatTimeDomainData(samples);
-      this.level.set(levelOf(samples));
-      this.frame = requestAnimationFrame(tick);
-    };
-    tick();
+    try {
+      const ctx = new AudioContext();
+      this.ctx = ctx;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const samples = new Float32Array(analyser.fftSize);
+      const tick = () => {
+        analyser.getFloatTimeDomainData(samples);
+        this.level.set(levelOf(samples));
+        this.frame = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch {
+      this.stop();
+      this.error.set(micErrorText(null));
+      return;
+    }
 
     // Hear yourself through the chosen output.
     const audio: SinkAudio = new Audio();
@@ -97,6 +103,11 @@ export class MicCheck {
     if (id !== this.run) return;
     audio.play().catch(() => undefined);
     this.running.set(true);
+  }
+
+  /** Drops an error left from an earlier check. */
+  clearError(): void {
+    this.error.set(null);
   }
 
   stop(): void {

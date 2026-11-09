@@ -125,7 +125,7 @@ describe('VoiceService voice prefs', () => {
     const restartTrack = withMicTrack();
     await service.updatePrefs({ mode: 'clean' });
     expect(restartTrack).toHaveBeenCalledOnceWith({
-      deviceId: undefined, noiseSuppression: false, echoCancellation: false, autoGainControl: false,
+      deviceId: undefined, noiseSuppression: false, echoCancellation: false, autoGainControl: false, voiceIsolation: false,
     });
   });
 
@@ -146,7 +146,9 @@ describe('VoiceService voice prefs', () => {
     await service.updatePrefs({ mode: 'clean' });
     await service.updatePrefs({ talkMode: true });
     await service.holdTalk(true);
-    expect(used).toEqual([{ noiseSuppression: false, echoCancellation: false, autoGainControl: false, deviceId: undefined }]);
+    expect(used).toEqual([{
+      noiseSuppression: false, echoCancellation: false, autoGainControl: false, voiceIsolation: false, deviceId: undefined,
+    }]);
   });
 
   it('does not restart the microphone track when only the volume changes', async () => {

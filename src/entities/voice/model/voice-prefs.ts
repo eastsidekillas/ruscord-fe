@@ -40,6 +40,14 @@ export function flagsFor(p: Pick<VoicePrefs, 'mode' | 'custom'>): AudioFlags {
   return { noiseSuppression: on, echoCancellation: on, autoGainControl: on };
 }
 
+/**
+ * Capture constraints for the flags. Voice isolation follows noise
+ * suppression: LiveKit's own defaults would otherwise switch it on.
+ */
+export function captureFlags(f: AudioFlags): AudioFlags & { voiceIsolation: boolean } {
+  return { ...f, voiceIsolation: f.noiseSuppression };
+}
+
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }

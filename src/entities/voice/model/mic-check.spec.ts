@@ -58,9 +58,14 @@ describe('MicCheck', () => {
 
   it('requests the chosen device with the flags and starts running', async () => {
     await check.start({ input: 'a', output: '', flags: FLAGS });
-    expect(gum).toHaveBeenCalledWith({ audio: { deviceId: 'a', ...FLAGS } });
+    expect(gum).toHaveBeenCalledWith({ audio: { deviceId: 'a', ...FLAGS, voiceIsolation: true } });
     expect(check.running()).toBeTrue();
     expect(check.error()).toBeNull();
+  });
+
+  it('asks for no voice isolation when noise suppression is off', async () => {
+    await check.start({ input: 'a', output: '', flags: { ...FLAGS, noiseSuppression: false } });
+    expect(gum.calls.mostRecent().args[0].audio.voiceIsolation).toBeFalse();
   });
 
   it('uses no deviceId for an empty input', async () => {
@@ -97,6 +102,29 @@ describe('MicCheck', () => {
     await check.start({ input: 'a', output: '', flags: FLAGS });
     expect(check.error()).toContain('разрешите');
     expect(check.running()).toBeFalse();
+  });
+
+  it('forgets an earlier error on a new start', async () => {
+    gum.and.rejectWith(Object.assign(new Error('x'), { name: 'NotAllowedError' }));
+    await check.start({ input: 'a', output: '', flags: FLAGS });
+    gum.and.callFake(async () => makeStream());
+    await check.start({ input: 'a', output: '', flags: FLAGS });
+    expect(check.error()).toBeNull();
+  });
+
+  it('clearError drops an error left from before', async () => {
+    gum.and.rejectWith(Object.assign(new Error('x'), { name: 'NotAllowedError' }));
+    await check.start({ input: 'a', output: '', flags: FLAGS });
+    check.clearError();
+    expect(check.error()).toBeNull();
+  });
+
+  it('stops the microphone and reports an error when the audio context cannot start', async () => {
+    spyOn(window, 'AudioContext').and.throwError('no audio');
+    await check.start({ input: 'a', output: '', flags: FLAGS });
+    for (const t of made[0].getTracks()) expect(t.stop).toHaveBeenCalled();
+    expect(check.running()).toBeFalse();
+    expect(check.error()).toBe('Не удалось включить микрофон');
   });
 
   it('start while running stops the previous tracks', async () => {

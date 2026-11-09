@@ -1,4 +1,4 @@
-import { DEFAULT_VOICE_PREFS, flagsFor, loadVoicePrefs, saveVoicePrefs, talkKeyAllowed, talkKeyLabel } from './voice-prefs';
+import { DEFAULT_VOICE_PREFS, captureFlags, flagsFor, loadVoicePrefs, saveVoicePrefs, talkKeyAllowed, talkKeyLabel } from './voice-prefs';
 
 const KEY = 'ruscord.voice.prefs';
 const NONE = { noiseSuppression: false, echoCancellation: false, autoGainControl: false };
@@ -56,6 +56,14 @@ describe('voice prefs', () => {
       spyOn(localStorage, 'setItem').and.throwError('blocked');
       expect(loadVoicePrefs()).toEqual(DEFAULT_VOICE_PREFS);
       expect(() => saveVoicePrefs(DEFAULT_VOICE_PREFS)).not.toThrow();
+    });
+  });
+
+  describe('captureFlags', () => {
+    it('ties voice isolation to noise suppression', () => {
+      expect(captureFlags(ALL)).toEqual({ ...ALL, voiceIsolation: true });
+      expect(captureFlags(NONE)).toEqual({ ...NONE, voiceIsolation: false });
+      expect(captureFlags({ ...ALL, noiseSuppression: false }).voiceIsolation).toBe(false);
     });
   });
 

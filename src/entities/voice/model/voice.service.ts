@@ -17,7 +17,7 @@ import {
 } from 'livekit-client';
 import { ApiService, GatewayService, VoiceJoinInfo, VoiceState, errorText } from '@shared/api';
 import { AuthService } from '@entities/session/api/auth.service';
-import { AudioFlags, VoicePrefs, flagsFor, loadVoicePrefs, saveVoicePrefs } from './voice-prefs';
+import { AudioFlags, VoicePrefs, captureFlags, flagsFor, loadVoicePrefs, saveVoicePrefs } from './voice-prefs';
 import { ConnectionStats, StreamStats, avOffset, connection, received, sent } from './media-stats';
 
 const FLAG_NAMES: readonly (keyof AudioFlags)[] = ['noiseSuppression', 'echoCancellation', 'autoGainControl'];
@@ -326,7 +326,7 @@ export class VoiceService {
       dynacast: true,
       videoCaptureDefaults: { deviceId: this.camera() || undefined },
       audioCaptureDefaults: {
-        ...this.flags(),
+        ...captureFlags(this.flags()),
         deviceId: this.input() || undefined,
       },
     });
@@ -533,11 +533,11 @@ export class VoiceService {
     const flags = this.flags();
     if (FLAG_NAMES.some(n => flags[n] !== flagsBefore[n])) {
       // The room's capture defaults are shared with its local participant: the next publish reads them.
-      if (this.room) Object.assign(this.room.options.audioCaptureDefaults ??= {}, { ...flags, deviceId: this.input() || undefined });
+      if (this.room) Object.assign(this.room.options.audioCaptureDefaults ??= {}, { ...captureFlags(flags), deviceId: this.input() || undefined });
       const track = this.room?.localParticipant.getTrackPublication(Track.Source.Microphone)?.audioTrack;
       if (track) {
         try {
-          await (track as LocalAudioTrack).restartTrack({ deviceId: this.input() || undefined, ...flags });
+          await (track as LocalAudioTrack).restartTrack({ deviceId: this.input() || undefined, ...captureFlags(flags) });
         } catch (err) {
           this.error.set('Не удалось применить настройки микрофона');
           console.warn('voice: restart microphone', err);
