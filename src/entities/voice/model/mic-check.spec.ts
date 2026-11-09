@@ -106,6 +106,55 @@ describe('MicCheck', () => {
     expect(check.running()).toBeTrue();
   });
 
+  describe('output routing', () => {
+    const proto = HTMLMediaElement.prototype as unknown as { setSinkId?: unknown };
+    const original = Object.getOwnPropertyDescriptor(proto, 'setSinkId');
+
+    function stub(impl: unknown): jasmine.Spy | undefined {
+      Object.defineProperty(proto, 'setSinkId', { value: impl, configurable: true, writable: true });
+      return impl as jasmine.Spy | undefined;
+    }
+
+    afterEach(() => {
+      if (original) Object.defineProperty(proto, 'setSinkId', original);
+      else delete proto.setSinkId;
+    });
+
+    it('routes the monitor to the chosen output', async () => {
+      const sink = stub(jasmine.createSpy('setSinkId').and.resolveTo())!;
+      await check.start({ input: 'a', output: 'x', flags: FLAGS });
+      expect(sink).toHaveBeenCalledWith('x');
+      expect(check.running()).toBeTrue();
+    });
+
+    it('routes the tone to the chosen output', async () => {
+      const sink = stub(jasmine.createSpy('setSinkId').and.resolveTo())!;
+      await check.playTone('x');
+      expect(sink).toHaveBeenCalledWith('x');
+    });
+
+    it('does not call setSinkId for the default output', async () => {
+      const sink = stub(jasmine.createSpy('setSinkId').and.resolveTo())!;
+      await check.start({ input: 'a', output: '', flags: FLAGS });
+      expect(sink).not.toHaveBeenCalled();
+    });
+
+    it('works when setSinkId is missing', async () => {
+      stub(undefined);
+      await check.start({ input: 'a', output: 'x', flags: FLAGS });
+      expect(check.running()).toBeTrue();
+      await expectAsync(check.playTone('x')).toBeResolved();
+    });
+
+    it('keeps running when setSinkId rejects', async () => {
+      stub(jasmine.createSpy('setSinkId').and.rejectWith(new Error('denied')));
+      await check.start({ input: 'a', output: 'x', flags: FLAGS });
+      expect(check.running()).toBeTrue();
+      expect(check.error()).toBeNull();
+      await expectAsync(check.playTone('x')).toBeResolved();
+    });
+  });
+
   it('plays a tone and cleans up', async () => {
     await expectAsync(check.playTone('')).toBeResolved();
   });
