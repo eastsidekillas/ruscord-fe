@@ -1,15 +1,17 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
 import { NgFor, NgIf } from '@angular/common';
 import { AvatarUI } from '@shared/ui/avatar';
+import { MoodFace } from '@entities/profile';
 import { StatusUi } from '@entities/user-status';
 import { AppStateStore } from '@entities/app-state';
-import { DMChannel, nameOf } from '@shared/api';
+import { DMChannel, Mood, nameOf } from '@shared/api';
 import { GROUP_MAX } from '@features/group/ui/group-modal';
 
 interface Member {
   id: string;
   name: string;
   avatar: string | null;
+  mood: Mood | null;
   owner: boolean;
 }
 
@@ -18,7 +20,7 @@ interface Member {
   selector: 'GroupMembersSidebar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgFor, NgIf, AvatarUI, StatusUi],
+  imports: [NgFor, NgIf, AvatarUI, StatusUi, MoodFace],
   host: { class: 'flex flex-col gap-0.5 bg-ok-sidebar px-2 py-4 box-border' },
   template: `
     <h2 class="m-0 px-2 pb-2 text-[12px] font-semibold tracking-[0.1em] text-ok-muted">УЧАСТНИКИ — {{ members().length }} ИЗ {{ max }}</h2>
@@ -27,7 +29,10 @@ interface Member {
         <span class="block w-full h-full rounded-lg overflow-hidden"><AvatarUI [src]="m.avatar" [name]="m.name" /></span>
         <StatusUI [userId]="m.id" />
       </span>
-      <span class="flex-1 min-w-0 truncate text-[13px] font-medium">{{ m.name }}</span>
+      <span class="flex-1 min-w-0 flex items-center gap-1.5">
+        <span class="min-w-0 truncate text-[13px] font-medium">{{ m.name }}</span>
+        <MoodFace [mood]="m.mood" />
+      </span>
       <span *ngIf="m.owner" class="text-[12px] text-ok-muted">владелец</span>
     </div>
     <span class="flex-1"></span>
@@ -50,7 +55,7 @@ export class GroupMembersSidebar {
     return g.recipients
       .map(r => {
         const u = this.store.user(r);
-        return { id: r.id, name: nameOf(u), avatar: u.avatar ?? null, owner: r.id === g.owner_id };
+        return { id: r.id, name: nameOf(u), avatar: u.avatar ?? null, mood: u.mood ?? null, owner: r.id === g.owner_id };
       })
       .sort((a, b) => Number(b.owner) - Number(a.owner) || a.name.localeCompare(b.name, 'ru'));
   });

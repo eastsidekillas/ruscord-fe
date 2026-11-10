@@ -4,6 +4,7 @@ import { PublicUser, nameOf } from '@shared/api';
 import { GuildMembersStore } from '@entities/guild-members';
 import { StatusUi } from '@entities/user-status';
 import { AvatarUI } from '@shared/ui/avatar';
+import { MoodFace } from '@entities/profile';
 import { AppStateStore, TypingStore } from '@entities/app-state';
 import { VoiceService } from '@entities/voice';
 import { ModalService } from '@shared/model/modal.service';
@@ -23,7 +24,7 @@ const STATUS_MAX_MEMBERS = 250;
   selector: 'ServerMembersSidebar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, StatusUi, AvatarUI, ResizeHandle],
+  imports: [CommonModule, StatusUi, AvatarUI, ResizeHandle, MoodFace],
   host: { class: 'relative shrink-0', '[style.width.px]': 'layout.membersWidth()' },
   template: `
     <ResizeHandle [spec]="MEMBERS" edge="left" label="Ширина правой колонки" />
@@ -72,6 +73,7 @@ const STATUS_MAX_MEMBERS = 250;
               <StatusUI *ngIf="withStatus() && !section.offline" [userId]="m.user_id" />
             </span>
             <span class="text-[13px] font-medium truncate" [style.color]="section.offline ? null : m.color">{{ m.name }}</span>
+            <MoodFace [mood]="m.mood" />
           </button>
         </ng-container>
       </ng-container>
@@ -105,7 +107,7 @@ export class ServerMembersSidebar {
   protected readonly rows = computed(() => {
     return this.members().map(m => {
       const u = this.store.user(m.user ?? null);
-      return { user_id: m.user_id, name: m.nick || nameOf(u), roles: m.roles ?? [], avatar: u?.avatar ?? null };
+      return { user_id: m.user_id, name: m.nick || nameOf(u), roles: m.roles ?? [], avatar: u?.avatar ?? null, mood: u?.mood ?? null };
     });
   });
 
