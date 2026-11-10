@@ -513,6 +513,22 @@ await step('own nickname on the server: set, then reset', async () => {
   await sees(ann, 'Ник сброшен');
 });
 
+await step('voice settings outside a call: microphone check shows a level, camera preview shows frames', async () => {
+  await ann.locator('[data-user-panel] button[title="Настройки"]').click();
+  await ann.getByRole('button', { name: 'Голос', exact: true }).click();
+  await ann.locator('[data-mic-check]').click();
+  await ann.waitForFunction(() => Number(document.querySelector('[data-mic-level]')?.getAttribute('data-mic-level')) > 0, null, { timeout: 15000 });
+  await ann.getByRole('button', { name: 'Камера', exact: true }).click();
+  await ann.locator('[data-camera-toggle]').click();
+  await ann.waitForFunction(() => {
+    const v = document.querySelector('[data-camera-preview] video');
+    return !!v && v.videoWidth > 0;
+  }, null, { timeout: 15000 });
+  await ann.locator('[data-camera-toggle]').click();
+  await ann.keyboard.press('Escape');
+  await ann.locator('[data-camera-preview]').waitFor({ state: 'detached', timeout: 5000 });
+});
+
 await step('voice: both enter the voice channel, hear who speaks, mute shows; the owner mutes and disconnects Bob', async () => {
   const room = p => p.locator('[data-voice-member]');
   for (const p of [ann, bob]) await p.locator('[data-voice-channel="General"]').click();
@@ -556,16 +572,38 @@ await step('voice: both enter the voice channel, hear who speaks, mute shows; th
     return !!v && v.videoWidth > 0;
   }, null, { timeout: 15000 });
   // The statistics show what Bob receives from Ann; logged for the record.
-  await bob.locator('[data-voice-panel] button[title="Устройства"]').click();
-  await bob.locator('[data-voice-stats-toggle]').click();
+  await bob.locator('[data-voice-panel] button[title="Настройки голоса и видео"]').click();
+  await bob.getByRole('button', { name: 'Соединение', exact: true }).click();
   await bob.locator('[data-voice-stats]').getByText('Камера:').waitFor({ timeout: 15000 });
   await bob.waitForTimeout(4500); // two samples: rates and buffers since the last one
   console.log('     stats on Bob\'s side: ' + (await bob.locator('[data-voice-stats]').innerText()).replace(/\s*\n\s*/g, ' | '));
-  await bob.locator('[data-voice-stats-toggle]').click();
-  await bob.locator('[data-voice-panel] button[title="Устройства"]').click();
+  await bob.keyboard.press('Escape');
+  await bob.locator('[data-settings-connection]').waitFor({ state: 'detached', timeout: 5000 });
   await ann.locator('[data-voice-camera-toggle]').click();
   await bob.locator('[data-voice-tile="ANN"] [data-voice-camera]').waitFor({ state: 'detached', timeout: 15000 });
   await bob.locator('[data-voice-stage]').waitFor({ state: 'detached', timeout: 15000 });
+
+  // Push-to-talk on Bob's side: the panel says whether his microphone is
+  // enabled (LiveKit's state), which does not depend on the beeps being heard.
+  const talkMode = async on => {
+    await bob.locator('[data-user-panel] button[title="Настройки"]').click();
+    await bob.getByRole('button', { name: 'Голос', exact: true }).click();
+    await bob.locator('[data-talk-toggle]').setChecked(on);
+    await bob.keyboard.press('Escape');
+    await bob.locator('[data-settings-voice]').waitFor({ state: 'detached', timeout: 5000 });
+  };
+  const mic = state => bob.locator(`[data-voice-panel][data-voice-mic="${state}"]`);
+  await talkMode(true);
+  try {
+    await mic('off').waitFor({ timeout: 10000 });
+    await bob.keyboard.down('Backquote');
+    await mic('on').waitFor({ timeout: 10000 });
+    await bob.keyboard.up('Backquote');
+    await mic('off').waitFor({ timeout: 10000 });
+  } finally {
+    await bob.keyboard.up('Backquote').catch(() => {});
+    await talkMode(false);
+  }
 
   await bob.locator('[data-user-panel] button[title="Выключить микрофон"]').click();
   await ann.locator('[data-voice-member="BOB"] [title="Микрофон выключен"]').waitFor({ timeout: 10000 });
@@ -688,7 +726,7 @@ await step('devices: a new sign-in is announced, signing it out works at once; p
   await ann2.waitForURL(/\/channels\/me/, { timeout: 10000 });
   await sees(ann, 'Вход с нового устройства');
   await ann.locator('[title="Настройки"]').click();
-  await ann.getByRole('button', { name: 'Устройства и безопасность' }).click();
+  await ann.getByRole('button', { name: 'Вход и сеансы' }).click();
   await ann.locator('[data-session]').nth(1).waitFor({ timeout: 8000 });
   await ann.locator('[data-session]', { hasNotText: 'это устройство' }).getByRole('button', { name: 'Завершить' }).click();
   // Signed out at once: the socket closes and the session cannot be renewed.
@@ -751,7 +789,7 @@ await step('block from the friends page: the friend is gone on both sides; unblo
 await step('Cat deletes her account; it cannot sign in again', async () => {
   await cat.goto(BASE + '/channels/me');
   await cat.locator('[title="Настройки"]').click();
-  await cat.getByRole('button', { name: 'Устройства и безопасность' }).click();
+  await cat.getByRole('button', { name: 'Вход и сеансы' }).click();
   await cat.fill('#del-pw', 'password-cat');
   await cat.getByRole('button', { name: 'Удалить навсегда' }).click();
   await cat.waitForURL(/\/login/, { timeout: 8000 });

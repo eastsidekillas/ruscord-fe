@@ -1,7 +1,8 @@
-import { DestroyRef, Injectable, NgZone, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DestroyRef, Injectable, NgZone, Signal, WritableSignal, computed, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
   DisconnectReason,
+  LocalAudioTrack,
   LocalParticipant,
   LocalTrackPublication,
   Participant,
@@ -16,7 +17,10 @@ import {
 } from 'livekit-client';
 import { ApiService, GatewayService, VoiceJoinInfo, VoiceState, errorText } from '@shared/api';
 import { AuthService } from '@entities/session/api/auth.service';
+import { AudioFlags, VoicePrefs, captureFlags, flagsFor, loadVoicePrefs, saveVoicePrefs } from './voice-prefs';
 import { ConnectionStats, StreamStats, avOffset, connection, received, sent } from './media-stats';
+
+const FLAG_NAMES: readonly (keyof AudioFlags)[] = ['noiseSuppression', 'echoCancellation', 'autoGainControl'];
 
 export type VoiceStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -176,6 +180,13 @@ export function sameVideo(a: VideoFocus | null, b: VideoFocus | null): boolean {
   return !!a && !!b && a.userId === b.userId && a.source === b.source;
 }
 
+/** Whether the microphone should publish now: allowed, not muted or deafened, and open or held for push-to-talk. */
+export function micWanted(s: {
+  canSpeak: boolean; selfMute: boolean; selfDeaf: boolean; talkRequired: boolean; talkHeld: boolean;
+}): boolean {
+  return s.canSpeak && !s.selfMute && !s.selfDeaf && (!s.talkRequired || s.talkHeld);
+}
+
 /**
  * The voice connection of this tab (ruscord-core ADR-0025): one LiveKit room
  * at a time. Components read its signals and call its methods; nothing else
@@ -196,7 +207,14 @@ export class VoiceService {
   readonly error = signal<string | null>(null);
   /** The token does not allow the microphone, or push-to-talk is required. */
   readonly canSpeak = signal(true);
+  /** Our microphone is enabled in LiveKit right now (open, or held in push-to-talk). */
+  readonly micOn = signal(false);
   readonly pushToTalk = signal(false);
+  /** Saved voice settings: processing mode, speaker volume, push-to-talk. */
+  readonly prefs: WritableSignal<VoicePrefs> = signal(loadVoicePrefs());
+  readonly flags: Signal<AudioFlags> = computed(() => flagsFor(this.prefs()));
+  /** The microphone opens only while the talk key is held: the channel demands it, or the user chose it. */
+  readonly talkRequired: Signal<boolean> = computed(() => this.pushToTalk() || this.prefs().talkMode);
   /** A moderator muted or deafened us (from our voice state). */
   readonly serverMute = signal(false);
   readonly serverDeaf = signal(false);
@@ -256,6 +274,8 @@ export class VoiceService {
   private removedFrom: { channelId: string; at: number } | null = null;
   /** Elements playing remote audio, kept to deafen and to remove. */
   private readonly audio = new Map<string, HTMLMediaElement>();
+  /** The talk key is down now. */
+  private talkHeld = false;
   /** Remote video tracks by source, then user id, while subscribed. */
   private readonly videos = new Map<VideoSource, Map<string, RemoteTrack>>([
     [Track.Source.ScreenShare, new Map()],
@@ -306,9 +326,7 @@ export class VoiceService {
       dynacast: true,
       videoCaptureDefaults: { deviceId: this.camera() || undefined },
       audioCaptureDefaults: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
+        ...captureFlags(this.flags()),
         deviceId: this.input() || undefined,
       },
     });
@@ -330,9 +348,7 @@ export class VoiceService {
     this.shareAudio = info.sources.includes('screen_share_audio');
     this.highQuality.set(!!info.high_quality);
     this.pushToTalk.set(info.push_to_talk);
-    // Push-to-talk comes with the voice settings; until then such users listen.
-    const talk = this.canSpeak() && !info.push_to_talk && !this.selfMute() && !this.selfDeaf();
-    await this.setMic(talk);
+    await this.syncMic();
     await this.refreshDevices();
   }
 
@@ -349,14 +365,14 @@ export class VoiceService {
     this.selfMute.set(mute);
     // Unmuting while deafened undeafens, like in Discord.
     if (!mute && this.selfDeaf()) this.applyDeaf(false);
-    await this.setMic(!mute && !this.selfDeaf());
+    await this.syncMic();
     this.report();
   }
 
   async toggleDeaf(): Promise<void> {
     const deaf = !this.selfDeaf();
     this.applyDeaf(deaf);
-    await this.setMic(!deaf && !this.selfMute());
+    await this.syncMic();
     this.report();
   }
 
@@ -482,6 +498,66 @@ export class VoiceService {
     }
   }
 
+  private micWish(): boolean {
+    return micWanted({
+      canSpeak: this.canSpeak(),
+      selfMute: this.selfMute(),
+      selfDeaf: this.selfDeaf(),
+      talkRequired: this.talkRequired(),
+      talkHeld: this.talkHeld,
+    });
+  }
+
+  /**
+   * Applies the current wish for the microphone (see micWanted). The first
+   * publish can wait on a permission prompt; if the wish changed meanwhile,
+   * apply it again. Every repeat needs a new change, so this ends.
+   */
+  private async syncMic(): Promise<void> {
+    const want = this.micWish();
+    await this.setMic(want);
+    if (this.micWish() !== want) await this.syncMic();
+  }
+
+  /** Saves a change of the voice settings and applies it to the live room. */
+  async updatePrefs(patch: Partial<VoicePrefs>): Promise<void> {
+    const before = this.prefs();
+    const flagsBefore = this.flags();
+    const talkBefore = this.talkRequired();
+    const next = { ...before, ...patch };
+    this.prefs.set(next);
+    saveVoicePrefs(next);
+    if (next.volume !== before.volume) {
+      for (const el of this.audio.values()) el.volume = next.volume;
+    }
+    const flags = this.flags();
+    if (FLAG_NAMES.some(n => flags[n] !== flagsBefore[n])) {
+      // The room's capture defaults are shared with its local participant: the next publish reads them.
+      if (this.room) Object.assign(this.room.options.audioCaptureDefaults ??= {}, { ...captureFlags(flags), deviceId: this.input() || undefined });
+      const track = this.room?.localParticipant.getTrackPublication(Track.Source.Microphone)?.audioTrack;
+      if (track) {
+        try {
+          await (track as LocalAudioTrack).restartTrack({ deviceId: this.input() || undefined, ...captureFlags(flags) });
+        } catch (err) {
+          this.error.set('Не удалось применить настройки микрофона');
+          console.warn('voice: restart microphone', err);
+        }
+      }
+    }
+    // A held key does not survive a change of the mode or of the key: its release would never match.
+    if (this.talkRequired() !== talkBefore || next.talkKey !== before.talkKey) {
+      this.talkHeld = false;
+      await this.syncMic();
+    }
+  }
+
+  /** The talk key went down or up; matters only while push-to-talk is on. */
+  async holdTalk(down: boolean): Promise<void> {
+    if (down === this.talkHeld || !this.talkRequired()) return;
+    this.talkHeld = down;
+    await this.syncMic();
+  }
+
   private async setMic(on: boolean): Promise<void> {
     const room = this.room;
     if (!room || !this.canSpeak()) return;
@@ -491,6 +567,8 @@ export class VoiceService {
       this.error.set('Нет доступа к микрофону: разрешите его в браузере');
       this.selfMute.set(true);
       console.warn('voice: microphone', err);
+    } finally {
+      this.micOn.set(room.localParticipant.isMicrophoneEnabled);
     }
   }
 
@@ -529,7 +607,7 @@ export class VoiceService {
     const allowed = micAllowed(local.permissions);
     if (allowed === this.canSpeak()) return;
     this.canSpeak.set(allowed);
-    if (allowed) await this.setMic(!this.pushToTalk() && !this.selfMute() && !this.selfDeaf());
+    if (allowed) await this.syncMic();
   }
 
   private applyDeaf(deaf: boolean): void {
@@ -591,6 +669,7 @@ export class VoiceService {
     if (track.kind !== Track.Kind.Audio || !track.sid) return;
     const el = (track as RemoteAudioTrack).attach();
     el.muted = this.selfDeaf();
+    el.volume = this.prefs().volume;
     this.sink ??= this.makeSink();
     this.sink.appendChild(el);
     this.audio.set(track.sid, el);
@@ -616,6 +695,7 @@ export class VoiceService {
   private syncLocal(local: LocalParticipant): void {
     this.sharing.set(local.isScreenShareEnabled);
     this.cameraOn.set(local.isCameraEnabled);
+    this.micOn.set(local.isMicrophoneEnabled);
     this.updateVideos();
   }
 
@@ -651,10 +731,13 @@ export class VoiceService {
   }
 
   private reset(error: string | null): void {
+    this.pushToTalk.set(false);
+    this.talkHeld = false;
     for (const el of this.audio.values()) el.remove();
     this.audio.clear();
     for (const v of this.videos.values()) v.clear();
     this.sharing.set(false);
+    this.micOn.set(false);
     this.canCamera.set(false);
     this.cameraOn.set(false);
     this.filming.set(new Set());

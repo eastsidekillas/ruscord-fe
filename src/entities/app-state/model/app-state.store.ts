@@ -58,11 +58,13 @@ export class AppStateStore {
     this.gateway.dispatches.pipe(filter(ev => ev.t === 'SESSION_CREATE' && !!ev.d)).subscribe(ev => {
       const s = ev.d as Session;
       notify.show(`Вход с нового устройства: ${deviceLabel(s.device)}${s.ip ? ', ' + s.ip : ''}`, 'info', 8000,
-        { label: 'Открыть устройства', run: () => modal.open('userSettings', { section: 'security' }) });
+        { label: 'Открыть сеансы', run: () => modal.open('userSettings', { section: 'login' }) });
     });
     // «Сессия завершена»: the sign-in page explains why (ended=1).
     this.gateway.sessionEnded.subscribe(() => {
       this.auth.forget();
+      // Settings or any modal must not stay over the sign-in page (a running mic check or preview with it).
+      modal.close();
       this.router.navigate(['/login'], { queryParams: { ended: 1 } });
     });
     // One connection while signed in.

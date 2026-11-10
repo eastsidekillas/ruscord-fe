@@ -5,7 +5,7 @@ import { ReadStateStore } from '@entities/read-states';
 import { VoiceService } from '@entities/voice';
 import { ModalService } from '@shared/model/modal.service';
 import { NavHistory } from '@shared/model/nav-history.service';
-import { HotkeyAction, hotkeyFor, neighbour } from '../lib/keys';
+import { HotkeyAction, endsTalk, hotkeyFor, isTyping, neighbour, startsTalk } from '../lib/keys';
 
 /** The app-wide keyboard shortcuts (ruscord-core ADR-0045). */
 @Injectable({ providedIn: 'root' })
@@ -30,6 +30,28 @@ export class HotkeysService {
         if (this.run(action)) ev.preventDefault();
       });
     });
+    this.listenForTalkKey();
+  }
+
+  /**
+   * Push-to-talk, independent of the shortcuts above and never preventing
+   * default. Release and blur close the microphone whatever has focus.
+   */
+  private listenForTalkKey(): void {
+    const release = () => void this.voice.holdTalk(false);
+    document.addEventListener('keydown', ev => {
+      const talk = startsTalk(ev, {
+        key: this.voice.prefs().talkKey,
+        required: this.voice.talkRequired(),
+        typing: isTyping(ev.target),
+        modalOpen: !!this.modal.modalType(),
+      });
+      if (talk) void this.voice.holdTalk(true);
+    });
+    document.addEventListener('keyup', ev => {
+      if (endsTalk(ev, this.voice.prefs().talkKey)) release();
+    });
+    window.addEventListener('blur', release);
   }
 
   /** True when the key did something here (and the browser should not). */
