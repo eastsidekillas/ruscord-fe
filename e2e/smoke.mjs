@@ -717,6 +717,42 @@ await step('profile: name, about me and avatar reach others live', async () => {
   await bob.locator('img[src*="/cdn/avatars/"]').first().waitFor({ timeout: 8000 });
 });
 
+await step('mood: Ann sets a face, a phrase and a cover colour; Bob sees them in the members and on her card; taking it off reaches Bob', async () => {
+  const settings = ann.locator('UserSettingsModal');
+  await ann.locator('[data-user-panel] button[title="Настройки"]').click();
+  await ann.locator('[data-mood=thinking]').click();
+  await ann.fill('#p-mood-text', 'пишу тесты');
+  await ann.locator('[data-expiry=hour]').click();
+  await ann.locator('[data-color=danger]').click();
+  // The card in the settings is what others will see.
+  await settings.locator('[data-profile-card][data-profile-color=danger] [data-profile-mood][data-mood-state=thinking]').waitFor({ timeout: 5000 });
+  await ann.locator('[data-unsaved]').getByRole('button', { name: 'Сохранить' }).click();
+  await ann.locator('[data-unsaved]').waitFor({ state: 'detached', timeout: 8000 });
+  await ann.keyboard.press('Escape');
+  await settings.waitFor({ state: 'detached', timeout: 5000 });
+
+  const members = bob.locator('aside[aria-label="Сейчас здесь и участники"]');
+  const face = members.locator('[data-mood-face][data-mood-state=thinking]');
+  await face.waitFor({ timeout: 8000 });
+  const title = await face.getAttribute('title');
+  if (!/^Думаю: пишу тесты · до /.test(title ?? '')) throw new Error(`mood tooltip: ${title}`);
+  await members.locator('button', { hasText: 'Аня' }).first().click();
+  const card = bob.locator('ProfileViewModal [data-profile-card]');
+  await card.locator('[data-profile-mood-text]', { hasText: 'пишу тесты' }).waitFor({ timeout: 8000 });
+  if (await card.getAttribute('data-profile-color') !== 'danger') throw new Error('the cover colour did not reach Bob');
+
+  // Ann takes the mood off and leaves by Esc: the settings ask, «Сохранить» saves and closes.
+  await ann.locator('[data-user-panel] button[title="Настройки"]').click();
+  await ann.locator('[data-mood=thinking]').click();
+  await ann.keyboard.press('Escape');
+  await ann.locator('[data-unsaved-dialog]').getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await settings.waitFor({ state: 'detached', timeout: 8000 });
+  // Bob's open card and the member list lose it without a reload.
+  await card.locator('[data-profile-mood]').waitFor({ state: 'detached', timeout: 8000 });
+  await bob.locator('ProfileViewModal [aria-label="Закрыть"]').click();
+  await face.waitFor({ state: 'detached', timeout: 8000 });
+});
+
 await step('devices: a new sign-in is announced, signing it out works at once; password change', async () => {
   const ann2 = await user(browser);
   await ann2.goto(BASE + '/login');
