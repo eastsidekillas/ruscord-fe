@@ -6,6 +6,20 @@ export type UserStatus = 'online' | 'idle' | 'dnd' | 'offline';
 /** What the user can choose; others see `invisible` as `offline`. */
 export type ChosenStatus = 'online' | 'idle' | 'dnd' | 'invisible';
 
+/** The faces of dolobeb a mood can take (ruscord-core ADR-0046). */
+export type MoodState = 'happy' | 'laughing' | 'thinking' | 'sleeping' | 'listening' | 'surprised' | 'confused' | 'angry';
+
+/** What a user says about themselves right now; hidden after expires_at. */
+export interface Mood {
+  state: MoodState;
+  text: string;
+  /** RFC 3339, or null for a mood that stays. */
+  expires_at: string | null;
+}
+
+/** The colour of the profile card: a theme token name, not a colour. */
+export type ProfileColor = 'accent' | 'success' | 'warning' | 'danger' | 'neutral';
+
 export interface PublicUser {
   id: Snowflake;
   username: string;
@@ -14,6 +28,9 @@ export interface PublicUser {
   avatar: string | null;
   /** A deleted account: shown as "Удалённый пользователь". */
   deleted?: boolean;
+  /** Absent without a mood or after it expired on the server. */
+  mood?: Mood;
+  profile_color?: ProfileColor;
 }
 
 export interface User extends PublicUser {
@@ -21,6 +38,15 @@ export interface User extends PublicUser {
   created_at: string;
   status: ChosenStatus;
   bio: string;
+}
+
+/** The body of PATCH /users/@me: absent fields stay; `mood: null` clears the mood. */
+export interface ProfilePatch {
+  display_name?: string;
+  bio?: string;
+  status?: ChosenStatus;
+  mood?: Mood | null;
+  profile_color?: ProfileColor;
 }
 
 export interface Profile {

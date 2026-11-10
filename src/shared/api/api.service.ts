@@ -15,6 +15,7 @@ import {
   Member,
   Message,
   Profile,
+  ProfilePatch,
   PublicUser,
   ReadState,
   Relationship,
@@ -43,7 +44,8 @@ export class ApiService {
     return this.http.get<User>(this.url('users/@me'));
   }
 
-  updateMe(patch: { display_name?: string; bio?: string; status?: ChosenStatus }): Observable<User> {
+  /** `mood: null` clears the mood; without the field it stays. */
+  updateMe(patch: ProfilePatch): Observable<User> {
     return this.http.patch<User>(this.url('users/@me'), patch);
   }
 
