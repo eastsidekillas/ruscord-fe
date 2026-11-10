@@ -1,52 +1,49 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ModalService } from '@shared/model/modal.service';
 import { NotificationService } from '@shared/model/notification.service';
-import { AvatarUI } from '@shared/ui/avatar';
-import { StatusUIText } from '@entities/user-status';
+import { ProfileCard } from '@entities/profile';
 import { AppStateStore } from '@entities/app-state';
-import { ApiService, Profile, errorText, nameOf } from '@shared/api';
+import { ApiService, Profile, errorText } from '@shared/api';
 
 @Component({
   selector: 'ProfileViewModal',
   standalone: true,
-  imports: [CommonModule, AvatarUI, StatusUIText],
+  imports: [ProfileCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="fixed inset-0 flex items-center justify-center z-50" (click)="modal.close()">
+    <div class="fixed inset-0 flex items-center justify-center z-50 p-4" (click)="modal.close()">
       <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
 
-      <div class="relative bg-main-surface-primary text-white w-full max-w-sm p-6 rounded-2xl shadow-xl flex justify-center items-center min-h-[300px]"
-           (click)="$event.stopPropagation()">
-        <button (click)="modal.close()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition" aria-label="Закрыть">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <div class="relative w-full max-w-sm shadow-xl" (click)="$event.stopPropagation()">
+        <button type="button" (click)="modal.close()" aria-label="Закрыть"
+                class="absolute top-3 right-3 z-10 w-8 h-8 rounded-[10px] bg-ok-bg/60 text-ok-text flex items-center justify-center hover:bg-ok-bg">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
 
-        <div *ngIf="loading()" class="animate-spin rounded-full h-10 w-10 border-b-2 border-white"></div>
-        <p *ngIf="!loading() && !profile()" class="text-sm text-typo-secondary">Профиль недоступен.</p>
-
-        <div *ngIf="!loading() && user() as u" class="flex flex-col items-center text-center w-full">
-          <div class="w-24 h-24 rounded-full overflow-hidden border-4 border-main-surface-secondary mb-4">
-            <AvatarUI [src]="u.avatar" [name]="name()" />
+        @if (loading()) {
+          <div class="rounded-ok-lg bg-ok-surface-1 min-h-[240px] flex items-center justify-center">
+            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-ok-text"></div>
           </div>
-          <h2 class="text-2xl font-semibold">{{ name() }}</h2>
-          <p class="text-sm text-gray-400">{{ u.username }}</p>
-          <div class="mt-2"><StatusUIText [userId]="u.id" /></div>
-
-          <ng-container *ngIf="profile()?.bio as bio">
-            <h3 class="mt-4 text-xs text-gray-500">О себе</h3>
-            <p class="mt-1 text-sm text-typo-secondary whitespace-pre-line break-words">{{ bio }}</p>
-          </ng-container>
-
-          <div *ngIf="!isMe()" class="mt-6 flex gap-2">
-            <button class="text-sm text-white px-4 py-2 rounded-lg bg-green-500 hover:opacity-90" (click)="message(u.id)">Написать</button>
-            <button *ngIf="canAdd()" class="text-sm text-gray-200 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20" (click)="addFriend(u.id)">Добавить в друзья</button>
+        } @else if (user(); as u) {
+          <ProfileCard [user]="u" [bio]="profile()?.bio ?? ''" [statusOf]="u.deleted ? null : u.id">
+            @if (!isMe() && !u.deleted) {
+              <div class="mt-5 flex gap-2 flex-wrap">
+                <button type="button" class="h-10 px-4 rounded-[10px] font-semibold bg-ok-accent text-ok-on-accent" (click)="message(u.id)">Написать</button>
+                @if (canAdd()) {
+                  <button type="button" class="h-10 px-4 rounded-[10px] font-semibold bg-ok-surface-2 text-ok-text" (click)="addFriend(u.id)">Добавить в друзья</button>
+                }
+              </div>
+            }
+          </ProfileCard>
+        } @else {
+          <div class="rounded-ok-lg bg-ok-surface-1 min-h-[240px] flex items-center justify-center">
+            <p class="m-0 text-[14px] text-ok-muted">Профиль недоступен.</p>
           </div>
-        </div>
+        }
       </div>
     </div>
   `,
@@ -60,9 +57,8 @@ export class ProfileViewModal {
 
   protected readonly profile = signal<Profile | null>(null);
   protected readonly loading = signal(false);
-  /** Name and avatar stay live (USER_PROFILE_UPDATE); bio is as loaded. */
+  /** Name, avatar, mood and colour stay live (USER_PROFILE_UPDATE); bio is as loaded. */
   protected readonly user = computed(() => this.store.user(this.profile()?.user ?? null));
-  protected readonly name = computed(() => nameOf(this.user()));
   protected readonly isMe = computed(() => this.user()?.id === this.store.me()?.id);
   protected readonly canAdd = computed(() => {
     const u = this.user();
